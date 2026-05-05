@@ -15,6 +15,14 @@ local Constants = {
 	GUARDIAN_CATCH_DISTANCE = 5,
 
 	THIEF_FOOTSTEP_VOLUME_SCALE_CROUCH = 0.25,
+
+	GUARDIAN_SPAWN_POSITION = Vector3.new(0, 1, 0),
+	THIEF_SPAWN_POSITIONS = {
+		Vector3.new(-20, 1, -60),
+		Vector3.new(-7, 1, -60),
+		Vector3.new(7, 1, -60),
+		Vector3.new(20, 1, -60),
+	},
 }
 
 return Constants

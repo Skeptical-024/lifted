@@ -30,7 +30,7 @@ end
 local thiefExtractedRemote = getOrCreateRemote("ThiefExtracted")
 local catchThiefRemote = getOrCreateRemote("CatchThief")
 local setMovementStateRemote = getOrCreateRemote("SetMovementState")
-local thiefCaughtRemote = getOrCreateRemote("ThiefCaught")
+getOrCreateRemote("ThiefCaught")
 local roleAssignedRemote = getOrCreateRemote("RoleAssigned")
 
 local roundActive = false
@@ -38,6 +38,85 @@ local rolesByPlayer = {}
 local activeThieves = {}
 local guardianPlayer = nil
 local thievesExtracted = false
+local thiefSpawnCursor = 0
+
+local function getTaggedParts(tag)
+	local parts = {}
+	for _, instance in CollectionService:GetTagged(tag) do
+		if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
+			table.insert(parts, instance)
+		end
+	end
+	return parts
+end
+
+local function ensureBasicMap()
+	if workspace:FindFirstChild("TempleFloor") then
+		return
+	end
+
+	local mapColor = Color3.fromRGB(60, 60, 60)
+
+	local floor = Instance.new("Part")
+	floor.Name = "TempleFloor"
+	floor.Size = Vector3.new(200, 1, 200)
+	floor.Anchored = true
+	floor.Position = Vector3.new(0, 0, 0)
+	floor.Color = mapColor
+	floor.Material = Enum.Material.SmoothPlastic
+	floor.Parent = workspace
+
+	local function createWall(name, size, position)
+		local wall = Instance.new("Part")
+		wall.Name = name
+		wall.Size = size
+		wall.Anchored = true
+		wall.Position = position
+		wall.Color = mapColor
+		wall.Material = Enum.Material.SmoothPlastic
+		wall.Parent = workspace
+	end
+
+	createWall("TempleWallNorth", Vector3.new(200, 20, 2), Vector3.new(0, 10, -100))
+	createWall("TempleWallSouth", Vector3.new(200, 20, 2), Vector3.new(0, 10, 100))
+	createWall("TempleWallEast", Vector3.new(2, 20, 200), Vector3.new(100, 10, 0))
+	createWall("TempleWallWest", Vector3.new(2, 20, 200), Vector3.new(-100, 10, 0))
+end
+
+local function createSpawnPart(name, position, color, tag)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = Vector3.new(4, 1, 4)
+	part.Color = color
+	part.Anchored = true
+	part.CanCollide = false
+	part.Position = position
+	part.Parent = workspace
+	CollectionService:AddTag(part, tag)
+	return part
+end
+
+local function ensureSpawnPoints()
+	local thiefSpawns = getTaggedParts("ThiefSpawn")
+	for index = #thiefSpawns + 1, #Constants.THIEF_SPAWN_POSITIONS do
+		createSpawnPart(
+			string.format("ThiefSpawn%d", index),
+			Constants.THIEF_SPAWN_POSITIONS[index],
+			Color3.fromRGB(0, 255, 0),
+			"ThiefSpawn"
+		)
+	end
+
+	local guardianSpawns = getTaggedParts("GuardianSpawn")
+	if #guardianSpawns == 0 then
+		createSpawnPart(
+			"GuardianSpawn",
+			Constants.GUARDIAN_SPAWN_POSITION,
+			Color3.fromRGB(255, 0, 0),
+			"GuardianSpawn"
+		)
+	end
+end
 
 local function ensureVaultPart()
 	local existingVaults = CollectionService:GetTagged("Vault")
@@ -67,9 +146,37 @@ local function resetPlayerMovement(player)
 	end
 end
 
+local function teleportToSpawn(player, role)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then
+		return
+	end
+
+	if role == Types.PlayerRole.Guardian then
+		local guardianSpawns = getTaggedParts("GuardianSpawn")
+		local spawnPart = guardianSpawns[1]
+		if spawnPart then
+			rootPart.CFrame = CFrame.new(spawnPart.Position + Vector3.new(0, 5, 0))
+		end
+	elseif role == Types.PlayerRole.Thief then
+		local thiefSpawns = getTaggedParts("ThiefSpawn")
+		if #thiefSpawns > 0 then
+			thiefSpawnCursor += 1
+			local spawnIndex = ((thiefSpawnCursor - 1) % #thiefSpawns) + 1
+			local spawnPart = thiefSpawns[spawnIndex]
+			rootPart.CFrame = CFrame.new(spawnPart.Position + Vector3.new(0, 5, 0))
+		end
+	end
+end
+
 local function applyBaseMovementForRole(player, role)
 	resetPlayerMovement(player)
 	player:SetAttribute("Role", role)
+	teleportToSpawn(player, role)
 end
 
 local function clearRoundState()
@@ -84,6 +191,7 @@ local function clearRoundState()
 	activeThieves = {}
 	guardianPlayer = nil
 	thievesExtracted = false
+	thiefSpawnCursor = 0
 end
 
 Players.PlayerRemoving:Connect(function(player)
@@ -148,7 +256,9 @@ local function getRoundPlayers()
 	return players
 end
 
+ensureBasicMap()
 ensureVaultPart()
+ensureSpawnPoints()
 print("GameManager: vault ensured")
 task.wait(5)
 
