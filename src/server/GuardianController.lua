@@ -121,6 +121,12 @@ function GuardianController.TryCatch(guardianPlayer, targetPlayer, rolesByPlayer
 	if targetPlayer.Character then
 		targetPlayer.Character:Destroy()
 	end
+
+	local thiefCaughtRemote = ReplicatedStorage:FindFirstChild("ThiefCaught")
+	if thiefCaughtRemote and thiefCaughtRemote:IsA("RemoteEvent") then
+		thiefCaughtRemote:FireAllClients(guardianPlayer, targetPlayer)
+	end
+
 	return true
 end
 

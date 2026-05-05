@@ -30,6 +30,8 @@ end
 local thiefExtractedRemote = getOrCreateRemote("ThiefExtracted")
 local catchThiefRemote = getOrCreateRemote("CatchThief")
 local setMovementStateRemote = getOrCreateRemote("SetMovementState")
+local thiefCaughtRemote = getOrCreateRemote("ThiefCaught")
+local roleAssignedRemote = getOrCreateRemote("RoleAssigned")
 
 local roundActive = false
 local rolesByPlayer = {}
@@ -171,6 +173,10 @@ while true do
 		if role == Types.PlayerRole.Thief then
 			activeThieves[player] = true
 		end
+	end
+
+	for player, role in rolesByPlayer do
+		roleAssignedRemote:FireClient(player, role)
 	end
 
 	local roundEndsAt = os.clock() + Constants.ROUND_DURATION_SECONDS

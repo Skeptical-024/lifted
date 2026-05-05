@@ -17,6 +17,56 @@ local extractToken = 0
 local footstepSounds = {}
 local originalFootstepVolume = {}
 
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ThiefExtractGui"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local barContainer = Instance.new("Frame")
+barContainer.Name = "ExtractBarContainer"
+barContainer.Size = UDim2.new(0, 400, 0, 24)
+barContainer.Position = UDim2.new(0.5, -200, 1, -80)
+barContainer.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
+barContainer.BorderSizePixel = 0
+barContainer.Visible = false
+barContainer.Parent = screenGui
+
+local barCorner = Instance.new("UICorner")
+barCorner.CornerRadius = UDim.new(0, 6)
+barCorner.Parent = barContainer
+
+local fill = Instance.new("Frame")
+fill.Name = "Fill"
+fill.Size = UDim2.fromScale(0, 1)
+fill.Position = UDim2.fromScale(0, 0)
+fill.BackgroundColor3 = Color3.fromRGB(35, 220, 200)
+fill.BorderSizePixel = 0
+fill.Parent = barContainer
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(0, 6)
+fillCorner.Parent = fill
+
+local label = Instance.new("TextLabel")
+label.Name = "ExtractLabel"
+label.BackgroundTransparency = 1
+label.Size = UDim2.new(0, 400, 0, 28)
+label.Position = UDim2.new(0.5, -200, 1, -112)
+label.Font = Enum.Font.GothamBold
+label.Text = "EXTRACTING..."
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.TextScaled = true
+label.TextStrokeTransparency = 0.5
+label.Visible = false
+label.Parent = screenGui
+
+local function setExtractProgress(visible, progress)
+	barContainer.Visible = visible
+	label.Visible = visible
+	fill.Size = UDim2.fromScale(math.clamp(progress, 0, 1), 1)
+end
+
 local function isThief()
 	return localPlayer:GetAttribute("Role") == Types.PlayerRole.Thief
 end
@@ -89,31 +139,45 @@ local function beginExtract()
 	extractToken += 1
 	local token = extractToken
 	local startPos = rootPart.Position
-	local deadline = os.clock() + Constants.THIEF_EXTRACT_HOLD_SECONDS
+	local startTime = os.clock()
+	local deadline = startTime + Constants.THIEF_EXTRACT_HOLD_SECONDS
+
+	setExtractProgress(true, 0)
 
 	while os.clock() < deadline do
 		if token ~= extractToken then
+			setExtractProgress(false, 0)
 			return
 		end
 		if not isThief() then
 			extracting = false
+			setExtractProgress(false, 0)
 			return
 		end
 		local currentRoot = getRootPart()
 		if not currentRoot then
 			extracting = false
+			setExtractProgress(false, 0)
 			return
 		end
 		if (currentRoot.Position - startPos).Magnitude > Constants.THIEF_EXTRACT_MOVE_CANCEL_DISTANCE then
 			extracting = false
+			setExtractProgress(false, 0)
 			return
 		end
-		task.wait(0.1)
+
+		local elapsed = os.clock() - startTime
+		local progress = elapsed / Constants.THIEF_EXTRACT_HOLD_SECONDS
+		setExtractProgress(true, progress)
+		task.wait()
 	end
 
 	if token == extractToken and extracting and isThief() then
+		setExtractProgress(true, 1)
 		extracting = false
 		thiefExtractedRemote:FireServer()
+		task.wait(0.05)
+		setExtractProgress(false, 0)
 	end
 end
 
@@ -129,6 +193,7 @@ localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 		extracting = false
 		extractToken += 1
 		setMovementStateRemote:FireServer("Crouch", false)
+		setExtractProgress(false, 0)
 	end
 	applyFootstepVolume()
 end)
