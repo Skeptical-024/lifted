@@ -1,8 +1,30 @@
--- LobbyClient v2
+-- LobbyClient v3
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local C = {
+	bg = Color3.fromRGB(8, 6, 6),
+	bgWarm = Color3.fromRGB(12, 8, 7),
+	panel = Color3.fromRGB(14, 10, 9),
+	panelLight = Color3.fromRGB(22, 15, 13),
+	card = Color3.fromRGB(18, 12, 11),
+	crimson = Color3.fromRGB(180, 35, 35),
+	crimsonDim = Color3.fromRGB(100, 20, 20),
+	crimsonGlow = Color3.fromRGB(220, 60, 60),
+	gold = Color3.fromRGB(195, 150, 45),
+	goldBright = Color3.fromRGB(220, 175, 70),
+	goldDim = Color3.fromRGB(130, 95, 28),
+	parchment = Color3.fromRGB(235, 225, 210),
+	parchmentDim = Color3.fromRGB(175, 165, 150),
+	greyWarm = Color3.fromRGB(140, 130, 120),
+	greyDark = Color3.fromRGB(80, 72, 65),
+	orange = Color3.fromRGB(200, 110, 30),
+	orangeDim = Color3.fromRGB(140, 70, 15),
+	black = Color3.fromRGB(4, 3, 3),
+}
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
@@ -11,24 +33,24 @@ local lobbyUpdateRemote = ReplicatedStorage:WaitForChild("LobbyUpdate")
 local roundStartedRemote = ReplicatedStorage:WaitForChild("RoundStarted")
 local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
 
-local COLORS = {
-	panel = Color3.fromRGB(10, 10, 14),
-	white = Color3.fromRGB(245, 245, 245),
-	grey = Color3.fromRGB(170, 170, 178),
-	teal = Color3.fromRGB(40, 220, 200),
-	gold = Color3.fromRGB(210, 165, 50),
-	black = Color3.fromRGB(0, 0, 0),
-}
+local playClickedBindable = ReplicatedStorage:FindFirstChild("PlayClicked")
+if not playClickedBindable then
+	playClickedBindable = Instance.new("BindableEvent")
+	playClickedBindable.Name = "PlayClicked"
+	playClickedBindable.Parent = ReplicatedStorage
+end
 
-local PANEL_SIZE = UDim2.fromOffset(480, 280)
-local PANEL_POS = UDim2.new(0.5, -240, 0.5, -140)
+local playClicked = false
+local function onPlayClicked()
+	playClicked = true
+end
+playClickedBindable.Event:Connect(onPlayClicked)
+
+local startTime = os.clock()
+local menuActive = true
 
 local function tween(element, props, duration, style, direction)
-	local t = TweenService:Create(
-		element,
-		TweenInfo.new(duration or 0.3, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out),
-		props
-	)
+	local t = TweenService:Create(element, TweenInfo.new(duration or 0.3, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), props)
 	t:Play()
 	return t
 end
@@ -38,7 +60,7 @@ local function makePanel(size, position, parent)
 	panel.Name = "Panel"
 	panel.Size = size
 	panel.Position = position
-	panel.BackgroundColor3 = COLORS.panel
+	panel.BackgroundColor3 = C.panel
 	panel.BackgroundTransparency = 0.2
 	panel.Parent = parent
 
@@ -66,25 +88,26 @@ local function makeLabel(text, font, textColor, parent)
 	return label
 end
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "LobbyUI"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.Parent = playerGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "LobbyUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = playerGui
 
 local overlay = Instance.new("Frame")
 overlay.Name = "Overlay"
 overlay.Size = UDim2.fromScale(1, 1)
 overlay.Position = UDim2.fromScale(0, 0)
-overlay.BackgroundColor3 = COLORS.black
+overlay.BackgroundColor3 = C.bg
 overlay.BackgroundTransparency = 0.92
 overlay.Visible = false
-overlay.Parent = screenGui
+overlay.Parent = gui
 
-local panel = makePanel(PANEL_SIZE, PANEL_POS + UDim2.fromOffset(0, 20), overlay)
+local panelBasePos = UDim2.new(0.5, -240, 0.5, -140)
+local panel = makePanel(UDim2.fromOffset(480, 280), panelBasePos + UDim2.fromOffset(0, 20), overlay)
 panel.Visible = false
 
-local logo = makeLabel("LIFTED", Enum.Font.GothamBlack, COLORS.gold, panel)
+local logo = makeLabel("LIFTED", Enum.Font.GothamBlack, C.gold, panel)
 logo.Size = UDim2.fromOffset(420, 64)
 logo.Position = UDim2.fromOffset(30, 16)
 logo.TextSize = 50
@@ -95,17 +118,17 @@ local divider = Instance.new("Frame")
 divider.Size = UDim2.fromOffset(400, 1)
 divider.Position = UDim2.fromOffset(40, 84)
 divider.BorderSizePixel = 0
-divider.BackgroundColor3 = COLORS.gold
+divider.BackgroundColor3 = C.crimson
 divider.BackgroundTransparency = 0.2
 divider.Parent = panel
 
-local statusLabel = makeLabel("WAITING FOR PLAYERS", Enum.Font.GothamBold, COLORS.white, panel)
+local statusLabel = makeLabel("WAITING FOR PLAYERS", Enum.Font.GothamBold, C.parchment, panel)
 statusLabel.Size = UDim2.fromOffset(420, 40)
 statusLabel.Position = UDim2.fromOffset(30, 102)
 statusLabel.TextSize = 30
 statusLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-local countdownLabel = makeLabel("", Enum.Font.GothamBlack, COLORS.white, panel)
+local countdownLabel = makeLabel("", Enum.Font.GothamBlack, C.parchment, panel)
 countdownLabel.Size = UDim2.fromOffset(420, 92)
 countdownLabel.Position = UDim2.fromOffset(30, 136)
 countdownLabel.TextSize = 84
@@ -116,7 +139,7 @@ local countPill = Instance.new("Frame")
 countPill.Name = "CountPill"
 countPill.Size = UDim2.fromOffset(180, 36)
 countPill.Position = UDim2.fromOffset(150, 188)
-countPill.BackgroundColor3 = Color3.fromRGB(14, 26, 28)
+countPill.BackgroundColor3 = C.panelLight
 countPill.BackgroundTransparency = 0.1
 countPill.Parent = panel
 
@@ -125,17 +148,17 @@ pillCorner.CornerRadius = UDim.new(0, 18)
 pillCorner.Parent = countPill
 
 local pillStroke = Instance.new("UIStroke")
-pillStroke.Color = COLORS.teal
+pillStroke.Color = C.crimson
 pillStroke.Transparency = 0.45
 pillStroke.Thickness = 1
 pillStroke.Parent = countPill
 
-local countLabel = makeLabel("1 / 2 PLAYERS", Enum.Font.GothamBold, COLORS.teal, countPill)
+local countLabel = makeLabel("1 / 2 PLAYERS", Enum.Font.GothamBold, C.gold, countPill)
 countLabel.Size = UDim2.fromScale(1, 1)
 countLabel.TextSize = 18
 countLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-local subtext = makeLabel("Steal the idol. Don't get caught.", Enum.Font.Gotham, COLORS.grey, panel)
+local subtext = makeLabel("Steal the idol. Don't get caught.", Enum.Font.Gotham, C.greyWarm, panel)
 subtext.Size = UDim2.fromOffset(420, 24)
 subtext.Position = UDim2.fromOffset(30, 240)
 subtext.TextSize = 18
@@ -145,28 +168,49 @@ local visible = false
 local mode = "waiting"
 local baseWaiting = "WAITING FOR PLAYERS"
 local dotCount = 0
+local pulseConnection
+
+local function startCriticalPulse()
+	if pulseConnection then return end
+	pulseConnection = RunService.Heartbeat:Connect(function()
+		local alpha = (math.sin(os.clock() * 8) + 1) / 2
+		local stroke = panel:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = C.crimson
+			stroke.Transparency = 0.2 + (0.35 * (1 - alpha))
+		end
+	end)
+end
+
+local function stopCriticalPulse()
+	if pulseConnection then
+		pulseConnection:Disconnect()
+		pulseConnection = nil
+	end
+	local stroke = panel:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = Color3.fromRGB(255, 255, 255)
+		stroke.Transparency = 0.85
+	end
+end
 
 local function showPanel()
-	if visible then
-		return
-	end
+	if visible then return end
 	visible = true
 	overlay.Visible = true
 	panel.Visible = true
 	overlay.BackgroundTransparency = 1
 	panel.BackgroundTransparency = 1
-	panel.Position = PANEL_POS + UDim2.fromOffset(0, 20)
+	panel.Position = panelBasePos + UDim2.fromOffset(0, 20)
 	tween(overlay, {BackgroundTransparency = 0.92}, 0.3)
-	tween(panel, {BackgroundTransparency = 0.2, Position = PANEL_POS}, 0.4)
+	tween(panel, {BackgroundTransparency = 0.2, Position = panelBasePos}, 0.4)
 end
 
 local function hidePanel()
-	if not visible then
-		return
-	end
+	if not visible then return end
 	visible = false
 	tween(overlay, {BackgroundTransparency = 1}, 0.25)
-	tween(panel, {BackgroundTransparency = 1, Position = PANEL_POS + UDim2.fromOffset(0, 12)}, 0.25)
+	tween(panel, {BackgroundTransparency = 1, Position = panelBasePos + UDim2.fromOffset(0, 12)}, 0.25)
 	task.delay(0.27, function()
 		if not visible then
 			overlay.Visible = false
@@ -182,6 +226,7 @@ local function setWaiting(playerCount, required)
 	countPill.Visible = true
 	countLabel.Text = string.format("%d / %d PLAYERS", playerCount, required)
 	subtext.Text = "Steal the idol. Don't get caught."
+	stopCriticalPulse()
 	showPanel()
 end
 
@@ -201,25 +246,45 @@ local function setCountdown(seconds)
 	countPill.Visible = false
 	countdownLabel.Visible = true
 	countdownLabel.Text = tostring(seconds)
+	countdownLabel.TextColor3 = seconds <= 3 and C.goldBright or C.parchment
 	subtext.Text = "Get ready..."
 	showPanel()
 	pulseCountdown()
+	if seconds <= 3 then startCriticalPulse() else stopCriticalPulse() end
 end
 
-lobbyUpdateRemote.OnClientEvent:Connect(function(payload)
-	if type(payload) ~= "table" then
-		return
-	end
-
+local function processLobbyPayload(payload)
+	if not menuActive or not playClicked then return end
+	if type(payload) ~= "table" then return end
 	if payload.status == "waiting" then
 		setWaiting(tonumber(payload.playerCount) or 0, tonumber(payload.required) or 0)
 	elseif payload.status == "countdown" then
 		setCountdown(tonumber(payload.countdown) or 0)
 	end
+end
+
+lobbyUpdateRemote.OnClientEvent:Connect(function(payload)
+	local elapsed = os.clock() - startTime
+	if elapsed < 2 then
+		task.delay(2 - elapsed, function()
+			processLobbyPayload(payload)
+		end)
+	else
+		processLobbyPayload(payload)
+	end
 end)
 
-roundStartedRemote.OnClientEvent:Connect(hidePanel)
-roleAssignedRemote.OnClientEvent:Connect(hidePanel)
+roundStartedRemote.OnClientEvent:Connect(function()
+	menuActive = false
+	stopCriticalPulse()
+	hidePanel()
+end)
+
+roleAssignedRemote.OnClientEvent:Connect(function()
+	menuActive = false
+	stopCriticalPulse()
+	hidePanel()
+end)
 
 task.spawn(function()
 	while true do
