@@ -1,4 +1,4 @@
--- RoundUIClient v2
+-- RoundUIClient v3
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,10 +24,10 @@ local COLORS = {
 	gold = Color3.fromRGB(210, 165, 50),
 }
 
-local function tweenIn(element, property, targetValue, duration)
+local function tweenIn(element, property, targetValue, duration, style, direction)
 	local props = {}
 	props[property] = targetValue
-	local t = TweenService:Create(element, TweenInfo.new(duration or 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+	local t = TweenService:Create(element, TweenInfo.new(duration or 0.25, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), props)
 	t:Play()
 	return t
 end
@@ -173,6 +173,7 @@ for i = 1, 4 do
 	sq.Size = UDim2.fromOffset(20, 20)
 	sq.Position = UDim2.fromOffset(10 + (i - 1) * 28, 24)
 	sq.BackgroundColor3 = COLORS.red
+	sq.Visible = false
 	sq.Parent = thiefPanel
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, 5)
@@ -241,25 +242,42 @@ resultOverlay.BackgroundTransparency = 1
 resultOverlay.Visible = false
 resultOverlay.Parent = gui
 
-local resultPanel = makePanel(UDim2.fromOffset(560, 220), UDim2.new(0.5, -280, 0.5, -110), resultOverlay, 1)
+local resultPanel = makePanel(UDim2.fromOffset(600, 260), UDim2.new(0.5, -300, 0.5, -130), resultOverlay, 1)
 local resultShadow = makeShadow(resultPanel)
 resultPanel.Visible = false
 resultShadow.Visible = false
 local resultStroke = resultPanel:FindFirstChildOfClass("UIStroke")
+
 local resultTop = makeLabel("ROUND OVER", Enum.Font.GothamBold, COLORS.grey, resultPanel)
 resultTop.Size = UDim2.new(1, 0, 0, 20)
 resultTop.TextSize = 14
+
 local resultMain = makeLabel("", Enum.Font.GothamBlack, COLORS.white, resultPanel)
-resultMain.Size = UDim2.new(1, 0, 0, 88)
-resultMain.Position = UDim2.fromOffset(0, 50)
-resultMain.TextSize = 56
+resultMain.Size = UDim2.new(1, 0, 0, 110)
+resultMain.Position = UDim2.fromOffset(0, 40)
+resultMain.TextSize = 64
+
+local accentLine = Instance.new("Frame")
+accentLine.Size = UDim2.fromOffset(0, 2)
+accentLine.Position = UDim2.new(0.5, 0, 0, 152)
+accentLine.AnchorPoint = Vector2.new(0.5, 0)
+accentLine.BorderSizePixel = 0
+accentLine.BackgroundColor3 = COLORS.gold
+accentLine.Parent = resultPanel
+
 local resultSub = makeLabel("", Enum.Font.GothamBold, COLORS.white, resultPanel)
-resultSub.Size = UDim2.new(1, -20, 0, 40)
-resultSub.Position = UDim2.fromOffset(10, 132)
+resultSub.Size = UDim2.new(1, -20, 0, 34)
+resultSub.Position = UDim2.fromOffset(10, 164)
 resultSub.TextSize = 24
-local resultBottom = makeLabel("Next round starting soon...", Enum.Font.Gotham, COLORS.grey, resultPanel)
+
+local resultPerf = makeLabel("", Enum.Font.Gotham, COLORS.gold, resultPanel)
+resultPerf.Size = UDim2.new(1, -20, 0, 24)
+resultPerf.Position = UDim2.fromOffset(10, 200)
+resultPerf.TextSize = 16
+
+local resultBottom = makeLabel("Next round in 3s...", Enum.Font.Gotham, COLORS.grey, resultPanel)
 resultBottom.Size = UDim2.new(1, 0, 0, 22)
-resultBottom.Position = UDim2.fromOffset(0, 188)
+resultBottom.Position = UDim2.fromOffset(0, 228)
 resultBottom.TextSize = 16
 
 local roundEndTime = 0
@@ -268,11 +286,12 @@ local isRoundActive = false
 local sprintState = "Ready"
 local sprintStateChangedAt = os.clock()
 local thievesRemaining = 0
+local thievesCaughtByGuardian = 0
+local totalThiefIcons = 0
 
 local feedItems = {}
 local function addKillFeedEvent(text)
 	local pill = makePanel(UDim2.fromOffset(280, 28), UDim2.fromOffset(20, #feedItems * 34), killFeed, 0.3)
-	pill.Position = UDim2.fromOffset(20, #feedItems * 34)
 	local lbl = makeLabel(text, Enum.Font.GothamBold, COLORS.white, pill)
 	lbl.Size = UDim2.fromScale(1, 1)
 	lbl.TextSize = 14
@@ -301,6 +320,27 @@ local function addKillFeedEvent(text)
 			end)
 		end
 	end)
+end
+
+local function updateThiefIconCount(total)
+	totalThiefIcons = math.clamp(total or 0, 0, 4)
+	for i, slot in ipairs(thiefIconFrames) do
+		slot.frame.Visible = i <= totalThiefIcons
+		if i <= totalThiefIcons then
+			slot.frame.BackgroundColor3 = COLORS.red
+			slot.label.Text = ""
+		end
+	end
+end
+
+local function inferThiefCount()
+	local count = 0
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p:GetAttribute("Role") == "Thief" then
+			count += 1
+		end
+	end
+	return count
 end
 
 local function setRoleUI(role)
@@ -378,19 +418,35 @@ local function formatTime(secs)
 	return string.format("%d:%02d", m, s)
 end
 
-roundStartedRemote.OnClientEvent:Connect(function(roundDuration)
-	duration = tonumber(roundDuration) or 0
-	roundEndTime = os.clock() + duration
-	isRoundActive = true
-	showCoreHud()
-	setRoleUI(localPlayer:GetAttribute("Role"))
-end)
+local function spawnResultParticles(color)
+	for _ = 1, 12 do
+		local sq = Instance.new("Frame")
+		sq.Size = UDim2.fromOffset(8, 8)
+		sq.AnchorPoint = Vector2.new(0.5, 0.5)
+		sq.Position = UDim2.new(0.5, 0, 0.5, 0)
+		sq.BorderSizePixel = 0
+		sq.BackgroundColor3 = color
+		sq.Parent = resultOverlay
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0, 2)
+		c.Parent = sq
+		local angle = math.random() * math.pi * 2
+		local dist = math.random(80, 220)
+		local tx = math.cos(angle) * dist
+		local ty = math.sin(angle) * dist
+		tweenIn(sq, "Position", UDim2.new(0.5, tx, 0.5, ty), 0.8)
+		tweenIn(sq, "BackgroundTransparency", 1, 0.8)
+		task.delay(0.85, function()
+			sq:Destroy()
+		end)
+	end
+end
 
-roundEndedRemote.OnClientEvent:Connect(function(result, winner)
-	isRoundActive = false
-	hideCoreHud()
-	if type(result) ~= "string" then result = "Round ended" end
-	if type(winner) ~= "string" then winner = "Time" end
+local function showResult(result, winner)
+	local color = COLORS.gold
+	local role = localPlayer:GetAttribute("Role")
+	if winner == "Guardian" then color = COLORS.red end
+	if winner == "Thieves" then color = COLORS.teal end
 
 	resultOverlay.Visible = true
 	resultPanel.Visible = true
@@ -398,60 +454,109 @@ roundEndedRemote.OnClientEvent:Connect(function(result, winner)
 	resultOverlay.BackgroundTransparency = 1
 	resultPanel.BackgroundTransparency = 1
 	resultShadow.BackgroundTransparency = 1
+	resultPanel.Position = UDim2.new(0.5, -300, 0.5, -190)
+	resultMain.Size = UDim2.new(1, 0, 0, 77)
+	accentLine.Size = UDim2.fromOffset(0, 2)
 
 	if winner == "Guardian" then
 		resultOverlay.BackgroundColor3 = Color3.fromRGB(60, 10, 10)
 		resultMain.Text = "GUARDIAN WINS"
 		resultMain.TextColor3 = COLORS.red
-		if resultStroke then resultStroke.Color = COLORS.red resultStroke.Transparency = 0.35 end
+		if role == "Guardian" then
+			resultPerf.Text = string.format("You caught %d thieves", thievesCaughtByGuardian)
+		else
+			resultPerf.Text = "You were caught"
+		end
 	elseif winner == "Thieves" then
 		resultOverlay.BackgroundColor3 = Color3.fromRGB(10, 40, 50)
 		resultMain.Text = "THIEVES WIN"
 		resultMain.TextColor3 = COLORS.teal
-		if resultStroke then resultStroke.Color = COLORS.teal resultStroke.Transparency = 0.35 end
+		if role == "Thief" then
+			resultPerf.Text = "You escaped with the idol"
+		else
+			resultPerf.Text = "Thieves breached the vault"
+		end
 	else
 		resultOverlay.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 		resultMain.Text = "TIME'S UP"
 		resultMain.TextColor3 = COLORS.gold
-		if resultStroke then resultStroke.Color = COLORS.gold resultStroke.Transparency = 0.35 end
+		resultPerf.Text = "Time ran out"
 	end
 	resultSub.Text = result
+	accentLine.BackgroundColor3 = color
+	if resultStroke then resultStroke.Color = color resultStroke.Transparency = 0.35 end
+
+	spawnResultParticles(color)
 
 	tweenIn(resultOverlay, "BackgroundTransparency", 0.4, 0.3)
 	tweenIn(resultPanel, "BackgroundTransparency", 0.2, 0.3)
 	tweenIn(resultShadow, "BackgroundTransparency", 0.6, 0.3)
-	task.delay(3.5, function()
-		tweenIn(resultOverlay, "BackgroundTransparency", 1, 0.5)
-		tweenIn(resultPanel, "BackgroundTransparency", 1, 0.5)
-		tweenIn(resultShadow, "BackgroundTransparency", 1, 0.5)
-		task.delay(0.52, function()
-			resultOverlay.Visible = false
-			resultPanel.Visible = false
-			resultShadow.Visible = false
-		end)
+	tweenIn(resultPanel, "Position", UDim2.new(0.5, -300, 0.5, -130), 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	tweenIn(resultMain, "Size", UDim2.new(1, 0, 0, 110), 0.3)
+	task.delay(0.4, function()
+		tweenIn(accentLine, "Size", UDim2.fromOffset(400, 2), 0.5)
 	end)
 
-	if winner == "Thieves" then
-		addKillFeedEvent("Thieves extracted loot")
+	for i = 3, 1, -1 do
+		resultBottom.Text = string.format("Next round in %ds...", i)
+		task.wait(1)
+	end
+
+	tweenIn(resultOverlay, "BackgroundTransparency", 1, 0.5)
+	tweenIn(resultPanel, "BackgroundTransparency", 1, 0.5)
+	tweenIn(resultShadow, "BackgroundTransparency", 1, 0.5)
+	tweenIn(resultPanel, "Position", UDim2.new(0.5, -300, 0.5, -160), 0.5)
+	task.delay(0.52, function()
+		resultOverlay.Visible = false
+		resultPanel.Visible = false
+		resultShadow.Visible = false
+	end)
+end
+
+roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
+	duration = tonumber(roundDuration) or 0
+	roundEndTime = os.clock() + duration
+	isRoundActive = true
+	thievesCaughtByGuardian = 0
+	showCoreHud()
+	setRoleUI(localPlayer:GetAttribute("Role"))
+	if localPlayer:GetAttribute("Role") == "Guardian" then
+		updateThiefIconCount(tonumber(totalThieves) or inferThiefCount())
 	end
 end)
 
-thiefCaughtRemote.OnClientEvent:Connect(function(guardianPlayer, caughtPlayer)
+roundEndedRemote.OnClientEvent:Connect(function(result, winner)
+	isRoundActive = false
+	hideCoreHud()
+	if type(result) ~= "string" then result = "Round ended" end
+	if type(winner) ~= "string" then winner = "Time" end
+	if winner == "Thieves" then
+		addKillFeedEvent("Thieves extracted loot")
+	end
+	showResult(result, winner)
+end)
+
+thiefCaughtRemote.OnClientEvent:Connect(function(_, caughtPlayer)
 	if typeof(caughtPlayer) == "Instance" and caughtPlayer:IsA("Player") then
 		addKillFeedEvent("Guardian caught " .. caughtPlayer.Name)
+	end
+	if localPlayer:GetAttribute("Role") == "Guardian" then
+		thievesCaughtByGuardian += 1
 	end
 end)
 
 thiefCountUpdateRemote.OnClientEvent:Connect(function(count)
 	thievesRemaining = tonumber(count) or 0
 	for i, slot in ipairs(thiefIconFrames) do
-		if i <= thievesRemaining then
-			slot.frame.BackgroundColor3 = COLORS.red
-			slot.label.Text = ""
-		else
-			slot.frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-			slot.label.Text = "X"
-			slot.label.TextColor3 = COLORS.grey
+		if i <= totalThiefIcons and slot.frame.Visible then
+			if i <= thievesRemaining then
+				slot.frame.BackgroundColor3 = COLORS.red
+				slot.label.Text = ""
+			else
+				slot.frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+				slot.label.Text = "X"
+				slot.label.TextColor3 = COLORS.grey
+			end
 		end
 	end
 end)
