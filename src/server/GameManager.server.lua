@@ -11,6 +11,7 @@ local Types = require(ReplicatedStorage:WaitForChild("Types"))
 local RoleManager = require(script.Parent:WaitForChild("RoleManager"))
 local GuardianController = require(script.Parent:WaitForChild("GuardianController"))
 local ThiefController = require(script.Parent:WaitForChild("ThiefController"))
+local BrazierManager = require(script.Parent:WaitForChild("BrazierManager"))
 print("GameManager: all modules loaded")
 
 local function getOrCreateRemote(name)
@@ -32,6 +33,14 @@ local catchThiefRemote = getOrCreateRemote("CatchThief")
 local setMovementStateRemote = getOrCreateRemote("SetMovementState")
 getOrCreateRemote("ThiefCaught")
 local roleAssignedRemote = getOrCreateRemote("RoleAssigned")
+local brazierInteractRemote = getOrCreateRemote("BrazierInteract")
+getOrCreateRemote("GuardianBrazierSequence")
+getOrCreateRemote("BrazierStateChanged")
+local roundStartedRemote = getOrCreateRemote("RoundStarted")
+local roundEndedRemote = getOrCreateRemote("RoundEnded")
+local thiefCountUpdateRemote = getOrCreateRemote("ThiefCountUpdate")
+local brazierProgressUpdateRemote = getOrCreateRemote("BrazierProgressUpdate")
+local lobbyUpdateRemote = getOrCreateRemote("LobbyUpdate")
 
 local roundActive = false
 local rolesByPlayer = {}
@@ -51,36 +60,7 @@ local function getTaggedParts(tag)
 end
 
 local function ensureBasicMap()
-	if workspace:FindFirstChild("TempleFloor") then
-		return
-	end
-
-	local mapColor = Color3.fromRGB(60, 60, 60)
-
-	local floor = Instance.new("Part")
-	floor.Name = "TempleFloor"
-	floor.Size = Vector3.new(200, 1, 200)
-	floor.Anchored = true
-	floor.Position = Vector3.new(0, 0, 0)
-	floor.Color = mapColor
-	floor.Material = Enum.Material.SmoothPlastic
-	floor.Parent = workspace
-
-	local function createWall(name, size, position)
-		local wall = Instance.new("Part")
-		wall.Name = name
-		wall.Size = size
-		wall.Anchored = true
-		wall.Position = position
-		wall.Color = mapColor
-		wall.Material = Enum.Material.SmoothPlastic
-		wall.Parent = workspace
-	end
-
-	createWall("TempleWallNorth", Vector3.new(200, 20, 2), Vector3.new(0, 10, -100))
-	createWall("TempleWallSouth", Vector3.new(200, 20, 2), Vector3.new(0, 10, 100))
-	createWall("TempleWallEast", Vector3.new(2, 20, 200), Vector3.new(100, 10, 0))
-	createWall("TempleWallWest", Vector3.new(2, 20, 200), Vector3.new(-100, 10, 0))
+    -- Map is built by BuildTemple.server.lua
 end
 
 local function createSpawnPart(name, position, color, tag)
@@ -179,12 +159,55 @@ local function applyBaseMovementForRole(player, role)
 	teleportToSpawn(player, role)
 end
 
+local function fireRoundEnded(result, winner)
+	for _, player in Players:GetPlayers() do
+		roundEndedRemote:FireClient(player, result, winner)
+	end
+end
+
+local function fireLobbyUpdate(status, playerCount, requiredCount, countdown)
+	for _, player in Players:GetPlayers() do
+		lobbyUpdateRemote:FireClient(player, {
+			status = status,
+			playerCount = playerCount,
+			required = requiredCount,
+			countdown = countdown,
+		})
+	end
+end
+
+local function getRemainingThiefCount()
+	local remaining = 0
+	for thiefPlayer in activeThieves do
+		if Players:FindFirstChild(thiefPlayer.Name) then
+			remaining += 1
+		end
+	end
+	return remaining
+end
+
+local function fireThiefCountToGuardian()
+	if guardianPlayer and Players:FindFirstChild(guardianPlayer.Name) then
+		thiefCountUpdateRemote:FireClient(guardianPlayer, getRemainingThiefCount())
+	end
+end
+
+local function fireBrazierProgressToThieves(count)
+	for player, role in rolesByPlayer do
+		if role == Types.PlayerRole.Thief and Players:FindFirstChild(player.Name) then
+			brazierProgressUpdateRemote:FireClient(player, count)
+		end
+	end
+end
+
 local function clearRoundState()
 	for player in rolesByPlayer do
 		player:SetAttribute("Role", nil)
 		resetPlayerMovement(player)
 		GuardianController.ResetPlayer(player)
 	end
+
+	BrazierManager.Reset()
 
 	roundActive = false
 	rolesByPlayer = {}
@@ -198,6 +221,9 @@ Players.PlayerRemoving:Connect(function(player)
 	rolesByPlayer[player] = nil
 	activeThieves[player] = nil
 	GuardianController.ResetPlayer(player)
+	if player == guardianPlayer then
+		guardianPlayer = nil
+	end
 end)
 
 Players.PlayerAdded:Connect(function(player)
@@ -230,7 +256,32 @@ setMovementStateRemote.OnServerEvent:Connect(function(player, requestedState, is
 	end
 end)
 
+brazierInteractRemote.OnServerEvent:Connect(function(player, brazierName)
+	if not roundActive then
+		return
+	end
+	if type(brazierName) ~= "string" then
+		return
+	end
+
+	local role = rolesByPlayer[player]
+	if role == Types.PlayerRole.Thief then
+		local success = BrazierManager.TryLightBrazier(player, brazierName, rolesByPlayer, roundActive)
+		if success then
+			fireBrazierProgressToThieves(BrazierManager.GetLitCount())
+		end
+	elseif role == Types.PlayerRole.Guardian then
+		local success = BrazierManager.TryExtinguishBrazier(player, brazierName, rolesByPlayer, roundActive)
+		if success then
+			fireBrazierProgressToThieves(BrazierManager.GetLitCount())
+		end
+	end
+end)
+
 thiefExtractedRemote.OnServerEvent:Connect(function(player)
+	if not BrazierManager.IsUnlocked() then
+		return
+	end
 	local valid = ThiefController.ValidateExtract(player, rolesByPlayer, roundActive)
 	if not valid then
 		return
@@ -245,6 +296,7 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 	local success = GuardianController.TryCatch(player, targetPlayer, rolesByPlayer, roundActive)
 	if success then
 		activeThieves[targetPlayer] = nil
+		fireThiefCountToGuardian()
 	end
 end)
 
@@ -264,9 +316,26 @@ task.wait(5)
 
 while true do
 	print("GameManager: waiting for players")
+
 	while #Players:GetPlayers() < Constants.ROUND_MIN_PLAYERS do
+		fireLobbyUpdate("waiting", #Players:GetPlayers(), Constants.ROUND_MIN_PLAYERS, nil)
 		print("GameManager: player count = " .. #Players:GetPlayers())
 		task.wait(1)
+	end
+
+	local countdown = Constants.LOBBY_COUNTDOWN_SECONDS
+	local countdownFinished = true
+	while countdown > 0 do
+		if #Players:GetPlayers() < Constants.ROUND_MIN_PLAYERS then
+			countdownFinished = false
+			break
+		end
+		fireLobbyUpdate("countdown", #Players:GetPlayers(), Constants.ROUND_MIN_PLAYERS, countdown)
+		task.wait(1)
+		countdown -= 1
+	end
+	if not countdownFinished then
+		continue
 	end
 
 	local roundPlayers = getRoundPlayers()
@@ -289,14 +358,24 @@ while true do
 		roleAssignedRemote:FireClient(player, role)
 	end
 
+	BrazierManager.InitRound(rolesByPlayer)
+	fireBrazierProgressToThieves(0)
+	fireThiefCountToGuardian()
+
+	for _, player in Players:GetPlayers() do
+		roundStartedRemote:FireClient(player, Constants.ROUND_DURATION_SECONDS)
+	end
+
 	local roundEndsAt = os.clock() + Constants.ROUND_DURATION_SECONDS
 	local result = "Time expired"
+	local winner = "Time"
 
 	while roundActive do
 		GuardianController.StepSprintTimers(rolesByPlayer)
 
 		if thievesExtracted then
 			result = "Thieves extracted loot"
+			winner = "Thieves"
 			roundActive = false
 			break
 		end
@@ -315,18 +394,21 @@ while true do
 		end
 		if remainingThieves == 0 then
 			result = "Guardian caught all thieves"
+			winner = "Guardian"
 			roundActive = false
 			break
 		end
 
 		if os.clock() >= roundEndsAt then
 			result = "Time expired"
+			winner = "Time"
 			roundActive = false
 			break
 		end
 
 		if #Players:GetPlayers() < Constants.ROUND_MIN_PLAYERS then
 			result = "Round canceled: not enough players"
+			winner = "Time"
 			roundActive = false
 			break
 		end
@@ -334,6 +416,7 @@ while true do
 		RunService.Heartbeat:Wait()
 	end
 
+	fireRoundEnded(result, winner)
 	print(string.format("[RoundResult] %s", result))
 	clearRoundState()
 	task.wait(3)

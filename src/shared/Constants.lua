@@ -1,5 +1,5 @@
 local Constants = {
-	ROUND_MIN_PLAYERS = 1,
+	ROUND_MIN_PLAYERS = 2,
 	ROUND_DURATION_SECONDS = 8 * 60,
 
 	DEFAULT_WALK_SPEED = 16,
@@ -23,6 +23,10 @@ local Constants = {
 		Vector3.new(7, 1, -60),
 		Vector3.new(20, 1, -60),
 	},
+
+	BRAZIER_INTERACT_DISTANCE = 8,
+	BRAZIER_SEQUENCE_LENGTH = 4,
+	LOBBY_COUNTDOWN_SECONDS = 10,
 }
 
 return Constants
