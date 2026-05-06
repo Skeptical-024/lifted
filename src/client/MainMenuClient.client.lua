@@ -197,9 +197,9 @@ local function makeTorch(xScale)
 		return f
 	end
 	tc(UDim2.fromOffset(8, 16), Color3.fromRGB(38, 52, 80), 0.18, 3, 4)
-	local outerHalo = tc(UDim2.fromOffset(72, 96), Color3.fromRGB(18, 56, 158), 0.72, 48, 4)
-	local midGlow = tc(UDim2.fromOffset(42, 62), Color3.fromRGB(38, 108, 208), 0.52, 31, 5)
-	local flameBody = tc(UDim2.fromOffset(20, 36), Color3.fromRGB(88, 148, 248), 0.18, 14, 6)
+	local outerHalo = tc(UDim2.fromOffset(72, 96), Color3.fromRGB(18, 56, 158), 0.55, 48, 4)
+	local midGlow = tc(UDim2.fromOffset(42, 62), Color3.fromRGB(38, 108, 208), 0.35, 31, 5)
+	local flameBody = tc(UDim2.fromOffset(20, 36), Color3.fromRGB(88, 148, 248), 0.05, 14, 6)
 	local flameTip = tc(UDim2.fromOffset(11, 20), Color3.fromRGB(168, 202, 255), 0.05, 8, 7)
 	tc(UDim2.fromOffset(5, 5), Color3.fromRGB(228, 238, 255), 0, 3, 8)
 
@@ -209,9 +209,9 @@ local function makeTorch(xScale)
 
 	table.insert(torchParts, {
 		phase = math.random() * math.pi * 2,
-		outerHalo = {frame = outerHalo, bw = 72, bh = 96, bA = 0.72},
-		midGlow = {frame = midGlow, bw = 42, bh = 62, bA = 0.52},
-		flameBody = {frame = flameBody, bw = 20, bh = 36, bA = 0.18},
+		outerHalo = {frame = outerHalo, bw = 72, bh = 96, bA = 0.55},
+		midGlow = {frame = midGlow, bw = 42, bh = 62, bA = 0.35},
+		flameBody = {frame = flameBody, bw = 20, bh = 36, bA = 0.05},
 		flameTip = {frame = flameTip, bw = 11, bh = 20, bA = 0.05},
 	})
 end
@@ -226,23 +226,23 @@ local function idolPart(w, h, yScale, color, alpha, z)
 	return f
 end
 local idolGlowParts = {}
-local outerRing = idolPart(145, 225, 0.42, Color3.fromRGB(135, 104, 20), 0.84, 3)
+local outerRing = idolPart(145, 225, 0.42, Color3.fromRGB(135, 104, 20), 0.65, 3)
 makeCorner(72, outerRing)
-local midRing = idolPart(92, 155, 0.42, Color3.fromRGB(158, 122, 24), 0.78, 3)
+local midRing = idolPart(92, 155, 0.42, Color3.fromRGB(158, 122, 24), 0.58, 3)
 makeCorner(46, midRing)
-local innerRing = idolPart(58, 102, 0.42, Color3.fromRGB(182, 148, 40), 0.70, 4)
+local innerRing = idolPart(58, 102, 0.42, Color3.fromRGB(182, 148, 40), 0.48, 4)
 makeCorner(29, innerRing)
 idolGlowParts = {
-	{frame = outerRing, bw = 145, bh = 225, bA = 0.84},
-	{frame = midRing, bw = 92, bh = 155, bA = 0.78},
-	{frame = innerRing, bw = 58, bh = 102, bA = 0.70},
+	{frame = outerRing, bw = 145, bh = 225, bA = 0.65},
+	{frame = midRing, bw = 92, bh = 155, bA = 0.58},
+	{frame = innerRing, bw = 58, bh = 102, bA = 0.48},
 }
-idolPart(66, 13, 0.735, Color3.fromRGB(52, 40, 11), 0.50, 4)
-idolPart(30, 52, 0.525, Color3.fromRGB(62, 47, 12), 0.50, 4)
-idolPart(46, 17, 0.448, Color3.fromRGB(58, 44, 12), 0.52, 4)
-idolPart(26, 26, 0.362, Color3.fromRGB(60, 46, 12), 0.50, 4)
-idolPart(20, 34, 0.268, Color3.fromRGB(64, 49, 13), 0.48, 4)
-local gem = idolPart(9, 9, 0.222, C.gold, 0.18, 5)
+idolPart(66, 13, 0.735, Color3.fromRGB(52, 40, 11), 0.32, 4)
+idolPart(30, 52, 0.525, Color3.fromRGB(62, 47, 12), 0.32, 4)
+idolPart(46, 17, 0.448, Color3.fromRGB(58, 44, 12), 0.34, 4)
+idolPart(26, 26, 0.362, Color3.fromRGB(60, 46, 12), 0.32, 4)
+idolPart(20, 34, 0.268, Color3.fromRGB(64, 49, 13), 0.35, 4)
+local gem = idolPart(9, 9, 0.222, C.gold, 0.05, 5)
 makeCorner(5, gem)
 
 local particlesTable = {}
@@ -298,7 +298,7 @@ makeVignette(UDim2.new(1, 0, 0, 240), UDim2.new(0, 0, 1, -240), 270)
 makeVignette(UDim2.new(0, 240, 1, 0), UDim2.new(0, 0, 0, 0), 0)
 makeVignette(UDim2.new(0, 240, 1, 0), UDim2.new(1, -240, 0, 0), 180)
 
-local tint = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), Color3.fromRGB(4, 6, 12), 0.30, gui)
+local tint = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), Color3.fromRGB(4, 6, 12), 0.50, gui)
 tint.ZIndex = 11
 
 local leftShown = UDim2.new(0.5, -502, 0.5, -304)
@@ -706,12 +706,14 @@ local function infoCard(idx, title, body, accent)
 	badge.TextXAlignment = Enum.TextXAlignment.Right
 	badge.ZIndex = 23
 	local t = makeLabel(title, Enum.Font.GothamBold, 15, C.silver, c)
-	t.Size = UDim2.new(1, -20, 0, 22)
+	t.Size = UDim2.new(1, -28, 0, 22)
+	t.Position = UDim2.new(0, 12, 0, 0)
 	t.TextXAlignment = Enum.TextXAlignment.Left
 	t.ZIndex = 23
 	local b = makeLabel(body, Enum.Font.Gotham, 13, C.grey, c)
-	b.Size = UDim2.new(1, -20, 0, 76)
-	b.Position = UDim2.new(0, 0, 0, 24)
+	b.Size = UDim2.new(1, -28, 0, 0)
+	b.AutomaticSize = Enum.AutomaticSize.Y
+	b.Position = UDim2.new(0, 12, 0, 24)
 	b.TextWrapped = true
 	b.TextXAlignment = Enum.TextXAlignment.Left
 	b.TextYAlignment = Enum.TextYAlignment.Top
