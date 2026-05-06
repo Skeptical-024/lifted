@@ -215,6 +215,14 @@ local function clearRoundState()
 	guardianPlayer = nil
 	thievesExtracted = false
 	thiefSpawnCursor = 0
+
+	for _, tag in ipairs({"ThiefSpawn", "GuardianSpawn"}) do
+		for _, part in CollectionService:GetTagged(tag) do
+			if part:IsA("BasePart") then
+				part.Transparency = 0.5
+			end
+		end
+	end
 end
 
 Players.PlayerRemoving:Connect(function(player)
@@ -364,6 +372,14 @@ while true do
 
 	for _, player in Players:GetPlayers() do
 		roundStartedRemote:FireClient(player, Constants.ROUND_DURATION_SECONDS)
+	end
+
+	for _, tag in ipairs({"ThiefSpawn", "GuardianSpawn"}) do
+		for _, part in CollectionService:GetTagged(tag) do
+			if part:IsA("BasePart") then
+				part.Transparency = 1
+			end
+		end
 	end
 
 	local roundEndsAt = os.clock() + Constants.ROUND_DURATION_SECONDS

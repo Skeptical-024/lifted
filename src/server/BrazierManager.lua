@@ -6,9 +6,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
 
-local guardianBrazierSequenceRemote = ReplicatedStorage:WaitForChild("GuardianBrazierSequence")
-local brazierStateChangedRemote = ReplicatedStorage:WaitForChild("BrazierStateChanged")
-
 local ALL_BRAZIERS = {
 	"Brazier1", "Brazier2", "Brazier3", "Brazier4",
 	"Brazier5", "Brazier6", "Brazier7", "Brazier8",
@@ -119,6 +116,10 @@ local function getLitNames()
 end
 
 local function fireStateChanged()
+	local brazierStateChangedRemote = ReplicatedStorage:FindFirstChild("BrazierStateChanged")
+	if not brazierStateChangedRemote or not brazierStateChangedRemote:IsA("RemoteEvent") then
+		return
+	end
 	brazierStateChangedRemote:FireAllClients(getLitNames())
 end
 
@@ -135,6 +136,7 @@ local function buildSequence()
 end
 
 function BrazierManager.InitRound(rolesByPlayer)
+	local guardianBrazierSequenceRemote = ReplicatedStorage:FindFirstChild("GuardianBrazierSequence")
 	buildSequence()
 	litBraziers = {}
 	litOrder = {}
@@ -144,9 +146,11 @@ function BrazierManager.InitRound(rolesByPlayer)
 		setUnlit(name)
 	end
 
-	for player, role in rolesByPlayer do
-		if role == Types.PlayerRole.Guardian and Players:FindFirstChild(player.Name) then
-			guardianBrazierSequenceRemote:FireClient(player, sequence)
+	if guardianBrazierSequenceRemote and guardianBrazierSequenceRemote:IsA("RemoteEvent") then
+		for player, role in rolesByPlayer do
+			if role == Types.PlayerRole.Guardian and Players:FindFirstChild(player.Name) then
+				guardianBrazierSequenceRemote:FireClient(player, sequence)
+			end
 		end
 	end
 
