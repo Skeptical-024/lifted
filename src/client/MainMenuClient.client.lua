@@ -416,39 +416,46 @@ devRowList.FillDirection = Enum.FillDirection.Horizontal
 devRowList.Padding = UDim.new(0, 10)
 devRowList.Parent = devRow
 
-local function makeDevCard(parent, order, name, role, roleColor, detail, note, dotColor)
-		local card = makeFrame(UDim2.new(0.5, -15, 0, 0), UDim2.fromOffset(0, 0), C.cardMuted, 0, 23, parent)
+local function makeDevCard(parent, order, name, role, roleColor, detail, note)
+	local card = makeFrame(UDim2.new(0.5, -15, 0, 0), UDim2.fromOffset(0, 0), C.cardMuted, 0, 23, parent)
 	card.LayoutOrder = order
 	card.AutomaticSize = Enum.AutomaticSize.Y
 	makeCorner(10, card)
-		local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 0.15, 24, card)
-		makeCorner(4, accent)
-		local pad = Instance.new("UIPadding")
-		pad.PaddingLeft = UDim.new(0, 14)
-	pad.PaddingRight = UDim.new(0, 18)
-	pad.PaddingTop = UDim.new(0, 16)
-	pad.PaddingBottom = UDim.new(0, 16)
-	pad.Parent = card
-	local dot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(1, -12, 0, 6), dotColor, 0, 24, card)
-	makeCorner(99, dot)
-	local n = makeLabel(name, Enum.Font.GothamBlack, 15, C.text, 0, Enum.TextXAlignment.Left, 24, card)
-	n.Size = UDim2.new(1, -8, 0, 20)
-	local r = makeLabel(role, Enum.Font.GothamBold, 12, roleColor, 0, Enum.TextXAlignment.Left, 24, card)
+
+	local accentBar = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 0, 13, card)
+	makeCorner(4, accentBar)
+
+	local innerContent = makeFrame(UDim2.new(1, -26, 0, 0), UDim2.new(0, 18, 0, 14), C.cardMuted, 1, 13, card)
+	innerContent.AutomaticSize = Enum.AutomaticSize.Y
+	local innerList = Instance.new("UIListLayout")
+	innerList.FillDirection = Enum.FillDirection.Vertical
+	innerList.SortOrder = Enum.SortOrder.LayoutOrder
+	innerList.Padding = UDim.new(0, 4)
+	innerList.Parent = innerContent
+	local innerPad = Instance.new("UIPadding")
+	innerPad.PaddingBottom = UDim.new(0, 14)
+	innerPad.Parent = innerContent
+
+	local n = makeLabel(name, Enum.Font.GothamBlack, 15, C.white, 0, Enum.TextXAlignment.Left, 13, innerContent)
+	n.Size = UDim2.new(1, 0, 0, 20)
+	n.LayoutOrder = 1
+	local r = makeLabel(role, Enum.Font.GothamBold, 12, roleColor, 0, Enum.TextXAlignment.Left, 13, innerContent)
 	r.Size = UDim2.new(1, 0, 0, 18)
-	r.Position = UDim2.fromOffset(0, 22)
-	local d = makeLabel(detail, Enum.Font.Gotham, 11, C.textMuted, 0, Enum.TextXAlignment.Left, 24, card)
-	d.Size = UDim2.new(1, 0, 0, 30)
-	d.Position = UDim2.fromOffset(0, 42)
+	r.LayoutOrder = 2
+	local d = makeLabel(detail, Enum.Font.Gotham, 11, C.textMuted, 0, Enum.TextXAlignment.Left, 13, innerContent)
+	d.Size = UDim2.new(1, 0, 0, 0)
+	d.AutomaticSize = Enum.AutomaticSize.Y
 	d.TextWrapped = true
+	d.LayoutOrder = 3
 	if note then
-		local nt = makeLabel(note, Enum.Font.Gotham, 11, C.textDim, 0, Enum.TextXAlignment.Left, 24, card)
+		local nt = makeLabel(note, Enum.Font.Gotham, 11, C.textDim, 0, Enum.TextXAlignment.Left, 13, innerContent)
 		nt.Size = UDim2.new(1, 0, 0, 16)
-		nt.Position = UDim2.fromOffset(0, 74)
+		nt.LayoutOrder = 4
 	end
 end
 
-makeDevCard(devRow, 1, "CHARLIE MARTIN", "Lead Developer & Game Designer", C.gold, "Core systems · Networking · Game logic · UI", "16 y/o indie developer", C.gold)
-makeDevCard(devRow, 2, "MARTIN JARSKY", "World Builder & Visual Designer", C.blue, "Map design · Lighting · Asset pipeline", nil, C.blue)
+makeDevCard(devRow, 1, "IMPLECTE2", "Lead Developer & Game Designer", C.gold, "Core systems · Networking · Game logic · UI", "16 y/o indie developer")
+makeDevCard(devRow, 2, "SHOTSON_YOU", "World Builder & Visual Designer", C.blue, "Map design · Lighting · Asset pipeline", nil)
 
 local statsRow = makeFrame(UDim2.new(1, 0, 0, 66), UDim2.fromOffset(0, 0), C.cardMuted, 0, 22, creditsContent)
 statsRow.LayoutOrder = 2
