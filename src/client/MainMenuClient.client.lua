@@ -276,6 +276,7 @@ logoScale.Parent = logoLabel
 -- Menu screen
 local menuScreen = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 10, gui)
 menuScreen.Visible = false
+menuScreen.Active = true
 
 local scanLines = {}
 for _, sy in ipairs({0.1, 0.45, 0.75}) do
@@ -283,110 +284,112 @@ for _, sy in ipairs({0.1, 0.45, 0.75}) do
 	table.insert(scanLines, {frame = line, speed = 0.02 + math.random() * 0.015})
 end
 
-local menuContainer = makeFrame(UDim2.fromOffset(820, 440), UDim2.new(0.5, 0, 0.5, 0), C.bg, 1, 11, menuScreen)
-menuContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+local identityZone = makeFrame(UDim2.fromOffset(800, 120), UDim2.new(0.5, 0, 0, 40), C.bg, 1, 11, menuScreen)
+identityZone.AnchorPoint = Vector2.new(0.5, 0)
+local identityLayout = Instance.new("UIListLayout")
+identityLayout.FillDirection = Enum.FillDirection.Vertical
+identityLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+identityLayout.SortOrder = Enum.SortOrder.LayoutOrder
+identityLayout.Padding = UDim.new(0, 8)
+identityLayout.Parent = identityZone
 
-local menuContainerLayout = Instance.new("UIListLayout")
-menuContainerLayout.FillDirection = Enum.FillDirection.Horizontal
-menuContainerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-menuContainerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-menuContainerLayout.Padding = UDim.new(0, 120)
-menuContainerLayout.Parent = menuContainer
+local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 72, C.titleColor, 0, Enum.TextXAlignment.Center, 12, identityZone)
+wordmark.Size = UDim2.new(1, 0, 0, 80)
+wordmark.LayoutOrder = 1
 
-local leftCol = makeFrame(UDim2.fromOffset(300, 440), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
-leftCol.LayoutOrder = 1
+local dividerLine = makeFrame(UDim2.fromOffset(120, 1), UDim2.fromOffset(0, 0), C.gold, 0.6, 12, identityZone)
+dividerLine.LayoutOrder = 2
 
-local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 56, C.titleColor, 0, Enum.TextXAlignment.Left, 13, leftCol)
-wordmark.Size = UDim2.new(1, 0, 0, 56)
-wordmark.Position = UDim2.new(0, 0, 0, 0)
-
-local seasonLabel = makeLabel("SEASON 1 — THE CURSED TEMPLE", Enum.Font.GothamBold, 12, C.gold, 0.5, Enum.TextXAlignment.Left, 13, leftCol)
+local seasonLabel = makeLabel("SEASON 1 — THE CURSED TEMPLE", Enum.Font.GothamBold, 11, C.gold, 0.45, Enum.TextXAlignment.Center, 12, identityZone)
 seasonLabel.Size = UDim2.new(1, 0, 0, 16)
-seasonLabel.Position = UDim2.new(0, 0, 0, 62)
+seasonLabel.LayoutOrder = 3
 
-local dividerLine = makeFrame(UDim2.fromOffset(180, 1), UDim2.new(0, 0, 0, 86), C.gold, 0.7, 13, leftCol)
-
-local versionLabel = makeLabel("v0.1.0 · Early Access", Enum.Font.Gotham, 11, Color3.fromRGB(120, 120, 140), 0, Enum.TextXAlignment.Left, 13, leftCol)
-versionLabel.Size = UDim2.new(1, 0, 0, 14)
-versionLabel.Position = UDim2.new(0, 0, 0, 96)
-
-local onlineDot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(0, 0, 0, 120), C.blue, 0, 13, leftCol)
-makeCorner(99, onlineDot)
-
-local onlineLabel = makeLabel("0 PLAYERS ONLINE", Enum.Font.Gotham, 11, Color3.fromRGB(150, 150, 170), 0, Enum.TextXAlignment.Left, 13, leftCol)
-onlineLabel.Size = UDim2.new(1, 0, 0, 14)
-onlineLabel.Position = UDim2.new(0, 10, 0, 116)
-
-local rightCol = makeFrame(UDim2.fromOffset(400, 440), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
-rightCol.LayoutOrder = 2
-
-local rightColLayout = Instance.new("UIListLayout")
-rightColLayout.FillDirection = Enum.FillDirection.Vertical
-rightColLayout.SortOrder = Enum.SortOrder.LayoutOrder
-rightColLayout.Padding = UDim.new(0, 14)
-rightColLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-rightColLayout.Parent = rightCol
+local navZone = makeFrame(UDim2.fromOffset(420, 0), UDim2.new(0.5, 0, 1, -48), C.bg, 1, 11, menuScreen)
+navZone.AnchorPoint = Vector2.new(0.5, 1)
+navZone.AutomaticSize = Enum.AutomaticSize.Y
+local navLayout = Instance.new("UIListLayout")
+navLayout.FillDirection = Enum.FillDirection.Vertical
+navLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+navLayout.SortOrder = Enum.SortOrder.LayoutOrder
+navLayout.Padding = UDim.new(0, 0)
+navLayout.Parent = navZone
 
 local optionRefs = {}
-local selectedState = "none"
 
 local function makeOption(order, num, title, subtitle, key)
 	local btn = Instance.new("TextButton")
 	btn.AutoButtonColor = false
 	btn.BackgroundTransparency = 1
 	btn.BorderSizePixel = 0
-	btn.Size = UDim2.fromOffset(340, 90)
+	btn.Size = UDim2.fromOffset(420, 64)
 	btn.Text = ""
 	btn.ZIndex = 12
 	btn.LayoutOrder = order
+	btn.Position = UDim2.new(0, 0, 0, 0)
 
-	local accent = makeFrame(UDim2.fromOffset(2, 64), UDim2.fromOffset(0, 0), C.gold, 0.75, 13, btn)
-	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 15, C.gold, 0.55, Enum.TextXAlignment.Left, 13, btn)
-	numLabel.Size = UDim2.fromOffset(20, 16)
-	numLabel.Position = UDim2.fromOffset(14, 8)
+	local sepTop = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.92, 13, btn)
 
-	local titleLabel = makeLabel(title, Enum.Font.GothamBlack, 32, C.white, 0, Enum.TextXAlignment.Left, 13, btn)
-	titleLabel.Size = UDim2.new(1, -80, 0, 28)
-	titleLabel.Position = UDim2.fromOffset(38, 6)
+	local content = makeFrame(UDim2.new(1, 0, 0, 63), UDim2.new(0, 0, 0, 1), C.bg, 1, 13, btn)
+	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 11, C.gold, 0.4, Enum.TextXAlignment.Left, 14, content)
+	numLabel.Size = UDim2.fromOffset(26, 16)
+	numLabel.Position = UDim2.fromOffset(16, 24)
 
-	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 16, C.textMuted, 0, Enum.TextXAlignment.Left, 13, btn)
-	subtitleLabel.Size = UDim2.new(1, -80, 0, 18)
-	subtitleLabel.Position = UDim2.fromOffset(38, 36)
+	local titleLabel = makeLabel(title, Enum.Font.GothamBlack, 20, C.titleColor, 0, Enum.TextXAlignment.Center, 14, content)
+	titleLabel.Size = UDim2.new(1, -80, 0, 30)
+	titleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+	titleLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
 
-	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 26, Color3.fromRGB(150, 150, 170), 0.5, Enum.TextXAlignment.Center, 13, btn)
+	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 1, C.textMuted, 1, Enum.TextXAlignment.Left, 14, content)
+	subtitleLabel.Visible = false
+
+	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 18, C.gold, 0.5, Enum.TextXAlignment.Center, 14, content)
 	arrowLabel.Size = UDim2.fromOffset(20, 20)
 	arrowLabel.AnchorPoint = Vector2.new(1, 0.5)
-	arrowLabel.Position = UDim2.new(1, -8, 0.5, 0)
+	arrowLabel.Position = UDim2.new(1, -16, 0.5, 0)
 
 	btn.MouseEnter:Connect(function()
 		playTween(key .. "_slide_in", btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 6, 0, 0)})
-		playTween(key .. "_a_in", accent, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.15})
 		playTween(key .. "_t_in", titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.gold})
 		playTween(key .. "_r_in", arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0, TextColor3 = C.gold})
+		playTween(key .. "_n_in", numLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.1})
 	end)
 
 	btn.MouseLeave:Connect(function()
 		playTween(key .. "_slide_out", btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)})
-		playTween(key .. "_a_out", accent, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75})
-		playTween(key .. "_t_out", titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.white})
-		playTween(key .. "_r_out", arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5, TextColor3 = Color3.fromRGB(150, 150, 170)})
+		playTween(key .. "_t_out", titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.titleColor})
+		playTween(key .. "_r_out", arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5, TextColor3 = C.gold})
+		playTween(key .. "_n_out", numLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
 	end)
 
 	btn.MouseButton1Down:Connect(function()
-		playTween(key .. "_press", btn, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(334, 62)})
+		playTween(key .. "_press", btn, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 4, 0, 0)})
 	end)
 	btn.MouseButton1Up:Connect(function()
-		playTween(key .. "_rel", btn, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(340, 64)})
+		playTween(key .. "_rel", btn, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 8, 0, 0)})
 	end)
 
-	btn.Parent = rightCol
-	optionRefs[key] = {button = btn, accent = accent, title = titleLabel, subtitle = subtitleLabel, arrow = arrowLabel, num = numLabel}
+	btn.Parent = navZone
+	optionRefs[key] = {button = btn, sep = sepTop, title = titleLabel, subtitle = subtitleLabel, arrow = arrowLabel, num = numLabel}
 	return btn
 end
 
 local findMatchBtn = makeOption(1, "01", "FIND MATCH", "Join a public match", "find")
 local howToBtn = makeOption(2, "02", "HOW TO PLAY", "Rules and mechanics", "how")
 local creditsBtn = makeOption(3, "03", "CREDITS", "The team behind Lifted", "credits")
+local navBottomLine = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.fromOffset(0, 0), C.gold, 0.92, 13, navZone)
+navBottomLine.LayoutOrder = 4
+
+local bottomBar = makeFrame(UDim2.fromOffset(500, 20), UDim2.new(0.5, 0, 1, -12), C.bg, 1, 12, menuScreen)
+bottomBar.AnchorPoint = Vector2.new(0.5, 1)
+local onlineDot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(0, 0, 0.5, 0), C.blue, 0, 13, bottomBar)
+onlineDot.AnchorPoint = Vector2.new(0, 0.5)
+makeCorner(99, onlineDot)
+local onlineLabel = makeLabel("0 PLAYERS ONLINE", Enum.Font.Gotham, 11, Color3.fromRGB(150, 150, 170), 0, Enum.TextXAlignment.Left, 13, bottomBar)
+onlineLabel.Size = UDim2.new(0, 180, 1, 0)
+onlineLabel.Position = UDim2.fromOffset(10, 0)
+local versionLabel = makeLabel("v0.1.0 · Early Access", Enum.Font.Gotham, 11, Color3.fromRGB(100, 100, 120), 0, Enum.TextXAlignment.Right, 13, bottomBar)
+versionLabel.Size = UDim2.new(0, 220, 1, 0)
+versionLabel.Position = UDim2.new(1, -220, 0, 0)
 
 -- Overlays
 local function makeOverlay(name, titleText)
@@ -577,38 +580,30 @@ end)
 local function menuEntrance()
 	wordmark.TextTransparency = 1
 	seasonLabel.TextTransparency = 1
+	dividerLine.BackgroundTransparency = 1
 	versionLabel.TextTransparency = 1
 	onlineLabel.TextTransparency = 1
-	for _, d in ipairs(leftCol:GetDescendants()) do
-		if d:IsA("TextLabel") then
-			d.TextTransparency = 1
-		end
-	end
 	playTween("left_wordmark_in", wordmark, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-	playTween("left_season_in", seasonLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-	playTween("left_version_in", versionLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-	playTween("left_online_in", onlineLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-	for _, d in ipairs(leftCol:GetDescendants()) do
-		if d:IsA("TextLabel") then
-			playTween("left_txt_" .. d:GetDebugId(), d, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-		end
-	end
+	task.delay(0.1, function()
+		playTween("left_season_in", seasonLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.45})
+		playTween("left_div_in", dividerLine, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.6})
+	end)
 
 	for i, key in ipairs({"find", "how", "credits"}) do
 		local ref = optionRefs[key]
 		ref.title.TextTransparency = 1
-		ref.subtitle.TextTransparency = 1
 		ref.num.TextTransparency = 1
 		ref.arrow.TextTransparency = 1
-		ref.accent.BackgroundTransparency = 1
-		task.delay((i - 1) * 0.05, function()
-			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-			playTween(key .. "_sub_in", ref.subtitle, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.55})
-			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-			playTween(key .. "_acc_in", ref.accent, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75})
+		task.delay(0.15 + (i - 1) * 0.07, function()
+			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
+			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
+			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5})
 		end)
 	end
+	task.delay(0.35, function()
+		playTween("bottom_ver_in", versionLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
+		playTween("bottom_online_in", onlineLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
+	end)
 end
 
 local function transitionSplashToMenu()
