@@ -425,21 +425,34 @@ local function makeRuleCard(parent, order, num, title, body)
 	card.AutomaticSize = Enum.AutomaticSize.Y
 	card.LayoutOrder = order
 	makeCorner(10, card)
-	local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.fromOffset(0, 0), C.gold, 0.15, 23, card)
+	local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 0, 23, card)
+	makeCorner(4, accent)
+
+	local inner = makeFrame(UDim2.new(1, -18, 0, 0), UDim2.new(0, 18, 0, 0), C.bg, 1, 23, card)
+	inner.AutomaticSize = Enum.AutomaticSize.Y
+
 	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, 16)
+	pad.PaddingTop = UDim.new(0, 16)
+	pad.PaddingBottom = UDim.new(0, 16)
 	pad.PaddingRight = UDim.new(0, 16)
-	pad.PaddingTop = UDim.new(0, 14)
-	pad.PaddingBottom = UDim.new(0, 20)
-	pad.Parent = card
-	local n = makeLabel(num, Enum.Font.GothamBlack, 28, C.gold, 0.25, Enum.TextXAlignment.Left, 23, card)
-	n.Size = UDim2.fromOffset(52, 32)
-	local t = makeLabel(title, Enum.Font.GothamBold, 14, C.text, 0, Enum.TextXAlignment.Left, 23, card)
-	t.Size = UDim2.new(1, -72, 0, 20)
-	t.Position = UDim2.fromOffset(60, 0)
-	local b = makeLabel(body, Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Left, 23, card)
-	b.Size = UDim2.new(1, -72, 0, 0)
-	b.Position = UDim2.fromOffset(60, 22)
+	pad.Parent = inner
+
+	local list = Instance.new("UIListLayout")
+	list.Padding = UDim.new(0, 6)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = inner
+
+	local n = makeLabel(num, Enum.Font.GothamBlack, 28, C.gold, 0.25, Enum.TextXAlignment.Left, 23, inner)
+	n.LayoutOrder = 1
+	n.Size = UDim2.new(1, 0, 0, 32)
+
+	local t = makeLabel(title, Enum.Font.GothamBold, 14, C.white, 0, Enum.TextXAlignment.Left, 23, inner)
+	t.LayoutOrder = 2
+	t.Size = UDim2.new(1, 0, 0, 20)
+
+	local b = makeLabel(body, Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Left, 23, inner)
+	b.LayoutOrder = 3
+	b.Size = UDim2.new(1, 0, 0, 0)
 	b.TextWrapped = true
 	b.AutomaticSize = Enum.AutomaticSize.Y
 	card.Parent = parent
