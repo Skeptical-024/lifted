@@ -222,24 +222,24 @@ for _, sy in ipairs({0.1, 0.45, 0.75}) do
 	table.insert(scanLines, {frame = line, speed = 0.02 + math.random() * 0.015})
 end
 
-local menuContainer = makeFrame(UDim2.fromOffset(700, 400), UDim2.new(0.5, 0, 0.5, 0), C.bg, 1, 11, menuScreen)
+local menuContainer = makeFrame(UDim2.fromOffset(860, 480), UDim2.new(0.5, 0, 0.5, 0), C.bg, 1, 11, menuScreen)
 menuContainer.AnchorPoint = Vector2.new(0.5, 0.5)
 
 local menuContainerLayout = Instance.new("UIListLayout")
 menuContainerLayout.FillDirection = Enum.FillDirection.Horizontal
 menuContainerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 menuContainerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-menuContainerLayout.Padding = UDim.new(0, 60)
+menuContainerLayout.Padding = UDim.new(0, 70)
 menuContainerLayout.Parent = menuContainer
 
-local leftCol = makeFrame(UDim2.fromOffset(300, 400), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
+local leftCol = makeFrame(UDim2.fromOffset(370, 480), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
 leftCol.LayoutOrder = 1
 
-local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 48, C.titleColor, 0, Enum.TextXAlignment.Left, 13, leftCol)
+local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 60, C.titleColor, 0, Enum.TextXAlignment.Left, 13, leftCol)
 wordmark.Size = UDim2.new(1, 0, 0, 56)
 wordmark.Position = UDim2.new(0, 0, 0, 0)
 
-local seasonLabel = makeLabel("SEASON 1 — THE CURSED TEMPLE", Enum.Font.GothamBold, 11, C.gold, 0.5, Enum.TextXAlignment.Left, 13, leftCol)
+local seasonLabel = makeLabel("SEASON 1 — THE CURSED TEMPLE", Enum.Font.GothamBold, 13, C.gold, 0.5, Enum.TextXAlignment.Left, 13, leftCol)
 seasonLabel.Size = UDim2.new(1, 0, 0, 16)
 seasonLabel.Position = UDim2.new(0, 0, 0, 62)
 
@@ -256,7 +256,7 @@ local onlineLabel = makeLabel("0 PLAYERS ONLINE", Enum.Font.Gotham, 11, Color3.f
 onlineLabel.Size = UDim2.new(1, 0, 0, 14)
 onlineLabel.Position = UDim2.new(0, 10, 0, 116)
 
-local rightCol = makeFrame(UDim2.fromOffset(340, 400), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
+local rightCol = makeFrame(UDim2.fromOffset(420, 480), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
 rightCol.LayoutOrder = 2
 
 local rightColLayout = Instance.new("UIListLayout")
@@ -274,25 +274,25 @@ local function makeOption(order, num, title, subtitle, key)
 	btn.AutoButtonColor = false
 	btn.BackgroundTransparency = 1
 	btn.BorderSizePixel = 0
-	btn.Size = UDim2.fromOffset(340, 64)
+	btn.Size = UDim2.fromOffset(340, 78)
 	btn.Text = ""
 	btn.ZIndex = 12
 	btn.LayoutOrder = order
 
 	local accent = makeFrame(UDim2.fromOffset(2, 64), UDim2.fromOffset(0, 0), C.gold, 0.75, 13, btn)
-	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 11, C.gold, 0.55, Enum.TextXAlignment.Left, 13, btn)
+	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 13, C.gold, 0.55, Enum.TextXAlignment.Left, 13, btn)
 	numLabel.Size = UDim2.fromOffset(20, 16)
 	numLabel.Position = UDim2.fromOffset(14, 8)
 
-	local titleLabel = makeLabel(title, Enum.Font.GothamBlack, 22, C.white, 0, Enum.TextXAlignment.Left, 13, btn)
+	local titleLabel = makeLabel(title, Enum.Font.GothamBlack, 26, C.white, 0, Enum.TextXAlignment.Left, 13, btn)
 	titleLabel.Size = UDim2.new(1, -80, 0, 28)
 	titleLabel.Position = UDim2.fromOffset(38, 6)
 
-	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Left, 13, btn)
+	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 14, C.textMuted, 0, Enum.TextXAlignment.Left, 13, btn)
 	subtitleLabel.Size = UDim2.new(1, -80, 0, 18)
 	subtitleLabel.Position = UDim2.fromOffset(38, 36)
 
-	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 20, Color3.fromRGB(150, 150, 170), 0.5, Enum.TextXAlignment.Center, 13, btn)
+	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 22, Color3.fromRGB(150, 150, 170), 0.5, Enum.TextXAlignment.Center, 13, btn)
 	arrowLabel.Size = UDim2.fromOffset(20, 20)
 	arrowLabel.AnchorPoint = Vector2.new(1, 0.5)
 	arrowLabel.Position = UDim2.new(1, -8, 0.5, 0)
