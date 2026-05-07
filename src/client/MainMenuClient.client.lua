@@ -252,8 +252,9 @@ for i = -1, 1 do
 end
 
 -- Nav section
-local nav = makeFrame(UDim2.new(1, 0, 0, 210), UDim2.fromOffset(0, 0), C.card, 1, 11, card)
+local nav = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.card, 1, 11, card)
 nav.LayoutOrder = 2
+nav.AutomaticSize = Enum.AutomaticSize.Y
 
 local navPad = Instance.new("UIPadding")
 navPad.PaddingLeft = UDim.new(0, 24)
@@ -265,7 +266,8 @@ navPad.Parent = nav
 local menuLabel = makeLabel("MENU", Enum.Font.GothamBold, 10, Color3.fromRGB(150, 150, 170), 0.2, Enum.TextXAlignment.Left, 12, nav)
 menuLabel.Size = UDim2.new(1, 0, 0, 14)
 
-local navButtonsWrap = makeFrame(UDim2.new(1, 0, 0, 164), UDim2.new(0, 0, 0, 24), C.card, 1, 12, nav)
+local navButtonsWrap = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.new(0, 0, 0, 24), C.card, 1, 12, nav)
+navButtonsWrap.AutomaticSize = Enum.AutomaticSize.Y
 local navList = Instance.new("UIListLayout")
 navList.Padding = UDim.new(0, 8)
 navList.SortOrder = Enum.SortOrder.LayoutOrder
@@ -736,7 +738,7 @@ end
 
 roleAssignedRemote.OnClientEvent:Connect(hideMenu)
 
-cacheBaseTransparency(card)
+cacheBaseTransparency(contentFrame)
 
 -- ENTRANCE ANIMATION
 card.Position = UDim2.new(0.5, 0, 0.5, 20)
