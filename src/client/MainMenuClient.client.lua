@@ -1,8 +1,9 @@
--- MainMenuClient v5
+-- MainMenuClient v6
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
@@ -18,14 +19,15 @@ end
 
 local C = {
 	bg = Color3.fromRGB(6, 7, 13),
-	card = Color3.fromRGB(10, 11, 18),
-	cardMuted = Color3.fromRGB(14, 15, 23),
-	gold = Color3.fromRGB(210, 165, 50),
+	gold = Color3.fromRGB(180, 230, 255),
+	titleColor = Color3.fromRGB(220, 235, 255),
 	text = Color3.fromRGB(220, 220, 230),
 	textMuted = Color3.fromRGB(170, 170, 190),
 	textDim = Color3.fromRGB(130, 130, 150),
 	blue = Color3.fromRGB(100, 160, 255),
 	white = Color3.fromRGB(238, 240, 248),
+	card = Color3.fromRGB(10, 11, 18),
+	cardMuted = Color3.fromRGB(14, 15, 23),
 }
 
 local activeTweens = {}
@@ -33,77 +35,45 @@ local function playTween(key, inst, info, props)
 	if activeTweens[key] then
 		activeTweens[key]:Cancel()
 	end
-	local tw = TweenService:Create(inst, info, props)
-	activeTweens[key] = tw
-	tw:Play()
-	return tw
+	local t = TweenService:Create(inst, info, props)
+	activeTweens[key] = t
+	t:Play()
+	return t
 end
 
 local function makeCorner(radius, parent)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius)
-	corner.Parent = parent
-	return corner
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = parent
+	return c
 end
 
-local function makeStroke(color, thickness, transparency, parent)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = thickness
-	stroke.Transparency = transparency
-	stroke.Parent = parent
-	return stroke
+local function makeFrame(size, pos, color, transparency, z, parent)
+	local f = Instance.new("Frame")
+	f.Size = size
+	f.Position = pos
+	f.BackgroundColor3 = color
+	f.BackgroundTransparency = transparency
+	f.BorderSizePixel = 0
+	f.ZIndex = z
+	f.Parent = parent
+	return f
 end
 
-local function makeFrame(size, position, color, transparency, z, parent)
-	local frame = Instance.new("Frame")
-	frame.Size = size
-	frame.Position = position
-	frame.BackgroundColor3 = color
-	frame.BackgroundTransparency = transparency
-	frame.BorderSizePixel = 0
-	frame.ZIndex = z
-	frame.Parent = parent
-	return frame
-end
-
-local function makeLabel(text, font, textSize, color, transparency, alignX, z, parent)
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.BorderSizePixel = 0
-	label.Text = text
-	label.Font = font
-	label.TextSize = textSize
-	label.TextColor3 = color
-	label.TextTransparency = transparency
-	label.TextXAlignment = alignX
-	label.TextYAlignment = Enum.TextYAlignment.Center
-	label.ZIndex = z
-	label.Parent = parent
-	return label
-end
-
-local function makeCardRow(parent, order)
-	local row = Instance.new("Frame")
-	row.BackgroundColor3 = C.cardMuted
-	row.BackgroundTransparency = 0
-	row.BorderSizePixel = 0
-	row.Size = UDim2.new(1, 0, 0, 0)
-	row.AutomaticSize = Enum.AutomaticSize.Y
-	row.LayoutOrder = order
-	row.ZIndex = 12
-
-	makeCorner(10, row)
-
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, 16)
-	pad.PaddingRight = UDim.new(0, 16)
-	pad.PaddingTop = UDim.new(0, 14)
-	pad.PaddingBottom = UDim.new(0, 14)
-	pad.Parent = row
-
-	row.Parent = parent
-	return row
+local function makeLabel(text, font, size, color, transparency, align, z, parent)
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.BorderSizePixel = 0
+	l.Text = text
+	l.Font = font
+	l.TextSize = size
+	l.TextColor3 = color
+	l.TextTransparency = transparency
+	l.TextXAlignment = align or Enum.TextXAlignment.Left
+	l.TextYAlignment = Enum.TextYAlignment.Center
+	l.ZIndex = z
+	l.Parent = parent
+	return l
 end
 
 local gui = Instance.new("ScreenGui")
@@ -113,14 +83,14 @@ gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = playerGui
 
--- LAYER 1: BACKGROUND
-local background = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 0, 1, gui)
+-- Shared background
+local bg = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 0, 1, gui)
 
 local leftEllipse = makeFrame(UDim2.fromOffset(600, 600), UDim2.new(0, -180, 1, 220), Color3.fromRGB(30, 18, 5), 0.75, 1, gui)
 leftEllipse.AnchorPoint = Vector2.new(0, 1)
 makeCorner(300, leftEllipse)
 
-local centerEllipse = makeFrame(UDim2.fromOffset(800, 400), UDim2.new(0.5, 0, 0.52, 0), Color3.fromRGB(8, 12, 25), 0.8, 1, gui)
+local centerEllipse = makeFrame(UDim2.fromOffset(800, 400), UDim2.new(0.5, 0, 0.5, 0), Color3.fromRGB(8, 12, 25), 0.8, 1, gui)
 centerEllipse.AnchorPoint = Vector2.new(0.5, 0.5)
 makeCorner(200, centerEllipse)
 
@@ -134,651 +104,538 @@ for i = 1, 8 do
 	stripe.Rotation = 25
 end
 
-local bottomVignette = makeFrame(UDim2.new(1, 0, 0, 200), UDim2.new(0, 0, 1, -200), C.bg, 0.08, 1, gui)
-local bottomGrad = Instance.new("UIGradient")
-bottomGrad.Rotation = 90
-bottomGrad.Transparency = NumberSequence.new({
+local vignette = makeFrame(UDim2.new(1, 0, 0, 200), UDim2.new(0, 0, 1, -200), C.bg, 0.1, 1, gui)
+local vignetteGrad = Instance.new("UIGradient")
+vignetteGrad.Rotation = 90
+vignetteGrad.Transparency = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 1),
 	NumberSequenceKeypoint.new(1, 0.1),
 })
-bottomGrad.Parent = bottomVignette
+vignetteGrad.Parent = vignette
 
--- LAYER 2: PARTICLES
+-- Particles layer
 local particlesLayer = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 2, gui)
 
-local function animateParticle(particle)
+local function animateParticle(p)
 	task.spawn(function()
 		task.wait(math.random() * 5)
-		while gui.Parent do
+		while gui.Enabled do
 			local sx = math.random(5, 95) / 100
-			local startY = 1 + (math.random(0, 25) / 100)
+			local startY = 1 + (math.random(0, 20) / 100)
 			local endY = startY - (math.random(80, 140) / math.max(gui.AbsoluteSize.Y, 1))
 			local dur = math.random(60, 100) / 10
-			particle.Position = UDim2.new(sx, 0, startY, 0)
-			particle.BackgroundTransparency = 0.9
+			p.Position = UDim2.new(sx, 0, startY, 0)
+			p.BackgroundTransparency = 0.9
 
-			local inTween = TweenService:Create(particle, TweenInfo.new(dur * 0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+			local t1 = TweenService:Create(p, TweenInfo.new(dur * 0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
 				Position = UDim2.new(sx, 0, (startY + endY) * 0.5, 0),
 				BackgroundTransparency = 0.5,
 			})
-			local outTween = TweenService:Create(particle, TweenInfo.new(dur * 0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
+			local t2 = TweenService:Create(p, TweenInfo.new(dur * 0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
 				Position = UDim2.new(sx, 0, endY, 0),
 				BackgroundTransparency = 0.9,
 			})
-
-			inTween:Play()
-			inTween.Completed:Wait()
-			outTween:Play()
-			outTween.Completed:Wait()
+			t1:Play()
+			t1.Completed:Wait()
+			t2:Play()
+			t2.Completed:Wait()
 		end
 	end)
 end
 
 for _ = 1, 15 do
-	local p = makeFrame(
-		UDim2.fromOffset(3, 3),
-		UDim2.new(math.random(5, 95) / 100, 0, math.random(10, 95) / 100, 0),
-		C.gold,
-		math.random(60, 90) / 100,
-		2,
-		particlesLayer
-	)
+	local p = makeFrame(UDim2.fromOffset(3, 3), UDim2.new(math.random(), 0, math.random(), 0), C.gold, math.random(60, 90) / 100, 2, particlesLayer)
 	makeCorner(99, p)
 	animateParticle(p)
 end
 
--- LAYER 3: CARD (SCROLLINGFRAME)
-local cardShadow = makeFrame(UDim2.fromOffset(688, 708), UDim2.new(0.5, 0, 0.5, 4), Color3.new(0, 0, 0), 0.5, 9, gui)
-cardShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-makeCorner(12, cardShadow)
+-- Transition overlay
+local transitionOverlay = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 20, gui)
 
-local card = Instance.new("ScrollingFrame")
-card.Name = "MainCard"
-card.Size = UDim2.fromOffset(680, 700)
-card.Position = UDim2.new(0.5, 0, 0.5, 20)
-card.AnchorPoint = Vector2.new(0.5, 0.5)
-card.BackgroundColor3 = C.card
-card.BackgroundTransparency = 1
-card.BorderSizePixel = 0
-card.ScrollBarThickness = 0
-card.ScrollingEnabled = true
-card.AutomaticCanvasSize = Enum.AutomaticSize.Y
-card.CanvasSize = UDim2.new()
-card.ZIndex = 10
-card.Parent = gui
+-- Splash screen
+local splashScreen = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 10, gui)
+splashScreen.Visible = true
 
-makeCorner(12, card)
-makeStroke(C.gold, 1, 0.7, card)
+local splashContainer = makeFrame(UDim2.fromOffset(600, 340), UDim2.new(0.5, 0, 0.5, 0), C.bg, 1, 11, splashScreen)
+splashContainer.AnchorPoint = Vector2.new(0.5, 0.5)
 
-local cardLayout = Instance.new("UIListLayout")
-cardLayout.FillDirection = Enum.FillDirection.Vertical
-cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
-cardLayout.Padding = UDim.new(0, 10)
-cardLayout.Parent = card
+local splashLayout = Instance.new("UIListLayout")
+splashLayout.FillDirection = Enum.FillDirection.Vertical
+splashLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+splashLayout.SortOrder = Enum.SortOrder.LayoutOrder
+splashLayout.Padding = UDim.new(0, 16)
+splashLayout.Parent = splashContainer
 
--- Header section
-local header = makeFrame(UDim2.new(1, 0, 0, 180), UDim2.fromOffset(0, 0), C.card, 1, 11, card)
-header.LayoutOrder = 1
+local logoLabel = makeLabel("LIFTED", Enum.Font.GothamBlack, 96, C.titleColor, 1, Enum.TextXAlignment.Center, 12, splashContainer)
+logoLabel.Size = UDim2.new(1, 0, 0, 100)
+logoLabel.LayoutOrder = 1
 
-local headerPad = Instance.new("UIPadding")
-headerPad.PaddingLeft = UDim.new(0, 36)
-headerPad.PaddingRight = UDim.new(0, 36)
-headerPad.PaddingTop = UDim.new(0, 20)
-headerPad.PaddingBottom = UDim.new(0, 0)
-headerPad.Parent = header
+local taglineLabel = makeLabel("Steal the idol. Don't get caught.", Enum.Font.Gotham, 16, Color3.fromRGB(200, 200, 210), 1, Enum.TextXAlignment.Center, 12, splashContainer)
+taglineLabel.Size = UDim2.new(1, 0, 0, 22)
+taglineLabel.LayoutOrder = 2
 
-local early = makeLabel("EARLY ACCESS", Enum.Font.GothamBold, 11, C.gold, 0.3, Enum.TextXAlignment.Left, 12, header)
-early.Size = UDim2.new(1, 0, 0, 16)
+local ornamentFrame = makeFrame(UDim2.fromOffset(300, 20), UDim2.fromOffset(0, 0), C.bg, 1, 12, splashContainer)
+ornamentFrame.LayoutOrder = 3
 
-local logo = makeLabel("LIFTED", Enum.Font.GothamBlack, 64, C.gold, 0, Enum.TextXAlignment.Left, 12, header)
-logo.Size = UDim2.new(1, 0, 0, 72)
-logo.Position = UDim2.new(0, 0, 0, 16)
-
-local divider = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 96), C.gold, 0.6, 12, header)
-
-local tagline = makeLabel("Steal the idol. Don't get caught.", Enum.Font.Gotham, 15, Color3.fromRGB(200, 200, 210), 0.3, Enum.TextXAlignment.Left, 12, header)
-tagline.Size = UDim2.new(1, 0, 0, 20)
-tagline.Position = UDim2.new(0, 0, 0, 110)
-
-local ornament = makeFrame(UDim2.new(1, 0, 0, 20), UDim2.new(0, 0, 0, 140), C.card, 1, 12, header)
-local lineL = makeFrame(UDim2.fromOffset(80, 1), UDim2.new(0.5, -100, 0.5, 0), C.gold, 0.55, 12, ornament)
+local lineL = makeFrame(UDim2.fromOffset(80, 1), UDim2.new(0.5, -40, 0.5, 0), C.gold, 1, 12, ornamentFrame)
 lineL.AnchorPoint = Vector2.new(1, 0.5)
-local lineR = makeFrame(UDim2.fromOffset(80, 1), UDim2.new(0.5, 100, 0.5, 0), C.gold, 0.55, 12, ornament)
+local lineR = makeFrame(UDim2.fromOffset(80, 1), UDim2.new(0.5, 40, 0.5, 0), C.gold, 1, 12, ornamentFrame)
 lineR.AnchorPoint = Vector2.new(0, 0.5)
-for i = -1, 1 do
-	local d = makeFrame(UDim2.fromOffset(6, 6), UDim2.new(0.5, i * 12, 0.5, 0), C.gold, 0.55, 12, ornament)
+local diamonds = {}
+for _, xo in ipairs({-12, 0, 12}) do
+	local d = makeFrame(UDim2.fromOffset(6, 6), UDim2.new(0.5, xo, 0.5, 0), C.gold, 1, 12, ornamentFrame)
 	d.AnchorPoint = Vector2.new(0.5, 0.5)
 	d.Rotation = 45
+	table.insert(diamonds, d)
 end
 
--- Nav section
-local nav = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.card, 1, 11, card)
-nav.LayoutOrder = 2
-nav.AutomaticSize = Enum.AutomaticSize.Y
+local playButton = Instance.new("TextButton")
+playButton.AutoButtonColor = false
+playButton.BackgroundTransparency = 1
+playButton.BorderSizePixel = 0
+playButton.Size = UDim2.fromOffset(200, 44)
+playButton.Text = ""
+playButton.ZIndex = 12
+playButton.LayoutOrder = 4
+playButton.Parent = splashContainer
+makeCorner(4, playButton)
 
-local navPad = Instance.new("UIPadding")
-navPad.PaddingLeft = UDim.new(0, 24)
-navPad.PaddingRight = UDim.new(0, 24)
-navPad.PaddingTop = UDim.new(0, 10)
-navPad.PaddingBottom = UDim.new(0, 0)
-navPad.Parent = nav
+local playStroke = Instance.new("UIStroke")
+playStroke.Color = C.gold
+playStroke.Thickness = 1
+playStroke.Transparency = 1
+playStroke.Parent = playButton
 
-local menuLabel = makeLabel("MENU", Enum.Font.GothamBold, 10, Color3.fromRGB(150, 150, 170), 0.2, Enum.TextXAlignment.Left, 12, nav)
-menuLabel.Size = UDim2.new(1, 0, 0, 14)
+local playLabel = makeLabel("PRESS TO PLAY", Enum.Font.GothamBold, 12, C.gold, 1, Enum.TextXAlignment.Center, 13, playButton)
+playLabel.Size = UDim2.new(1, 0, 1, 0)
 
-local navButtonsWrap = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.new(0, 0, 0, 24), C.card, 1, 12, nav)
-navButtonsWrap.AutomaticSize = Enum.AutomaticSize.Y
-local navList = Instance.new("UIListLayout")
-navList.Padding = UDim.new(0, 8)
-navList.SortOrder = Enum.SortOrder.LayoutOrder
-navList.Parent = navButtonsWrap
+-- Menu screen
+local menuScreen = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 10, gui)
+menuScreen.Visible = false
 
--- Content section
-local contentFrame = makeFrame(UDim2.new(1, -16, 0, 0), UDim2.new(0, 8, 0, 0), C.card, 1, 11, card)
-contentFrame.LayoutOrder = 3
-contentFrame.AutomaticSize = Enum.AutomaticSize.Y
+local scanLines = {}
+for _, sy in ipairs({0.1, 0.45, 0.75}) do
+	local line = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, sy, 0), C.gold, 0.97, 3, menuScreen)
+	table.insert(scanLines, {frame = line, speed = 0.02 + math.random() * 0.015})
+end
 
-local footer = makeFrame(UDim2.new(1, 0, 0, 70), UDim2.fromOffset(0, 0), C.card, 1, 11, card)
-footer.LayoutOrder = 4
+local menuContainer = makeFrame(UDim2.fromOffset(700, 400), UDim2.new(0.5, 0, 0.5, 0), C.bg, 1, 11, menuScreen)
+menuContainer.AnchorPoint = Vector2.new(0.5, 0.5)
 
-local footerPad = Instance.new("UIPadding")
-footerPad.PaddingLeft = UDim.new(0, 16)
-footerPad.PaddingRight = UDim.new(0, 16)
-footerPad.PaddingTop = UDim.new(0, 8)
-footerPad.PaddingBottom = UDim.new(0, 8)
-footerPad.Parent = footer
+local menuContainerLayout = Instance.new("UIListLayout")
+menuContainerLayout.FillDirection = Enum.FillDirection.Horizontal
+menuContainerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+menuContainerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+menuContainerLayout.Padding = UDim.new(0, 60)
+menuContainerLayout.Parent = menuContainer
 
-local footerDivider = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 12, footer)
+local leftCol = makeFrame(UDim2.fromOffset(300, 400), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
+leftCol.LayoutOrder = 1
 
-local versionText = makeLabel("v0.1.0 · Early Access", Enum.Font.Gotham, 11, Color3.fromRGB(120, 120, 140), 0, Enum.TextXAlignment.Left, 12, footer)
-versionText.Size = UDim2.new(0, 220, 0, 16)
-versionText.Position = UDim2.new(0, 0, 0, 10)
+local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 48, C.titleColor, 0, Enum.TextXAlignment.Left, 13, leftCol)
+wordmark.Size = UDim2.new(1, 0, 0, 56)
+wordmark.Position = UDim2.new(0, 0, 0, 0)
 
-local onlineDot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(0, 0, 0, 30), C.blue, 0, 12, footer)
+local seasonLabel = makeLabel("SEASON 1 — THE CURSED TEMPLE", Enum.Font.GothamBold, 11, C.gold, 0.5, Enum.TextXAlignment.Left, 13, leftCol)
+seasonLabel.Size = UDim2.new(1, 0, 0, 16)
+seasonLabel.Position = UDim2.new(0, 0, 0, 62)
+
+local dividerLine = makeFrame(UDim2.fromOffset(180, 1), UDim2.new(0, 0, 0, 86), C.gold, 0.7, 13, leftCol)
+
+local versionLabel = makeLabel("v0.1.0 · Early Access", Enum.Font.Gotham, 11, Color3.fromRGB(120, 120, 140), 0, Enum.TextXAlignment.Left, 13, leftCol)
+versionLabel.Size = UDim2.new(1, 0, 0, 14)
+versionLabel.Position = UDim2.new(0, 0, 0, 96)
+
+local onlineDot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(0, 0, 0, 120), C.blue, 0, 13, leftCol)
 makeCorner(99, onlineDot)
-local onlineText = makeLabel("0 PLAYERS ONLINE", Enum.Font.Gotham, 11, Color3.fromRGB(150, 150, 170), 0, Enum.TextXAlignment.Left, 12, footer)
-onlineText.Size = UDim2.new(0, 180, 0, 16)
-onlineText.Position = UDim2.new(0, 10, 0, 24)
 
-local function makeFooterBtn(text, xOffset, color)
-	local btn = Instance.new("TextButton")
-	btn.AutoButtonColor = false
-	btn.BackgroundColor3 = color
-	btn.BackgroundTransparency = 0
-	btn.BorderSizePixel = 0
-	btn.Size = UDim2.fromOffset(110, 34)
-	btn.Position = UDim2.new(1, xOffset, 0, 14)
-	btn.Text = ""
-	btn.ZIndex = 12
-	makeCorner(8, btn)
-	local lbl = makeLabel(text, Enum.Font.GothamBold, 12, C.white, 0, Enum.TextXAlignment.Center, 13, btn)
-	lbl.Size = UDim2.new(1, 0, 1, 0)
-	btn.Parent = footer
-	return btn
-end
+local onlineLabel = makeLabel("0 PLAYERS ONLINE", Enum.Font.Gotham, 11, Color3.fromRGB(150, 150, 170), 0, Enum.TextXAlignment.Left, 13, leftCol)
+onlineLabel.Size = UDim2.new(1, 0, 0, 14)
+onlineLabel.Position = UDim2.new(0, 10, 0, 116)
 
-makeFooterBtn("Discord", -232, Color3.fromRGB(88, 101, 242))
-makeFooterBtn("Roblox", -116, C.gold)
+local rightCol = makeFrame(UDim2.fromOffset(340, 400), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
+rightCol.LayoutOrder = 2
 
-local currentTab = "play"
-local navDefs = {
-	{key = "play", text = "PLAY"},
-	{key = "howtoplay", text = "HOW TO PLAY"},
-	{key = "credits", text = "CREDITS"},
-}
-local navRefs = {}
+local rightColLayout = Instance.new("UIListLayout")
+rightColLayout.FillDirection = Enum.FillDirection.Vertical
+rightColLayout.SortOrder = Enum.SortOrder.LayoutOrder
+rightColLayout.Padding = UDim.new(0, 6)
+rightColLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+rightColLayout.Parent = rightCol
 
-local function styleNav(ref, selected)
-	local bg = selected and Color3.fromRGB(20, 21, 32) or Color3.fromRGB(16, 17, 26)
-	local accentT = selected and 0.1 or 0.85
-	local txt = selected and C.gold or C.text
-	local arrowColor = selected and C.gold or Color3.fromRGB(150, 150, 170)
-	local arrowT = selected and 0 or 0.4
+local optionRefs = {}
+local selectedState = "none"
 
-	playTween(ref.key .. "_bg", ref.core, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = bg})
-	playTween(ref.key .. "_ac", ref.accent, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = accentT})
-	playTween(ref.key .. "_tx", ref.label, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = txt})
-	playTween(ref.key .. "_ar", ref.arrow, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		TextColor3 = arrowColor,
-		TextTransparency = arrowT,
-	})
-end
-
-for i, def in ipairs(navDefs) do
+local function makeOption(order, num, title, subtitle, key)
 	local btn = Instance.new("TextButton")
 	btn.AutoButtonColor = false
 	btn.BackgroundTransparency = 1
 	btn.BorderSizePixel = 0
-	btn.Size = UDim2.new(1, 0, 0, 52)
-	btn.LayoutOrder = i
+	btn.Size = UDim2.fromOffset(340, 64)
+	btn.Text = ""
 	btn.ZIndex = 12
+	btn.LayoutOrder = order
 
-	local core = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), Color3.fromRGB(16, 17, 26), 0, 12, btn)
-	core.Name = "ButtonCore"
-	makeCorner(8, core)
+	local accent = makeFrame(UDim2.fromOffset(2, 64), UDim2.fromOffset(0, 0), C.gold, 0.75, 13, btn)
+	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 11, C.gold, 0.55, Enum.TextXAlignment.Left, 13, btn)
+	numLabel.Size = UDim2.fromOffset(20, 16)
+	numLabel.Position = UDim2.fromOffset(14, 8)
 
-	local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.fromScale(0, 0), C.gold, 0.85, 13, core)
-	accent.Name = "AccentBar"
+	local titleLabel = makeLabel(title, Enum.Font.GothamBlack, 22, C.white, 0, Enum.TextXAlignment.Left, 13, btn)
+	titleLabel.Size = UDim2.new(1, -80, 0, 28)
+	titleLabel.Position = UDim2.fromOffset(38, 6)
 
-	local label = makeLabel(def.text, Enum.Font.GothamBold, 14, C.text, 0, Enum.TextXAlignment.Left, 13, core)
-	label.Size = UDim2.new(1, -70, 1, 0)
-	label.Position = UDim2.new(0, 16, 0, 0)
+	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Left, 13, btn)
+	subtitleLabel.Size = UDim2.new(1, -80, 0, 18)
+	subtitleLabel.Position = UDim2.fromOffset(38, 36)
 
-	local arrow = makeLabel("›", Enum.Font.GothamBold, 18, Color3.fromRGB(150, 150, 170), 0.4, Enum.TextXAlignment.Center, 13, core)
-	arrow.Size = UDim2.new(0, 24, 1, 0)
-	arrow.Position = UDim2.new(1, -30, 0, 0)
-
-	local ref = {
-		key = def.key,
-		button = btn,
-		core = core,
-		accent = accent,
-		label = label,
-		arrow = arrow,
-	}
-	table.insert(navRefs, ref)
+	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 20, Color3.fromRGB(150, 150, 170), 0.5, Enum.TextXAlignment.Center, 13, btn)
+	arrowLabel.Size = UDim2.fromOffset(20, 20)
+	arrowLabel.AnchorPoint = Vector2.new(1, 0.5)
+	arrowLabel.Position = UDim2.new(1, -8, 0.5, 0)
 
 	btn.MouseEnter:Connect(function()
-		if currentTab ~= def.key then
-			styleNav(ref, true)
-		end
+		playTween(key .. "_a_in", accent, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.15})
+		playTween(key .. "_t_in", titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.gold})
+		playTween(key .. "_r_in", arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0, TextColor3 = C.gold})
 	end)
+
 	btn.MouseLeave:Connect(function()
-		if currentTab ~= def.key then
-			styleNav(ref, false)
-		end
+		playTween(key .. "_a_out", accent, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75})
+		playTween(key .. "_t_out", titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.white})
+		playTween(key .. "_r_out", arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5, TextColor3 = Color3.fromRGB(150, 150, 170)})
 	end)
 
-	btn.Parent = navButtonsWrap
-end
-
-local tips = {
-	"Thieves must complete the brazier sequence before extracting.",
-	"The guardian can reset progress by extinguishing lit braziers.",
-	"Split up to force the guardian out of position.",
-	"Use crouch to reduce footstep noise near the vault.",
-	"Sprint is strongest when used to cut off escape routes.",
-	"Extract only when your team is ready.",
-}
-local tipIndex = 1
-local tipLabel
-local statusPulseDot
-local searching = false
-
-local function ensureContentLayout()
-	local layout = contentFrame:FindFirstChild("ContentList")
-	if not layout then
-		layout = Instance.new("UIListLayout")
-		layout.Name = "ContentList"
-		layout.Padding = UDim.new(0, 10)
-		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		layout.Parent = contentFrame
-	end
-	return layout
-end
-
-local function clearContent()
-	for _, child in ipairs(contentFrame:GetChildren()) do
-		if not child:IsA("UIListLayout") then
-			child:Destroy()
-		end
-	end
-	statusPulseDot = nil
-	tipLabel = nil
-	searching = false
-end
-
-local function buildPlayContent()
-	ensureContentLayout()
-
-	local matchCard = makeCardRow(contentFrame, 1)
-	local left = makeLabel("4 VS 1", Enum.Font.GothamBlack, 28, C.gold, 0, Enum.TextXAlignment.Left, 13, matchCard)
-	left.Size = UDim2.new(0.45, 0, 0, 40)
-	local vLine = makeFrame(UDim2.new(0, 1, 0, 36), UDim2.new(0.5, 0, 0, 6), C.gold, 0.8, 13, matchCard)
-	local right = makeLabel("Asymmetric Heist", Enum.Font.Gotham, 13, C.textMuted, 0, Enum.TextXAlignment.Right, 13, matchCard)
-	right.Size = UDim2.new(0.48, 0, 0, 40)
-	right.Position = UDim2.new(0.52, 0, 0, 0)
-
-	local serverCard = makeCardRow(contentFrame, 2)
-	statusPulseDot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(0, 2, 0, 8), C.blue, 0, 13, serverCard)
-	makeCorner(99, statusPulseDot)
-	local s1 = makeLabel("SERVERS ONLINE", Enum.Font.GothamBold, 12, C.text, 0, Enum.TextXAlignment.Left, 13, serverCard)
-	s1.Size = UDim2.new(0.5, -8, 0, 16)
-	s1.Position = UDim2.new(0, 14, 0, 0)
-	local s2 = makeLabel("Matchmaking available", Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Right, 13, serverCard)
-	s2.Size = UDim2.new(0.48, 0, 0, 16)
-	s2.Position = UDim2.new(0.52, 0, 0, 0)
-
-	local seasonCard = makeCardRow(contentFrame, 3)
-	local seasonTitle = makeLabel("✦  SEASON 1 — The Cursed Temple", Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Left, 13, seasonCard)
-	seasonTitle.Size = UDim2.new(1, 0, 0, 18)
-	local seasonSub = makeLabel("Map 1 of many", Enum.Font.Gotham, 12, C.textMuted, 0.4, Enum.TextXAlignment.Left, 13, seasonCard)
-	seasonSub.Size = UDim2.new(1, 0, 0, 16)
-	seasonSub.Position = UDim2.new(0, 0, 0, 20)
-
-	local tipsCard = makeCardRow(contentFrame, 4)
-	tipLabel = makeLabel(tips[tipIndex], Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Left, 13, tipsCard)
-	tipLabel.Size = UDim2.new(1, 0, 0, 36)
-	tipLabel.TextWrapped = true
-
-	local findWrap = makeFrame(UDim2.new(1, 0, 0, 54), UDim2.fromOffset(0, 0), C.card, 1, 12, contentFrame)
-	findWrap.LayoutOrder = 5
-
-	local findBtn = Instance.new("TextButton")
-	findBtn.AutoButtonColor = false
-	findBtn.BackgroundColor3 = C.gold
-	findBtn.BackgroundTransparency = 0
-	findBtn.BorderSizePixel = 0
-	findBtn.Size = UDim2.new(1, 0, 1, 0)
-	findBtn.Text = ""
-	findBtn.ZIndex = 13
-	makeCorner(10, findBtn)
-
-	local findLbl = makeLabel("FIND MATCH", Enum.Font.GothamBlack, 15, Color3.fromRGB(8, 8, 12), 0, Enum.TextXAlignment.Center, 14, findBtn)
-	findLbl.Size = UDim2.new(1, 0, 1, 0)
-
-	findBtn.MouseEnter:Connect(function()
-		playTween("find_hover", findBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(225, 180, 70)})
+	btn.MouseButton1Down:Connect(function()
+		playTween(key .. "_press", btn, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(334, 62)})
 	end)
-	findBtn.MouseLeave:Connect(function()
-		playTween("find_leave", findBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = C.gold})
-	end)
-	findBtn.MouseButton1Down:Connect(function()
-		playTween("find_press", findBtn, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0.97, 0, 0.97, 0), Position = UDim2.new(0.015, 0, 0.015, 0)})
-	end)
-	findBtn.MouseButton1Up:Connect(function()
-		playTween("find_release", findBtn, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0)})
-	end)
-	findBtn.Activated:Connect(function()
-		if searching then
-			return
-		end
-		searching = true
-		playClickedBindable:Fire()
-		task.spawn(function()
-			local dots = 0
-			while searching and gui.Enabled do
-				dots = (dots % 3) + 1
-				findLbl.Text = "SEARCHING" .. string.rep(".", dots)
-				task.wait(0.28)
-			end
-		end)
-		task.delay(0.6, function()
-			if not gui.Parent then
-				return
-			end
-			playTween("hide_card", card, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				Position = UDim2.new(0.5, 0, 0.5, 20),
-				BackgroundTransparency = 1,
-			})
-			playTween("hide_shadow", cardShadow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				Position = UDim2.new(0.5, 0, 0.5, 24),
-				BackgroundTransparency = 1,
-			})
-			task.delay(0.34, function()
-				if gui.Parent then
-					gui.Enabled = false
-				end
-			end)
-		end)
+	btn.MouseButton1Up:Connect(function()
+		playTween(key .. "_rel", btn, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(340, 64)})
 	end)
 
-	findBtn.Parent = findWrap
-	findWrap.Parent = contentFrame
+	btn.Parent = rightCol
+	optionRefs[key] = {button = btn, accent = accent, title = titleLabel, subtitle = subtitleLabel, arrow = arrowLabel, num = numLabel}
+	return btn
 end
 
-local function buildHowToPlayContent()
-	ensureContentLayout()
+local findMatchBtn = makeOption(1, "01", "FIND MATCH", "Join a public match", "find")
+local howToBtn = makeOption(2, "02", "HOW TO PLAY", "Rules and mechanics", "how")
+local creditsBtn = makeOption(3, "03", "CREDITS", "The team behind Lifted", "credits")
 
-	local head = makeFrame(UDim2.new(1, 0, 0, 62), UDim2.fromOffset(0, 0), C.card, 1, 12, contentFrame)
-	head.LayoutOrder = 1
-	local h1 = makeLabel("HOW TO PLAY", Enum.Font.GothamBlack, 20, C.text, 0, Enum.TextXAlignment.Left, 13, head)
-	h1.Size = UDim2.new(1, 0, 0, 24)
-	local h2 = makeLabel("Master the heist. Outsmart the guardian.", Enum.Font.Gotham, 13, C.textMuted, 0, Enum.TextXAlignment.Left, 13, head)
-	h2.Size = UDim2.new(1, 0, 0, 18)
-	h2.Position = UDim2.new(0, 0, 0, 26)
-	local line = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 52), C.gold, 0.65, 13, head)
+-- Overlays
+local function makeOverlay(name, titleText)
+	local overlay = makeFrame(UDim2.fromScale(1, 1), UDim2.new(1, 0, 0, 0), C.bg, 0, 20, gui)
+	overlay.Visible = false
+	overlay.Name = name
 
-	local rules = {
-		{"01", "THE OBJECTIVE", "4 thieves infiltrate the cursed temple, solve the brazier puzzle, steal the golden idol, and extract before the timer expires."},
-		{"02", "THE BRAZIER PUZZLE", "Press F near a brazier to light it. All 4 must be lit in sequence. Wrong order resets your progress. The guardian can extinguish lit braziers."},
-		{"03", "THE GUARDIAN", "Hunt the thieves. Press E to catch them. Press F to extinguish braziers. Sprint with Shift — 10 second cooldown."},
-	}
+	local backBtn = Instance.new("TextButton")
+	backBtn.AutoButtonColor = false
+	backBtn.BackgroundColor3 = Color3.fromRGB(10, 11, 18)
+	backBtn.BackgroundTransparency = 0.3
+	backBtn.BorderSizePixel = 0
+	backBtn.Size = UDim2.fromOffset(120, 36)
+	backBtn.Position = UDim2.new(0, 32, 0, 48)
+	backBtn.Text = ""
+	backBtn.ZIndex = 25
+	makeCorner(6, backBtn)
 
-	for i, rule in ipairs(rules) do
-		local row = makeCardRow(contentFrame, i + 1)
-		local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 0.15, 13, row)
-		local num = makeLabel(rule[1], Enum.Font.GothamBlack, 28, C.gold, 0.25, Enum.TextXAlignment.Left, 13, row)
-		num.Size = UDim2.new(0, 54, 0, 32)
-		local title = makeLabel(rule[2], Enum.Font.GothamBold, 14, C.text, 0, Enum.TextXAlignment.Left, 13, row)
-		title.Size = UDim2.new(1, -80, 0, 20)
-		title.Position = UDim2.new(0, 64, 0, 0)
-		local body = makeLabel(rule[3], Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Left, 13, row)
-		body.Size = UDim2.new(1, -80, 0, 0)
-		body.Position = UDim2.new(0, 64, 0, 22)
-		body.TextWrapped = true
-		body.AutomaticSize = Enum.AutomaticSize.Y
-	end
+	local backLabel = makeLabel("← BACK", Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Left, 22, backBtn)
+	backLabel.Size = UDim2.new(1, 0, 1, 0)
+	backLabel.TextTransparency = 0
+
+	backBtn.Parent = overlay
+
+	local title = makeLabel(titleText, Enum.Font.GothamBlack, 32, C.white, 0, Enum.TextXAlignment.Center, 21, overlay)
+	title.Size = UDim2.new(1, 0, 0, 50)
+	title.Position = UDim2.new(0, 0, 0, 70)
+
+	local content = makeFrame(UDim2.fromOffset(680, 420), UDim2.new(0.5, 0, 0.5, 40), C.bg, 1, 21, overlay)
+	content.AnchorPoint = Vector2.new(0.5, 0.5)
+	local contentPad = Instance.new("UIPadding")
+	contentPad.PaddingTop = UDim.new(0, 80)
+	contentPad.Parent = content
+
+	return overlay, backBtn, content, contentPad
 end
 
-local function buildCreditsContent()
-	ensureContentLayout()
+local howOverlay, howBackBtn, howContent, howContentPad = makeOverlay("HowOverlay", "HOW TO PLAY")
+local creditsOverlay, creditsBackBtn, creditsContent, creditsContentPad = makeOverlay("CreditsOverlay", "CREDITS")
+creditsContentPad.PaddingLeft = UDim.new(0, 40)
+creditsContentPad.PaddingRight = UDim.new(0, 40)
+creditsContentPad.PaddingTop = UDim.new(0, 100)
 
-	local head = makeFrame(UDim2.new(1, 0, 0, 62), UDim2.fromOffset(0, 0), C.card, 1, 12, contentFrame)
-	head.LayoutOrder = 1
-	local h1 = makeLabel("CREDITS", Enum.Font.GothamBlack, 20, C.text, 0, Enum.TextXAlignment.Left, 13, head)
-	h1.Size = UDim2.new(1, 0, 0, 24)
-	local h2 = makeLabel("An independent game by two developers.", Enum.Font.Gotham, 13, C.textMuted, 0, Enum.TextXAlignment.Left, 13, head)
-	h2.Size = UDim2.new(1, 0, 0, 18)
-	h2.Position = UDim2.new(0, 0, 0, 26)
-	local line = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 52), C.gold, 0.65, 13, head)
-
-	local devRow = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.card, 1, 12, contentFrame)
-	devRow.LayoutOrder = 2
-	devRow.AutomaticSize = Enum.AutomaticSize.Y
-	local list = Instance.new("UIListLayout")
-	list.FillDirection = Enum.FillDirection.Horizontal
-	list.Padding = UDim.new(0, 10)
-	list.Parent = devRow
-
-	local function devCard(order, name, role, roleColor, detail, note, dotColor)
-		local cardDev = makeFrame(UDim2.new(0.5, -5, 0, 0), UDim2.fromOffset(0, 0), C.cardMuted, 0, 12, devRow)
-		cardDev.LayoutOrder = order
-		cardDev.AutomaticSize = Enum.AutomaticSize.Y
-		makeCorner(10, cardDev)
-		local pad = Instance.new("UIPadding")
-		pad.PaddingLeft = UDim.new(0, 18)
-		pad.PaddingRight = UDim.new(0, 18)
-		pad.PaddingTop = UDim.new(0, 16)
-		pad.PaddingBottom = UDim.new(0, 16)
-		pad.Parent = cardDev
-		local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.fromScale(0, 0), C.gold, 0.15, 13, cardDev)
-		local dot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(1, -12, 0, 6), dotColor, 0, 13, cardDev)
-		makeCorner(99, dot)
-		local n = makeLabel(name, Enum.Font.GothamBlack, 15, C.text, 0, Enum.TextXAlignment.Left, 13, cardDev)
-		n.Size = UDim2.new(1, -8, 0, 20)
-		local r = makeLabel(role, Enum.Font.GothamBold, 12, roleColor, 0, Enum.TextXAlignment.Left, 13, cardDev)
-		r.Size = UDim2.new(1, 0, 0, 18)
-		r.Position = UDim2.new(0, 0, 0, 22)
-		local d = makeLabel(detail, Enum.Font.Gotham, 11, C.textMuted, 0, Enum.TextXAlignment.Left, 13, cardDev)
-		d.Size = UDim2.new(1, 0, 0, 30)
-		d.Position = UDim2.new(0, 0, 0, 42)
-		d.TextWrapped = true
-		if note then
-			local nt = makeLabel(note, Enum.Font.Gotham, 11, C.textDim, 0, Enum.TextXAlignment.Left, 13, cardDev)
-			nt.Size = UDim2.new(1, 0, 0, 16)
-			nt.Position = UDim2.new(0, 0, 0, 74)
-		end
-	end
-
-	devCard(1, "CHARLIE MARTIN", "Lead Developer & Game Designer", C.gold, "Core systems · Networking · Game logic · UI", "16 y/o indie developer", C.gold)
-	devCard(2, "MARTIN JARSKY", "World Builder & Visual Designer", C.blue, "Map design · Lighting · Asset pipeline", nil, C.blue)
-
-	local stats = makeCardRow(contentFrame, 3)
-	local cols = makeFrame(UDim2.new(1, 0, 0, 38), UDim2.fromOffset(0, 0), C.cardMuted, 1, 13, stats)
-	local colsList = Instance.new("UIListLayout")
-	colsList.FillDirection = Enum.FillDirection.Horizontal
-	colsList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	colsList.VerticalAlignment = Enum.VerticalAlignment.Center
-	colsList.Parent = cols
-	local function statCol(text)
-		local c = makeFrame(UDim2.new(1/3, -4, 1, 0), UDim2.fromOffset(0, 0), C.cardMuted, 1, 13, cols)
-		local label = makeLabel(text, Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Center, 14, c)
-		label.Size = UDim2.new(1, 0, 1, 0)
-	end
-	statCol("MAPS: 1")
-	statCol("MODES: 1")
-	statCol("SEASON: 1")
+local function makeRuleCard(parent, order, num, title, body)
+	local card = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.cardMuted, 0, 22, parent)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.LayoutOrder = order
+	makeCorner(10, card)
+	local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.fromOffset(0, 0), C.gold, 0.15, 23, card)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 16)
+	pad.PaddingRight = UDim.new(0, 16)
+	pad.PaddingTop = UDim.new(0, 14)
+	pad.PaddingBottom = UDim.new(0, 14)
+	pad.Parent = card
+	local n = makeLabel(num, Enum.Font.GothamBlack, 28, C.gold, 0.25, Enum.TextXAlignment.Left, 23, card)
+	n.Size = UDim2.fromOffset(52, 32)
+	local t = makeLabel(title, Enum.Font.GothamBold, 14, C.text, 0, Enum.TextXAlignment.Left, 23, card)
+	t.Size = UDim2.new(1, -72, 0, 20)
+	t.Position = UDim2.fromOffset(60, 0)
+	local b = makeLabel(body, Enum.Font.Gotham, 12, C.textMuted, 0, Enum.TextXAlignment.Left, 23, card)
+	b.Size = UDim2.new(1, -72, 0, 0)
+	b.Position = UDim2.fromOffset(60, 22)
+	b.TextWrapped = true
+	b.AutomaticSize = Enum.AutomaticSize.Y
+	card.Parent = parent
 end
 
-local function setContentVisualAlpha(alpha)
-	for _, d in ipairs(contentFrame:GetDescendants()) do
-		if d:IsA("TextLabel") then
-			d.TextTransparency = alpha
-		elseif d:IsA("Frame") then
-			d.BackgroundTransparency = math.clamp((d:GetAttribute("BaseTransparency") or 0) + alpha, 0, 1)
-		end
-	end
-end
+local howList = Instance.new("UIListLayout")
+howList.Padding = UDim.new(0, 10)
+howList.SortOrder = Enum.SortOrder.LayoutOrder
+howList.Parent = howContent
 
-local function cacheBaseTransparency(root)
-	for _, d in ipairs(root:GetDescendants()) do
-		if d:IsA("Frame") then
-			d:SetAttribute("BaseTransparency", d.BackgroundTransparency)
-		end
-	end
-end
+makeRuleCard(howContent, 1, "01", "THE OBJECTIVE", "4 thieves infiltrate the cursed temple, solve the brazier puzzle, steal the golden idol, and extract before the timer expires.")
+makeRuleCard(howContent, 2, "02", "THE BRAZIER PUZZLE", "Press F near a brazier to light it. All 4 must be lit in sequence. Wrong order resets your progress. The guardian can extinguish lit braziers.")
+makeRuleCard(howContent, 3, "03", "THE GUARDIAN", "Hunt the thieves. Press E to catch them. Press F to extinguish braziers. Sprint with Shift — 10 second cooldown.")
 
-local function fadeSwap(builder)
-	for _, d in ipairs(contentFrame:GetDescendants()) do
-		if d:IsA("TextLabel") then
-			playTween("fade_out_text_" .. d:GetDebugId(), d, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1})
-		elseif d:IsA("Frame") and d ~= contentFrame then
-			playTween("fade_out_bg_" .. d:GetDebugId(), d, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
-		end
-	end
+local creditsList = Instance.new("UIListLayout")
+creditsList.Padding = UDim.new(0, 10)
+creditsList.SortOrder = Enum.SortOrder.LayoutOrder
+creditsList.Parent = creditsContent
 
-	task.delay(0.11, function()
-		if not gui.Parent then
-			return
-		end
-		clearContent()
-		builder()
-		cacheBaseTransparency(contentFrame)
-		setContentVisualAlpha(1)
-		for _, d in ipairs(contentFrame:GetDescendants()) do
-			if d:IsA("TextLabel") then
-				playTween("fade_in_text_" .. d:GetDebugId(), d, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-			elseif d:IsA("Frame") and d ~= contentFrame then
-				local target = d:GetAttribute("BaseTransparency") or 0
-				playTween("fade_in_bg_" .. d:GetDebugId(), d, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = target})
-			end
-		end
-	end)
-end
+local devRow = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.bg, 1, 22, creditsContent)
+devRow.LayoutOrder = 1
+devRow.AutomaticSize = Enum.AutomaticSize.Y
+local devRowList = Instance.new("UIListLayout")
+devRowList.FillDirection = Enum.FillDirection.Horizontal
+devRowList.Padding = UDim.new(0, 10)
+devRowList.Parent = devRow
 
-local function selectTab(key)
-	currentTab = key
-	for _, ref in ipairs(navRefs) do
-		styleNav(ref, ref.key == key)
-	end
-
-	if key == "play" then
-		fadeSwap(buildPlayContent)
-	elseif key == "howtoplay" then
-		fadeSwap(buildHowToPlayContent)
-	else
-		fadeSwap(buildCreditsContent)
+local function makeDevCard(parent, order, name, role, roleColor, detail, note, dotColor)
+		local card = makeFrame(UDim2.new(0.5, -15, 0, 0), UDim2.fromOffset(0, 0), C.cardMuted, 0, 23, parent)
+	card.LayoutOrder = order
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	makeCorner(10, card)
+	local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.fromOffset(0, 0), C.gold, 0.15, 24, card)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 18)
+	pad.PaddingRight = UDim.new(0, 18)
+	pad.PaddingTop = UDim.new(0, 16)
+	pad.PaddingBottom = UDim.new(0, 16)
+	pad.Parent = card
+	local dot = makeFrame(UDim2.fromOffset(5, 5), UDim2.new(1, -12, 0, 6), dotColor, 0, 24, card)
+	makeCorner(99, dot)
+	local n = makeLabel(name, Enum.Font.GothamBlack, 15, C.text, 0, Enum.TextXAlignment.Left, 24, card)
+	n.Size = UDim2.new(1, -8, 0, 20)
+	local r = makeLabel(role, Enum.Font.GothamBold, 12, roleColor, 0, Enum.TextXAlignment.Left, 24, card)
+	r.Size = UDim2.new(1, 0, 0, 18)
+	r.Position = UDim2.fromOffset(0, 22)
+	local d = makeLabel(detail, Enum.Font.Gotham, 11, C.textMuted, 0, Enum.TextXAlignment.Left, 24, card)
+	d.Size = UDim2.new(1, 0, 0, 30)
+	d.Position = UDim2.fromOffset(0, 42)
+	d.TextWrapped = true
+	if note then
+		local nt = makeLabel(note, Enum.Font.Gotham, 11, C.textDim, 0, Enum.TextXAlignment.Left, 24, card)
+		nt.Size = UDim2.new(1, 0, 0, 16)
+		nt.Position = UDim2.fromOffset(0, 74)
 	end
 end
 
-for _, ref in ipairs(navRefs) do
-	ref.button.Activated:Connect(function()
-		if currentTab ~= ref.key then
-			selectTab(ref.key)
-		end
-	end)
+makeDevCard(devRow, 1, "CHARLIE MARTIN", "Lead Developer & Game Designer", C.gold, "Core systems · Networking · Game logic · UI", "16 y/o indie developer", C.gold)
+makeDevCard(devRow, 2, "MARTIN JARSKY", "World Builder & Visual Designer", C.blue, "Map design · Lighting · Asset pipeline", nil, C.blue)
+
+local statsRow = makeFrame(UDim2.new(1, 0, 0, 66), UDim2.fromOffset(0, 0), C.cardMuted, 0, 22, creditsContent)
+statsRow.LayoutOrder = 2
+makeCorner(10, statsRow)
+local statsList = Instance.new("UIListLayout")
+statsList.FillDirection = Enum.FillDirection.Horizontal
+statsList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+statsList.VerticalAlignment = Enum.VerticalAlignment.Center
+statsList.Parent = statsRow
+for _, text in ipairs({"MAPS: 1", "MODES: 1", "SEASON: 1"}) do
+	local col = makeFrame(UDim2.new(1/3, -4, 1, 0), UDim2.fromOffset(0, 0), C.cardMuted, 1, 23, statsRow)
+	local lbl = makeLabel(text, Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Center, 24, col)
+	lbl.Size = UDim2.new(1, 0, 1, 0)
 end
 
-selectTab("play")
-
-local menuHidden = false
-local function hideMenu()
-	if menuHidden then
-		return
-	end
-	menuHidden = true
-	playTween("hide_card", card, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		Position = UDim2.new(0.5, 0, 0.5, 20),
-		BackgroundTransparency = 1,
+local function openOverlay(overlay)
+	overlay.Visible = true
+	overlay.Position = UDim2.new(1, 0, 0, 0)
+	playTween("open_" .. overlay.Name, overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0, 0, 0, 0),
 	})
-	playTween("hide_shadow", cardShadow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		Position = UDim2.new(0.5, 0, 0.5, 24),
-		BackgroundTransparency = 1,
+end
+
+local function closeOverlay(overlay)
+	playTween("close_" .. overlay.Name, overlay, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+		Position = UDim2.new(1, 0, 0, 0),
 	})
-	task.delay(0.34, function()
+	task.delay(0.26, function()
+		overlay.Visible = false
+	end)
+end
+
+howBackBtn.Activated:Connect(function()
+	closeOverlay(howOverlay)
+end)
+creditsBackBtn.Activated:Connect(function()
+	closeOverlay(creditsOverlay)
+end)
+
+local function menuEntrance()
+	leftCol.Position = UDim2.fromOffset(-40, 0)
+	wordmark.TextTransparency = 1
+	seasonLabel.TextTransparency = 1
+	versionLabel.TextTransparency = 1
+	onlineLabel.TextTransparency = 1
+	for _, d in ipairs(leftCol:GetDescendants()) do
+		if d:IsA("TextLabel") then
+			d.TextTransparency = 1
+		end
+	end
+	playTween("left_pos_in", leftCol, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(0, 0)})
+	playTween("left_wordmark_in", wordmark, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+	playTween("left_season_in", seasonLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
+	playTween("left_version_in", versionLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+	playTween("left_online_in", onlineLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+	for _, d in ipairs(leftCol:GetDescendants()) do
+		if d:IsA("TextLabel") then
+			playTween("left_txt_" .. d:GetDebugId(), d, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+		end
+	end
+
+	for i, key in ipairs({"find", "how", "credits"}) do
+		local ref = optionRefs[key]
+		ref.button.Position = UDim2.fromOffset(40, 0)
+		ref.title.TextTransparency = 1
+		ref.subtitle.TextTransparency = 1
+		ref.num.TextTransparency = 1
+		ref.arrow.TextTransparency = 1
+		ref.accent.BackgroundTransparency = 1
+		task.delay((i - 1) * 0.06, function()
+			playTween(key .. "_btn_pos_in", ref.button, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(0, 0)})
+			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+			playTween(key .. "_sub_in", ref.subtitle, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.55})
+			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
+			playTween(key .. "_acc_in", ref.accent, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75})
+		end)
+	end
+end
+
+local function transitionSplashToMenu()
+	playTween("overlay_in", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		BackgroundTransparency = 0,
+	})
+	task.delay(0.3, function()
+		splashScreen.Visible = false
+		menuScreen.Visible = true
+		playTween("overlay_out", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 1,
+		})
+		task.delay(0.35, function()
+			menuEntrance()
+		end)
+	end)
+end
+
+playButton.MouseEnter:Connect(function()
+	playTween("play_stroke_in", playStroke, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.1})
+	playTween("play_label_in", playLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
+end)
+
+playButton.MouseLeave:Connect(function()
+	playTween("play_stroke_out", playStroke, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.5})
+	playTween("play_label_out", playLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
+end)
+
+playButton.MouseButton1Down:Connect(function()
+	playTween("play_btn_press", playButton, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(194, 42)})
+end)
+playButton.MouseButton1Up:Connect(function()
+	playTween("play_btn_release", playButton, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(200, 44)})
+end)
+
+playButton.Activated:Connect(function()
+	transitionSplashToMenu()
+end)
+
+findMatchBtn.Activated:Connect(function()
+	playClickedBindable:Fire()
+	playTween("menu_hide", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("bg_hide", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	task.delay(0.3, function()
 		if gui.Parent then
 			gui.Enabled = false
 		end
 	end)
-end
-
-roleAssignedRemote.OnClientEvent:Connect(hideMenu)
-
-cacheBaseTransparency(contentFrame)
-
--- ENTRANCE ANIMATION
-card.Position = UDim2.new(0.5, 0, 0.5, 20)
-card.BackgroundTransparency = 1
-cardShadow.Position = UDim2.new(0.5, 0, 0.5, 24)
-cardShadow.BackgroundTransparency = 1
-
-task.delay(0.1, function()
-	if not gui.Parent then
-		return
-	end
-	playTween("enter_card", card, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-		Position = UDim2.new(0.5, 0, 0.5, 0),
-		BackgroundTransparency = 0,
-	})
-	playTween("enter_shadow", cardShadow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-		Position = UDim2.new(0.5, 0, 0.5, 4),
-		BackgroundTransparency = 0.5,
-	})
 end)
 
-local pulseT = 0
-local tipT = 0
-local arrowPulse = 0
-local navArrowBase = 18
+howToBtn.Activated:Connect(function()
+	openOverlay(howOverlay)
+end)
 
-local run = game:GetService("RunService")
-run.Heartbeat:Connect(function(dt)
-	pulseT += dt
-	tipT += dt
-	arrowPulse += dt
+creditsBtn.Activated:Connect(function()
+	openOverlay(creditsOverlay)
+end)
 
-	onlineDot.BackgroundTransparency = 0.2 + (math.sin(pulseT * 3.2) * 0.2 + 0.2)
-	if statusPulseDot then
-		statusPulseDot.BackgroundTransparency = 0.1 + (math.sin(pulseT * 4) * 0.2 + 0.2)
-	end
+-- Splash entrance
+splashContainer.Position = UDim2.new(0.5, 0, 0.5, 30)
+logoLabel.TextTransparency = 1
+taglineLabel.TextTransparency = 1
+lineL.BackgroundTransparency = 1
+lineR.BackgroundTransparency = 1
+for _, d in ipairs(diamonds) do
+	d.BackgroundTransparency = 1
+end
+playStroke.Transparency = 1
+playLabel.TextTransparency = 1
 
-	for _, ref in ipairs(navRefs) do
-		if ref.key == currentTab then
-			ref.arrow.TextSize = navArrowBase + math.floor((math.sin(arrowPulse * 4) + 1) * 1)
+task.delay(0.2, function()
+	playTween("splash_logo", logoLabel, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+	playTween("splash_container", splashContainer, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 0, 0.5, 0)})
+
+	task.delay(0.15, function()
+		playTween("splash_tag", taglineLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.35})
+	end)
+
+	task.delay(0.25, function()
+		playTween("orn_l", lineL, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55})
+		playTween("orn_r", lineR, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55})
+		for i, d in ipairs(diamonds) do
+			playTween("orn_d_" .. i, d, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55})
 		end
-	end
+	end)
 
-	if tipLabel and currentTab == "play" and tipT >= 5 then
-		tipT = 0
-		tipIndex = (tipIndex % #tips) + 1
-		playTween("tip_out", tipLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1})
-		task.delay(0.13, function()
-			if tipLabel and currentTab == "play" then
-				tipLabel.Text = tips[tipIndex]
-				tipLabel.TextTransparency = 1
-				playTween("tip_in", tipLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-			end
-		end)
+	task.delay(0.4, function()
+		playTween("play_stroke_default", playStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.5})
+		playTween("play_label_default", playLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
+	end)
+end)
+
+-- Heartbeat: online dot pulse + scan line drift only
+RunService.Heartbeat:Connect(function(dt)
+	local t = os.clock()
+	onlineDot.BackgroundTransparency = 0.15 + (math.sin(t * 3.2) * 0.2 + 0.2)
+
+	for _, s in ipairs(scanLines) do
+		local p = s.frame.Position
+		local ny = p.Y.Scale + s.speed * dt
+		if ny > 1 then
+			ny = 0
+		end
+		s.frame.Position = UDim2.new(0, 0, ny, 0)
 	end
+end)
+
+roleAssignedRemote.OnClientEvent:Connect(function()
+	playTween("full_fade_bg", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("full_fade_splash", splashScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("full_fade_menu", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("full_fade_overlay", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	task.delay(0.3, function()
+		if gui.Parent then
+			gui.Enabled = false
+		end
+	end)
 end)
