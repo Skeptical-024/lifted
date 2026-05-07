@@ -86,7 +86,7 @@ gui.Parent = playerGui
 -- Shared background
 local bg = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 0, 1, gui)
 
-local leftEllipse = makeFrame(UDim2.fromOffset(600, 600), UDim2.new(0, -180, 1, 220), Color3.fromRGB(30, 18, 5), 0.75, 1, gui)
+local leftEllipse = makeFrame(UDim2.fromOffset(600, 600), UDim2.new(0, -180, 1, 220), Color3.fromRGB(30, 18, 5), 0.92, 1, gui)
 leftEllipse.AnchorPoint = Vector2.new(0, 1)
 makeCorner(300, leftEllipse)
 
@@ -139,21 +139,17 @@ task.spawn(function()
 	local up = true
 	while gui.Enabled do
 		if up then
-			local t1 = TweenService:Create(leftEllipse, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.60, BackgroundColor3 = Color3.fromRGB(45, 25, 6)})
 			local t2 = TweenService:Create(centerEllipse, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.65})
 			local t3 = TweenService:Create(rightEllipse, TweenInfo.new(5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.63})
-			t1:Play()
 			t2:Play()
 			t3:Play()
-			t1.Completed:Wait()
+			t2.Completed:Wait()
 		else
-			local t1 = TweenService:Create(leftEllipse, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.90, BackgroundColor3 = Color3.fromRGB(30, 18, 5)})
 			local t2 = TweenService:Create(centerEllipse, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.95})
 			local t3 = TweenService:Create(rightEllipse, TweenInfo.new(5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.93})
-			t1:Play()
 			t2:Play()
 			t3:Play()
-			t1.Completed:Wait()
+			t2.Completed:Wait()
 		end
 		up = not up
 	end
@@ -274,17 +270,17 @@ for _, sy in ipairs({0.1, 0.45, 0.75}) do
 	table.insert(scanLines, {frame = line, speed = 0.02 + math.random() * 0.015})
 end
 
-local menuContainer = makeFrame(UDim2.fromOffset(860, 480), UDim2.new(0.5, 0, 0.5, 0), C.bg, 1, 11, menuScreen)
+local menuContainer = makeFrame(UDim2.fromOffset(1000, 520), UDim2.new(0.5, 0, 0.5, 0), C.bg, 1, 11, menuScreen)
 menuContainer.AnchorPoint = Vector2.new(0.5, 0.5)
 
 local menuContainerLayout = Instance.new("UIListLayout")
 menuContainerLayout.FillDirection = Enum.FillDirection.Horizontal
 menuContainerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 menuContainerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-menuContainerLayout.Padding = UDim.new(0, 70)
+menuContainerLayout.Padding = UDim.new(0, 100)
 menuContainerLayout.Parent = menuContainer
 
-local leftCol = makeFrame(UDim2.fromOffset(370, 480), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
+local leftCol = makeFrame(UDim2.fromOffset(400, 520), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
 leftCol.LayoutOrder = 1
 
 local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 60, C.titleColor, 0, Enum.TextXAlignment.Left, 13, leftCol)
@@ -308,7 +304,7 @@ local onlineLabel = makeLabel("0 PLAYERS ONLINE", Enum.Font.Gotham, 11, Color3.f
 onlineLabel.Size = UDim2.new(1, 0, 0, 14)
 onlineLabel.Position = UDim2.new(0, 10, 0, 116)
 
-local rightCol = makeFrame(UDim2.fromOffset(420, 480), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
+local rightCol = makeFrame(UDim2.fromOffset(500, 520), UDim2.fromOffset(0, 0), C.bg, 1, 12, menuContainer)
 rightCol.LayoutOrder = 2
 
 local rightColLayout = Instance.new("UIListLayout")
@@ -417,6 +413,8 @@ end
 
 local howOverlay, howBackBtn, howContent, howContentPad = makeOverlay("HowOverlay", "HOW TO PLAY")
 local creditsOverlay, creditsBackBtn, creditsContent, creditsContentPad = makeOverlay("CreditsOverlay", "CREDITS")
+howContent.ClipsDescendants = false
+howContent.Size = UDim2.new(1, 0, 0, 0)
 howContent.AutomaticSize = Enum.AutomaticSize.Y
 creditsContentPad.PaddingLeft = UDim.new(0, 40)
 creditsContentPad.PaddingRight = UDim.new(0, 40)
