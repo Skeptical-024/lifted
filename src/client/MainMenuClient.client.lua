@@ -399,11 +399,15 @@ local function makeOverlay(name, titleText)
 	backBtn.Parent = overlay
 
 	local title = makeLabel(titleText, Enum.Font.GothamBlack, 32, C.white, 0, Enum.TextXAlignment.Center, 21, overlay)
-	title.Size = UDim2.new(1, 0, 0, 50)
-	title.Position = UDim2.new(0, 0, 0, 70)
+	title.AnchorPoint = Vector2.new(0.5, 0)
+	title.TextXAlignment = Enum.TextXAlignment.Center
+	title.Size = UDim2.fromOffset(700, 40)
+	title.Position = UDim2.new(0.5, 0, 0, 50)
 
-	local content = makeFrame(UDim2.fromOffset(680, 420), UDim2.new(0.5, 0, 0.5, 40), C.bg, 1, 21, overlay)
-	content.AnchorPoint = Vector2.new(0.5, 0.5)
+	local content = makeFrame(UDim2.fromOffset(700, 0), UDim2.new(0.5, 0, 0, 120), C.bg, 1, 21, overlay)
+	content.AnchorPoint = Vector2.new(0.5, 0)
+	content.AutomaticSize = Enum.AutomaticSize.Y
+	content.ClipsDescendants = false
 	local contentPad = Instance.new("UIPadding")
 	contentPad.PaddingTop = UDim.new(0, 80)
 	contentPad.Parent = content
@@ -413,12 +417,8 @@ end
 
 local howOverlay, howBackBtn, howContent, howContentPad = makeOverlay("HowOverlay", "HOW TO PLAY")
 local creditsOverlay, creditsBackBtn, creditsContent, creditsContentPad = makeOverlay("CreditsOverlay", "CREDITS")
-howContent.ClipsDescendants = false
-howContent.Size = UDim2.new(1, 0, 0, 0)
-howContent.AutomaticSize = Enum.AutomaticSize.Y
-creditsContentPad.PaddingLeft = UDim.new(0, 40)
-creditsContentPad.PaddingRight = UDim.new(0, 40)
-creditsContentPad.PaddingTop = UDim.new(0, 100)
+howContentPad.PaddingTop = UDim.new(0, 0)
+creditsContentPad.PaddingTop = UDim.new(0, 0)
 
 local function makeRuleCard(parent, order, num, title, body)
 	local card = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.cardMuted, 0, 22, parent)
@@ -446,7 +446,7 @@ local function makeRuleCard(parent, order, num, title, body)
 end
 
 local howList = Instance.new("UIListLayout")
-howList.Padding = UDim.new(0, 16)
+howList.Padding = UDim.new(0, 20)
 howList.SortOrder = Enum.SortOrder.LayoutOrder
 howList.Parent = howContent
 
@@ -547,7 +547,6 @@ creditsBackBtn.Activated:Connect(function()
 end)
 
 local function menuEntrance()
-	leftCol.Position = UDim2.fromOffset(-40, 0)
 	wordmark.TextTransparency = 1
 	seasonLabel.TextTransparency = 1
 	versionLabel.TextTransparency = 1
@@ -557,32 +556,29 @@ local function menuEntrance()
 			d.TextTransparency = 1
 		end
 	end
-	playTween("left_pos_in", leftCol, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(0, 0)})
-	playTween("left_wordmark_in", wordmark, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-	playTween("left_season_in", seasonLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-	playTween("left_version_in", versionLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-	playTween("left_online_in", onlineLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+	playTween("left_wordmark_in", wordmark, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+	playTween("left_season_in", seasonLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
+	playTween("left_version_in", versionLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+	playTween("left_online_in", onlineLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
 	for _, d in ipairs(leftCol:GetDescendants()) do
 		if d:IsA("TextLabel") then
-			playTween("left_txt_" .. d:GetDebugId(), d, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+			playTween("left_txt_" .. d:GetDebugId(), d, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
 		end
 	end
 
 	for i, key in ipairs({"find", "how", "credits"}) do
 		local ref = optionRefs[key]
-		ref.button.Position = UDim2.fromOffset(40, 0)
 		ref.title.TextTransparency = 1
 		ref.subtitle.TextTransparency = 1
 		ref.num.TextTransparency = 1
 		ref.arrow.TextTransparency = 1
 		ref.accent.BackgroundTransparency = 1
-		task.delay((i - 1) * 0.06, function()
-			playTween(key .. "_btn_pos_in", ref.button, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(0, 0)})
-			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-			playTween(key .. "_sub_in", ref.subtitle, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.55})
-			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-			playTween(key .. "_acc_in", ref.accent, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75})
+		task.delay((i - 1) * 0.05, function()
+			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+			playTween(key .. "_sub_in", ref.subtitle, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.55})
+			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.5})
+			playTween(key .. "_acc_in", ref.accent, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75})
 		end)
 	end
 end
