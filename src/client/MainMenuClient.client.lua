@@ -284,8 +284,8 @@ for _, sy in ipairs({0.1, 0.45, 0.75}) do
 	table.insert(scanLines, {frame = line, speed = 0.02 + math.random() * 0.015})
 end
 
-local identityZone = makeFrame(UDim2.fromOffset(700, 150), UDim2.new(0.5, 0, 0, 32), C.bg, 1, 11, menuScreen)
-identityZone.AnchorPoint = Vector2.new(0.5, 0)
+local identityZone = makeFrame(UDim2.fromOffset(700, 150), UDim2.new(0.47, 0, 0, 32), C.bg, 1, 11, menuScreen)
+identityZone.AnchorPoint = Vector2.new(0.45, 0)
 local identityLayout = Instance.new("UIListLayout")
 identityLayout.FillDirection = Enum.FillDirection.Vertical
 identityLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -304,16 +304,16 @@ seasonLabel.LayoutOrder = 3
 local tagLabel = makeLabel("Infiltrate. Steal. Escape.", Enum.Font.Gotham, 15, Color3.fromRGB(200, 210, 230), 0.18, Enum.TextXAlignment.Center, 12, identityZone)
 tagLabel.Size = UDim2.new(1, 0, 0, 16)
 tagLabel.LayoutOrder = 4
-local asymLabel = makeLabel("ASYMMETRIC HEIST EXPERIENCE", Enum.Font.GothamBold, 10, C.gold, 0.55, Enum.TextXAlignment.Center, 12, identityZone)
+local asymLabel = makeLabel("4V1 ASYMMETRIC HEIST", Enum.Font.GothamBold, 10, C.gold, 0.55, Enum.TextXAlignment.Center, 12, identityZone)
 asymLabel.Size = UDim2.new(1, 0, 0, 14)
 asymLabel.LayoutOrder = 5
 
-local navZone = makeFrame(UDim2.fromOffset(460, 260), UDim2.new(0.14, 0, 0.52, 0), C.bg, 1, 11, menuScreen)
+local navZone = makeFrame(UDim2.fromOffset(460, 260), UDim2.new(0.16, 0, 0.52, 0), C.bg, 1, 11, menuScreen)
 navZone.AnchorPoint = Vector2.new(0, 0.5)
 local navTitle = makeLabel("MAIN MENU", Enum.Font.GothamBold, 11, C.gold, 0.5, Enum.TextXAlignment.Left, 12, navZone)
 navTitle.Size = UDim2.new(1, 0, 0, 14)
 navTitle.Position = UDim2.new(0, 0, 0, 0)
-local navTopSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 28), C.gold, 0.85, 12, navZone)
+local navTopSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 28), C.gold, 0.88, 12, navZone)
 
 local navRows = makeFrame(UDim2.new(1, 0, 1, -30), UDim2.new(0, 0, 0, 30), C.bg, 1, 12, navZone)
 local navRowsList = Instance.new("UIListLayout")
@@ -322,20 +322,20 @@ navRowsList.SortOrder = Enum.SortOrder.LayoutOrder
 navRowsList.Padding = UDim.new(0, 0)
 navRowsList.Parent = navRows
 
-local centerSeparator = makeFrame(UDim2.new(0, 1, 0, 180), UDim2.new(0.62, 0, 0.52, 0), C.gold, 0.85, 11, menuScreen)
+local centerSeparator = makeFrame(UDim2.new(0, 1, 0, 180), UDim2.new(0.60, 0, 0.52, 0), C.gold, 0.85, 11, menuScreen)
 centerSeparator.AnchorPoint = Vector2.new(0.5, 0.5)
 
-local infoZone = makeFrame(UDim2.fromOffset(300, 0), UDim2.new(0.86, 0, 0.52, 0), C.bg, 1, 11, menuScreen)
+local infoZone = makeFrame(UDim2.fromOffset(300, 0), UDim2.new(0.84, 0, 0.52, 0), C.bg, 1, 11, menuScreen)
 infoZone.AnchorPoint = Vector2.new(1, 0.5)
 infoZone.AutomaticSize = Enum.AutomaticSize.Y
-local infoBacking = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(8, 10, 18), 0.55, 12, infoZone)
+local infoBacking = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(8, 10, 18), 0.5, 12, infoZone)
 infoBacking.AutomaticSize = Enum.AutomaticSize.Y
 makeCorner(10, infoBacking)
 local infoPad = Instance.new("UIPadding")
-infoPad.PaddingTop = UDim.new(0, 18)
-infoPad.PaddingBottom = UDim.new(0, 18)
-infoPad.PaddingLeft = UDim.new(0, 18)
-infoPad.PaddingRight = UDim.new(0, 18)
+infoPad.PaddingTop = UDim.new(0, 20)
+infoPad.PaddingBottom = UDim.new(0, 20)
+infoPad.PaddingLeft = UDim.new(0, 20)
+infoPad.PaddingRight = UDim.new(0, 20)
 infoPad.Parent = infoBacking
 local infoTopBorder = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.7, 13, infoBacking)
 local infoBottomBorder = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 1, -1), C.gold, 0.7, 13, infoBacking)
@@ -345,30 +345,30 @@ infoContent.AutomaticSize = Enum.AutomaticSize.Y
 local infoLayout = Instance.new("UIListLayout")
 infoLayout.FillDirection = Enum.FillDirection.Vertical
 infoLayout.SortOrder = Enum.SortOrder.LayoutOrder
-infoLayout.Padding = UDim.new(0, 8)
+infoLayout.Padding = UDim.new(0, 12)
 infoLayout.Parent = infoContent
-local infoPanelLabel = makeLabel("DEPLOYMENT", Enum.Font.GothamBlack, 13, C.gold, 0.12, Enum.TextXAlignment.Left, 14, infoContent)
+local infoPanelLabel = makeLabel("DEPLOYMENT", Enum.Font.GothamBlack, 15, C.gold, 0, Enum.TextXAlignment.Left, 14, infoContent)
 infoPanelLabel.Size = UDim2.new(1, 0, 0, 18)
 infoPanelLabel.LayoutOrder = 1
 local infoDivider = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.82, 14, infoContent)
 infoDivider.LayoutOrder = 2
 local infoMainLines = {}
 for i = 1, 4 do
-	local ln = makeLabel("", Enum.Font.Gotham, 13, Color3.fromRGB(180, 195, 220), 0.1, Enum.TextXAlignment.Left, 14, infoContent)
+	local ln = makeLabel("", Enum.Font.Gotham, 14, Color3.fromRGB(195, 210, 235), 0.05, Enum.TextXAlignment.Left, 14, infoContent)
 	ln.Size = UDim2.new(1, 0, 0, 20)
 	ln.LayoutOrder = 2 + i
 	table.insert(infoMainLines, ln)
 end
 local infoGap = makeFrame(UDim2.new(1, 0, 0, 12), UDim2.new(0, 0, 0, 0), C.bg, 1, 14, infoContent)
 infoGap.LayoutOrder = 7
-local infoSecondaryLabel = makeLabel("MATCH INFO", Enum.Font.GothamBold, 11, C.gold, 0.35, Enum.TextXAlignment.Left, 14, infoContent)
+local infoSecondaryLabel = makeLabel("MATCH INFO", Enum.Font.GothamBold, 12, C.gold, 0.2, Enum.TextXAlignment.Left, 14, infoContent)
 infoSecondaryLabel.Size = UDim2.new(1, 0, 0, 16)
 infoSecondaryLabel.LayoutOrder = 8
 local infoSecondaryDivider = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 14, infoContent)
 infoSecondaryDivider.LayoutOrder = 9
 local infoSecondaryLines = {}
 for i = 1, 3 do
-	local ln = makeLabel("", Enum.Font.Gotham, 12, Color3.fromRGB(155, 170, 195), 0.15, Enum.TextXAlignment.Left, 14, infoContent)
+	local ln = makeLabel("", Enum.Font.Gotham, 13, Color3.fromRGB(155, 170, 195), 0.08, Enum.TextXAlignment.Left, 14, infoContent)
 	ln.Size = UDim2.new(1, 0, 0, 18)
 	ln.LayoutOrder = 9 + i
 	table.insert(infoSecondaryLines, ln)
@@ -413,9 +413,9 @@ local optionRefs = {}
 local infoBySelection = {
 	findmatch = {
 		mainHeading = "DEPLOYMENT",
-		mainLines = {"Mode: 4v1 Asymmetric Heist", "Season: The Cursed Temple", "Status: Early Access", "Timer: 8 minutes"},
+		mainLines = {"4v1 Asymmetric Heist", "Current Season: The Cursed Temple", "Status: Early Access", "Round Time: 8:00"},
 		secondaryHeading = "MATCH INFO",
-		secondaryLines = {"Players needed: 5", "Roles: 4 Thieves, 1 Guardian", "Map: Cursed Temple"},
+		secondaryLines = {"5 Players Required", "4 Thieves / 1 Guardian", "Current Map: Cursed Temple"},
 	},
 	howtoplay = {
 		mainHeading = "OVERVIEW",
@@ -425,9 +425,9 @@ local infoBySelection = {
 	},
 	credits = {
 		mainHeading = "DEVELOPERS",
-		mainLines = {"IMPLECTE2 — Dev / Design", "SHOTSON_YOU — World / Art", "Built in early access", "Season 1: The Cursed Temple"},
+		mainLines = {"IMPLECTE2 — Dev / Design", "SHOTSON_YOU — World / Art", "Season 1: The Cursed Temple", "Early Access Build"},
 		secondaryHeading = "SEASON",
-		secondaryLines = {"Season 1: The Cursed Temple", "Map in development", "Testing coming soon"},
+		secondaryLines = {"Map in development", "Sound design coming", "Testing coming soon"},
 	},
 }
 
@@ -437,18 +437,18 @@ local function applyRowStyle(rowKey, immediate)
 		local ti = TweenInfo.new(immediate and 0 or 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		if isActive then
 			playTween("row_" .. key .. "_acc_on", ref.accent, TweenInfo.new(immediate and 0 or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0})
-			playTween("row_" .. key .. "_fill_on", ref.fill, TweenInfo.new(immediate and 0 or 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
+			playTween("row_" .. key .. "_fill_on", ref.fill, TweenInfo.new(immediate and 0 or 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.91})
 			playTween("row_" .. key .. "_num_on", ref.num, ti, {TextTransparency = 0, TextColor3 = C.gold})
 			playTween("row_" .. key .. "_title_on", ref.title, ti, {TextColor3 = C.titleColor, TextTransparency = 0, TextSize = 22})
 			playTween("row_" .. key .. "_arrow_on", ref.arrow, ti, {TextTransparency = 0, Position = UDim2.new(1, -10, 0.5, 0), TextColor3 = C.gold})
 			playTween("row_" .. key .. "_sub_on", ref.subtitle, ti, {TextColor3 = C.gold, TextTransparency = 0.2})
 		else
 			playTween("row_" .. key .. "_acc_off", ref.accent, ti, {BackgroundTransparency = 1})
-			playTween("row_" .. key .. "_fill_off", ref.fill, ti, {BackgroundTransparency = 1})
-			playTween("row_" .. key .. "_num_off", ref.num, ti, {TextTransparency = 0.5, TextColor3 = C.gold})
-			playTween("row_" .. key .. "_title_off", ref.title, ti, {TextColor3 = C.titleColor, TextTransparency = 0.05, TextSize = 20})
+			playTween("row_" .. key .. "_fill_off", ref.fill, ti, {BackgroundTransparency = 0.96})
+			playTween("row_" .. key .. "_num_off", ref.num, ti, {TextTransparency = 0.45, TextColor3 = C.gold})
+			playTween("row_" .. key .. "_title_off", ref.title, ti, {TextColor3 = C.titleColor, TextTransparency = 0.08, TextSize = 20})
 			playTween("row_" .. key .. "_arrow_off", ref.arrow, ti, {TextTransparency = 0.65, Position = UDim2.new(1, -16, 0.5, 0), TextColor3 = C.gold})
-			playTween("row_" .. key .. "_sub_off", ref.subtitle, ti, {TextColor3 = Color3.fromRGB(165, 175, 195), TextTransparency = 0.05})
+			playTween("row_" .. key .. "_sub_off", ref.subtitle, ti, {TextColor3 = Color3.fromRGB(165, 175, 195), TextTransparency = 0.12})
 			playTween("row_" .. key .. "_pos_off", ref.button, ti, {Position = UDim2.new(0, 0, 0, 0)})
 		end
 	end
@@ -472,15 +472,15 @@ local function updateInfoPanel(rowKey)
 		infoSecondaryLabel.Text = info.secondaryHeading
 		for i, ln in ipairs(infoMainLines) do ln.Text = info.mainLines[i] or "" end
 		for i, ln in ipairs(infoSecondaryLines) do ln.Text = info.secondaryLines[i] or "" end
-		playTween("info_backing_in", infoBacking, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55})
+		playTween("info_backing_in", infoBacking, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5})
 		playTween("info_topborder_in", infoTopBorder, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
 		playTween("info_bottomborder_in", infoBottomBorder, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
-		playTween("info_lbl_in", infoPanelLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.12})
+		playTween("info_lbl_in", infoPanelLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
 		playTween("info_div_in", infoDivider, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.82})
-		playTween("info_slabel_in", infoSecondaryLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.35})
+		playTween("info_slabel_in", infoSecondaryLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
 		playTween("info_sdiv_in", infoSecondaryDivider, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
-		for i, ln in ipairs(infoMainLines) do playTween("info_mln_in_" .. i, ln, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.1}) end
-		for i, ln in ipairs(infoSecondaryLines) do playTween("info_sln_in_" .. i, ln, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.15}) end
+		for i, ln in ipairs(infoMainLines) do playTween("info_mln_in_" .. i, ln, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.05}) end
+		for i, ln in ipairs(infoSecondaryLines) do playTween("info_sln_in_" .. i, ln, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.08}) end
 	end)
 end
 
@@ -489,13 +489,18 @@ local function makeOption(order, num, title, subtitle, key)
 	btn.AutoButtonColor = false
 	btn.BackgroundTransparency = 1
 	btn.BorderSizePixel = 0
-	btn.Size = UDim2.new(1, 0, 0, 78)
+	btn.Size = UDim2.new(1, 0, 0, 72)
 	btn.Text = ""
 	btn.ZIndex = 12
 	btn.LayoutOrder = order
 	btn.Parent = navRows
-	local fill = makeFrame(UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 1, 11, btn)
-	local sepTop = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.85, 13, btn)
+	local rowStroke = Instance.new("UIStroke")
+	rowStroke.Color = C.gold
+	rowStroke.Thickness = 0.5
+	rowStroke.Transparency = 0.88
+	rowStroke.Parent = btn
+	local fill = makeFrame(UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 0.96, 11, btn)
+	local sepTop = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 13, btn)
 	local accent = makeFrame(UDim2.new(0, 3, 0.7, 0), UDim2.new(0, 0, 0.5, 0), C.gold, 1, 13, btn)
 	accent.AnchorPoint = Vector2.new(0, 0.5)
 	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 12, C.gold, 0.5, Enum.TextXAlignment.Left, 13, btn)
@@ -507,11 +512,14 @@ local function makeOption(order, num, title, subtitle, key)
 	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 13, Color3.fromRGB(165, 175, 195), 0.05, Enum.TextXAlignment.Left, 13, btn)
 	subtitleLabel.Position = UDim2.new(0, 48, 0, 38)
 	subtitleLabel.Size = UDim2.new(1, -90, 0, 18)
+	local subtitlePad = Instance.new("UIPadding")
+	subtitlePad.PaddingTop = UDim.new(0, 2)
+	subtitlePad.Parent = subtitleLabel
 	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 18, C.gold, 0.65, Enum.TextXAlignment.Center, 13, btn)
 	arrowLabel.AnchorPoint = Vector2.new(1, 0.5)
 	arrowLabel.Position = UDim2.new(1, -16, 0.5, 0)
 	arrowLabel.Size = UDim2.fromOffset(16, 20)
-	optionRefs[key] = {button = btn, fill = fill, sep = sepTop, accent = accent, num = numLabel, title = titleLabel, subtitle = subtitleLabel, arrow = arrowLabel}
+	optionRefs[key] = {button = btn, fill = fill, sep = sepTop, accent = accent, num = numLabel, title = titleLabel, subtitle = subtitleLabel, arrow = arrowLabel, stroke = rowStroke}
 	btn.MouseEnter:Connect(function()
 		if selectedOption == key then return end
 		playTween("hover_fill_" .. key, fill, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.95})
@@ -521,7 +529,7 @@ local function makeOption(order, num, title, subtitle, key)
 	end)
 	btn.MouseLeave:Connect(function()
 		if selectedOption == key then return end
-		playTween("hover_fill_out_" .. key, fill, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+		playTween("hover_fill_out_" .. key, fill, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.96})
 		playTween("hover_title_out_" .. key, titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.titleColor})
 		playTween("hover_arrow_out_" .. key, arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.65, Position = UDim2.new(1, -16, 0.5, 0)})
 		playTween("hover_row_out_" .. key, btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)})
@@ -534,7 +542,7 @@ end
 local findMatchBtn = makeOption(1, "01", "FIND MATCH", "Queue into a heist", "findmatch")
 local howToBtn = makeOption(2, "02", "HOW TO PLAY", "Learn the roles and objectives", "howtoplay")
 local creditsBtn = makeOption(3, "03", "CREDITS", "View developers and contributors", "credits")
-local navBottomSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.85, 12, navRows)
+local navBottomSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 12, navRows)
 navBottomSep.LayoutOrder = 4
 -- Overlays
 local function makeOverlay(name, titleText)
@@ -765,7 +773,7 @@ local function menuEntrance()
 	end)
 	task.delay(0.2, function()
 		playTween("nav_title_in", navTitle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-		playTween("nav_top_sep_in", navTopSep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.85})
+		playTween("nav_top_sep_in", navTopSep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
 	end)
 
 	for i, key in ipairs({"findmatch", "howtoplay", "credits"}) do
@@ -780,27 +788,27 @@ local function menuEntrance()
 		task.delay(0.25 + (i - 1) * 0.07, function()
 			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
 			playTween(key .. "_sub_in", ref.subtitle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5})
+			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.45})
 			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.65})
-			playTween(key .. "_sep_in", ref.sep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.85})
+			playTween(key .. "_sep_in", ref.sep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
 		end)
 	end
 	task.delay(0.35, function()
 		playTween("center_sep_in", centerSeparator, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.85})
 	end)
 	task.delay(0.38, function()
-		playTween("info_backing_in", infoBacking, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55})
+		playTween("info_backing_in", infoBacking, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5})
 		playTween("info_top_border_in", infoTopBorder, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
 		playTween("info_bottom_border_in", infoBottomBorder, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
-		playTween("info_panel_lbl_in", infoPanelLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.12})
+		playTween("info_panel_lbl_in", infoPanelLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
 		playTween("info_panel_div_in", infoDivider, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.82})
-		playTween("info_panel_slbl_in", infoSecondaryLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.35})
+		playTween("info_panel_slbl_in", infoSecondaryLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
 		playTween("info_panel_sdiv_in", infoSecondaryDivider, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
 		for i, ln in ipairs(infoMainLines) do
-			playTween("info_panel_mln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.1})
+			playTween("info_panel_mln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.05})
 		end
 		for i, ln in ipairs(infoSecondaryLines) do
-			playTween("info_panel_sln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.15})
+			playTween("info_panel_sln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.08})
 		end
 	end)
 	task.delay(0.45, function()
