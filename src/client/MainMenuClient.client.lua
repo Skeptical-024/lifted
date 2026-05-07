@@ -177,18 +177,18 @@ local function animateParticle(p)
 		while gui.Enabled do
 			local sx = math.random(5, 95) / 100
 			local startY = 1 + (math.random(0, 20) / 100)
-			local endY = startY - (math.random(200, 320) / math.max(gui.AbsoluteSize.Y, 1))
+			local endY = startY - (math.random(80, 140) / math.max(gui.AbsoluteSize.Y, 1))
 			local dur = math.random(50, 80) / 10
 			p.Position = UDim2.new(sx, 0, startY, 0)
-			p.BackgroundTransparency = 0.7
+			p.BackgroundTransparency = 0.85
 
 			local t1 = TweenService:Create(p, TweenInfo.new(dur * 0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
 				Position = UDim2.new(sx, 0, (startY + endY) * 0.5, 0),
-				BackgroundTransparency = 0.2,
+				BackgroundTransparency = 0.4,
 			})
 			local t2 = TweenService:Create(p, TweenInfo.new(dur * 0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
 				Position = UDim2.new(sx, 0, endY, 0),
-				BackgroundTransparency = 0.7,
+				BackgroundTransparency = 0.85,
 			})
 			t1:Play()
 			t1.Completed:Wait()
