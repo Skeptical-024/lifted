@@ -208,6 +208,9 @@ playStroke.Parent = playButton
 
 local playLabel = makeLabel("PRESS TO PLAY", Enum.Font.GothamBold, 12, C.gold, 1, Enum.TextXAlignment.Center, 13, playButton)
 playLabel.Size = UDim2.new(1, 0, 1, 0)
+local logoScale = Instance.new("UIScale")
+logoScale.Scale = 1
+logoScale.Parent = logoLabel
 
 -- Menu screen
 local menuScreen = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 10, gui)
@@ -295,12 +298,14 @@ local function makeOption(order, num, title, subtitle, key)
 	arrowLabel.Position = UDim2.new(1, -8, 0.5, 0)
 
 	btn.MouseEnter:Connect(function()
+		playTween(key .. "_slide_in", btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 6, 0, 0)})
 		playTween(key .. "_a_in", accent, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.15})
 		playTween(key .. "_t_in", titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.gold})
 		playTween(key .. "_r_in", arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0, TextColor3 = C.gold})
 	end)
 
 	btn.MouseLeave:Connect(function()
+		playTween(key .. "_slide_out", btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)})
 		playTween(key .. "_a_out", accent, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75})
 		playTween(key .. "_t_out", titleLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = C.white})
 		playTween(key .. "_r_out", arrowLabel, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5, TextColor3 = Color3.fromRGB(150, 150, 170)})
@@ -416,9 +421,10 @@ local function makeDevCard(parent, order, name, role, roleColor, detail, note, d
 	card.LayoutOrder = order
 	card.AutomaticSize = Enum.AutomaticSize.Y
 	makeCorner(10, card)
-	local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.fromOffset(0, 0), C.gold, 0.15, 24, card)
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, 18)
+		local accent = makeFrame(UDim2.new(0, 3, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 0.15, 24, card)
+		makeCorner(4, accent)
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft = UDim.new(0, 14)
 	pad.PaddingRight = UDim.new(0, 18)
 	pad.PaddingTop = UDim.new(0, 16)
 	pad.PaddingBottom = UDim.new(0, 16)
@@ -610,6 +616,40 @@ task.delay(0.2, function()
 	task.delay(0.4, function()
 		playTween("play_stroke_default", playStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.5})
 		playTween("play_label_default", playLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
+	end)
+
+	task.delay(0.82, function()
+		task.spawn(function()
+			local up = true
+			while gui.Enabled and splashScreen.Visible do
+				if up then
+					local t = TweenService:Create(logoScale, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Scale = 1.008})
+					t:Play()
+					t.Completed:Wait()
+				else
+					local t = TweenService:Create(logoScale, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Scale = 1.0})
+					t:Play()
+					t.Completed:Wait()
+				end
+				up = not up
+			end
+		end)
+
+		task.spawn(function()
+			local up = false
+			while gui.Enabled and splashScreen.Visible do
+				if up then
+					local t = TweenService:Create(playLabel, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 0})
+					t:Play()
+					t.Completed:Wait()
+				else
+					local t = TweenService:Create(playLabel, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 0.25})
+					t:Play()
+					t.Completed:Wait()
+				end
+				up = not up
+			end
+		end)
 	end)
 end)
 
