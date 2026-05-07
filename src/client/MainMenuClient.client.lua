@@ -188,13 +188,13 @@ for _ = 1, 15 do
 end
 
 -- LAYER 3: CARD (SCROLLINGFRAME)
-local cardShadow = makeFrame(UDim2.fromOffset(688, 40), UDim2.new(0.5, 0, 0.5, 4), Color3.new(0, 0, 0), 0.5, 9, gui)
+local cardShadow = makeFrame(UDim2.fromOffset(688, 708), UDim2.new(0.5, 0, 0.5, 4), Color3.new(0, 0, 0), 0.5, 9, gui)
 cardShadow.AnchorPoint = Vector2.new(0.5, 0.5)
 makeCorner(12, cardShadow)
 
 local card = Instance.new("ScrollingFrame")
 card.Name = "MainCard"
-card.Size = UDim2.fromOffset(680, 40)
+card.Size = UDim2.fromOffset(680, 700)
 card.Position = UDim2.new(0.5, 0, 0.5, 20)
 card.AnchorPoint = Vector2.new(0.5, 0.5)
 card.BackgroundColor3 = C.card
@@ -701,19 +701,6 @@ for _, ref in ipairs(navRefs) do
 end
 
 selectTab("play")
-
-local function clampCardHeight()
-	local camera = workspace.CurrentCamera
-	if not camera then
-		return
-	end
-	local maxH = camera.ViewportSize.Y * 0.85
-	local desired = math.min(card.AbsoluteCanvasSize.Y, maxH)
-	card.Size = UDim2.fromOffset(680, math.max(220, desired))
-	cardShadow.Size = UDim2.fromOffset(688, math.max(228, desired + 8))
-end
-
-card:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(clampCardHeight)
 
 local menuHidden = false
 local function hideMenu()
