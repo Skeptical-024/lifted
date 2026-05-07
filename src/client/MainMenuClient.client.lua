@@ -737,8 +737,6 @@ end
 roleAssignedRemote.OnClientEvent:Connect(hideMenu)
 
 cacheBaseTransparency(card)
-setContentVisualAlpha(1)
-clampCardHeight()
 
 -- ENTRANCE ANIMATION
 card.Position = UDim2.new(0.5, 0, 0.5, 20)
