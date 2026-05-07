@@ -83,6 +83,19 @@ gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = playerGui
 
+local menuMusic = Instance.new("Sound")
+menuMusic.SoundId = "rbxassetid://87773819933629"
+menuMusic.Volume = 0
+menuMusic.Looped = true
+menuMusic.RollOffMaxDistance = 0
+menuMusic.Parent = gui
+
+menuMusic:Play()
+
+-- Fade in over 2 seconds
+local musicTween = TweenService:Create(menuMusic, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Volume = 0.35})
+musicTween:Play()
+
 -- Shared background
 local bg = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 0, 1, gui)
 
@@ -637,6 +650,7 @@ findMatchBtn.Activated:Connect(function()
 	playClickedBindable:Fire()
 	playTween("menu_hide", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
 	playTween("bg_hide", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	TweenService:Create(menuMusic, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Volume = 0}):Play()
 	task.delay(0.3, function()
 		if gui.Parent then
 			gui.Enabled = false
@@ -740,6 +754,7 @@ roleAssignedRemote.OnClientEvent:Connect(function()
 	playTween("full_fade_splash", splashScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
 	playTween("full_fade_menu", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
 	playTween("full_fade_overlay", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	TweenService:Create(menuMusic, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Volume = 0}):Play()
 	task.delay(0.3, function()
 		if gui.Parent then
 			gui.Enabled = false
