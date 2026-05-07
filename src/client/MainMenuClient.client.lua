@@ -177,18 +177,18 @@ local function animateParticle(p)
 		while gui.Enabled do
 			local sx = math.random(5, 95) / 100
 			local startY = 1 + (math.random(0, 20) / 100)
-			local endY = startY - (math.random(80, 140) / math.max(gui.AbsoluteSize.Y, 1))
+			local endY = startY - (math.random(200, 320) / math.max(gui.AbsoluteSize.Y, 1))
 			local dur = math.random(50, 80) / 10
 			p.Position = UDim2.new(sx, 0, startY, 0)
-			p.BackgroundTransparency = 0.85
+			p.BackgroundTransparency = 0.7
 
 			local t1 = TweenService:Create(p, TweenInfo.new(dur * 0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
 				Position = UDim2.new(sx, 0, (startY + endY) * 0.5, 0),
-				BackgroundTransparency = 0.4,
+				BackgroundTransparency = 0.2,
 			})
 			local t2 = TweenService:Create(p, TweenInfo.new(dur * 0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
 				Position = UDim2.new(sx, 0, endY, 0),
-				BackgroundTransparency = 0.85,
+				BackgroundTransparency = 0.7,
 			})
 			t1:Play()
 			t1.Completed:Wait()
@@ -198,14 +198,14 @@ local function animateParticle(p)
 	end)
 end
 
-for i = 1, 22 do
+for i = 1, 28 do
 	local particleSize = 3
 	if i > 10 and i <= 18 then
 		particleSize = 2
 	elseif i > 18 then
 		particleSize = 4
 	end
-	local p = makeFrame(UDim2.fromOffset(particleSize, particleSize), UDim2.new(math.random(), 0, math.random(), 0), C.gold, math.random(40, 85) / 100, 2, particlesLayer)
+	local p = makeFrame(UDim2.fromOffset(particleSize, particleSize), UDim2.new(math.random(), 0, math.random(), 0), C.gold, math.random(20, 70) / 100, 2, particlesLayer)
 	makeCorner(99, p)
 	animateParticle(p)
 end
@@ -323,7 +323,7 @@ rightCol.LayoutOrder = 2
 local rightColLayout = Instance.new("UIListLayout")
 rightColLayout.FillDirection = Enum.FillDirection.Vertical
 rightColLayout.SortOrder = Enum.SortOrder.LayoutOrder
-rightColLayout.Padding = UDim.new(0, 6)
+rightColLayout.Padding = UDim.new(0, 14)
 rightColLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 rightColLayout.Parent = rightCol
 
@@ -335,25 +335,25 @@ local function makeOption(order, num, title, subtitle, key)
 	btn.AutoButtonColor = false
 	btn.BackgroundTransparency = 1
 	btn.BorderSizePixel = 0
-	btn.Size = UDim2.fromOffset(340, 72)
+	btn.Size = UDim2.fromOffset(340, 90)
 	btn.Text = ""
 	btn.ZIndex = 12
 	btn.LayoutOrder = order
 
 	local accent = makeFrame(UDim2.fromOffset(2, 64), UDim2.fromOffset(0, 0), C.gold, 0.75, 13, btn)
-	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 13, C.gold, 0.55, Enum.TextXAlignment.Left, 13, btn)
+	local numLabel = makeLabel(num, Enum.Font.GothamBlack, 15, C.gold, 0.55, Enum.TextXAlignment.Left, 13, btn)
 	numLabel.Size = UDim2.fromOffset(20, 16)
 	numLabel.Position = UDim2.fromOffset(14, 8)
 
-	local titleLabel = makeLabel(title, Enum.Font.GothamBlack, 26, C.white, 0, Enum.TextXAlignment.Left, 13, btn)
+	local titleLabel = makeLabel(title, Enum.Font.GothamBlack, 32, C.white, 0, Enum.TextXAlignment.Left, 13, btn)
 	titleLabel.Size = UDim2.new(1, -80, 0, 28)
 	titleLabel.Position = UDim2.fromOffset(38, 6)
 
-	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 13, C.textMuted, 0, Enum.TextXAlignment.Left, 13, btn)
+	local subtitleLabel = makeLabel(subtitle, Enum.Font.Gotham, 16, C.textMuted, 0, Enum.TextXAlignment.Left, 13, btn)
 	subtitleLabel.Size = UDim2.new(1, -80, 0, 18)
 	subtitleLabel.Position = UDim2.fromOffset(38, 36)
 
-	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 22, Color3.fromRGB(150, 150, 170), 0.5, Enum.TextXAlignment.Center, 13, btn)
+	local arrowLabel = makeLabel("›", Enum.Font.GothamBold, 26, Color3.fromRGB(150, 150, 170), 0.5, Enum.TextXAlignment.Center, 13, btn)
 	arrowLabel.Size = UDim2.fromOffset(20, 20)
 	arrowLabel.AnchorPoint = Vector2.new(1, 0.5)
 	arrowLabel.Position = UDim2.new(1, -8, 0.5, 0)
@@ -549,6 +549,7 @@ for _, text in ipairs({"MAPS: 1", "MODES: 1", "SEASON: 1"}) do
 end
 
 local function openOverlay(overlay)
+	menuScreen.Active = false
 	overlay.Visible = true
 	overlay.Position = UDim2.new(1, 0, 0, 0)
 	playTween("open_" .. overlay.Name, overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -562,6 +563,7 @@ local function closeOverlay(overlay)
 	})
 	task.delay(0.26, function()
 		overlay.Visible = false
+		menuScreen.Active = true
 	end)
 end
 
