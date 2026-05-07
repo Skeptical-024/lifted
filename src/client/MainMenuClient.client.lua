@@ -98,10 +98,13 @@ local rightEllipse = makeFrame(UDim2.fromOffset(500, 500), UDim2.new(1, 180, 1, 
 rightEllipse.AnchorPoint = Vector2.new(1, 1)
 makeCorner(250, rightEllipse)
 
+local stripes = {}
+local stripeDurations = {3, 3.5, 4, 4.5, 5, 3.2, 3.8, 4.2}
 for i = 1, 8 do
 	local x = (i - 1) / 7
-	local stripe = makeFrame(UDim2.new(0, 3, 1.4, 0), UDim2.new(x, -1, -0.2, 0), C.gold, 0.94, 1, gui)
+	local stripe = makeFrame(UDim2.new(0, 3, 1.4, 0), UDim2.new(x, -1, -0.2, 0), C.gold, 0.88, 1, gui)
 	stripe.Rotation = 25
+	table.insert(stripes, stripe)
 end
 
 local vignette = makeFrame(UDim2.new(1, 0, 0, 200), UDim2.new(0, 0, 1, -200), C.bg, 0.1, 1, gui)
@@ -113,6 +116,49 @@ vignetteGrad.Transparency = NumberSequence.new({
 })
 vignetteGrad.Parent = vignette
 
+for i, stripe in ipairs(stripes) do
+	task.spawn(function()
+		local d = stripeDurations[i] or 4
+		local up = true
+		while gui.Enabled do
+			if up then
+				local t = TweenService:Create(stripe, TweenInfo.new(d, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.96})
+				t:Play()
+				t.Completed:Wait()
+			else
+				local t = TweenService:Create(stripe, TweenInfo.new(d, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.88})
+				t:Play()
+				t.Completed:Wait()
+			end
+			up = not up
+		end
+	end)
+end
+
+task.spawn(function()
+	local up = true
+	while gui.Enabled do
+		if up then
+			local t1 = TweenService:Create(leftEllipse, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.60, BackgroundColor3 = Color3.fromRGB(45, 25, 6)})
+			local t2 = TweenService:Create(centerEllipse, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.65})
+			local t3 = TweenService:Create(rightEllipse, TweenInfo.new(5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.63})
+			t1:Play()
+			t2:Play()
+			t3:Play()
+			t1.Completed:Wait()
+		else
+			local t1 = TweenService:Create(leftEllipse, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.90, BackgroundColor3 = Color3.fromRGB(30, 18, 5)})
+			local t2 = TweenService:Create(centerEllipse, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.95})
+			local t3 = TweenService:Create(rightEllipse, TweenInfo.new(5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.93})
+			t1:Play()
+			t2:Play()
+			t3:Play()
+			t1.Completed:Wait()
+		end
+		up = not up
+	end
+end)
+
 -- Particles layer
 local particlesLayer = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 2, gui)
 
@@ -123,17 +169,17 @@ local function animateParticle(p)
 			local sx = math.random(5, 95) / 100
 			local startY = 1 + (math.random(0, 20) / 100)
 			local endY = startY - (math.random(80, 140) / math.max(gui.AbsoluteSize.Y, 1))
-			local dur = math.random(60, 100) / 10
+			local dur = math.random(50, 80) / 10
 			p.Position = UDim2.new(sx, 0, startY, 0)
-			p.BackgroundTransparency = 0.9
+			p.BackgroundTransparency = 0.85
 
 			local t1 = TweenService:Create(p, TweenInfo.new(dur * 0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
 				Position = UDim2.new(sx, 0, (startY + endY) * 0.5, 0),
-				BackgroundTransparency = 0.5,
+				BackgroundTransparency = 0.4,
 			})
 			local t2 = TweenService:Create(p, TweenInfo.new(dur * 0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
 				Position = UDim2.new(sx, 0, endY, 0),
-				BackgroundTransparency = 0.9,
+				BackgroundTransparency = 0.85,
 			})
 			t1:Play()
 			t1.Completed:Wait()
@@ -143,8 +189,14 @@ local function animateParticle(p)
 	end)
 end
 
-for _ = 1, 15 do
-	local p = makeFrame(UDim2.fromOffset(3, 3), UDim2.new(math.random(), 0, math.random(), 0), C.gold, math.random(60, 90) / 100, 2, particlesLayer)
+for i = 1, 22 do
+	local particleSize = 3
+	if i > 10 and i <= 18 then
+		particleSize = 2
+	elseif i > 18 then
+		particleSize = 4
+	end
+	local p = makeFrame(UDim2.fromOffset(particleSize, particleSize), UDim2.new(math.random(), 0, math.random(), 0), C.gold, math.random(40, 85) / 100, 2, particlesLayer)
 	makeCorner(99, p)
 	animateParticle(p)
 end
@@ -365,6 +417,7 @@ end
 
 local howOverlay, howBackBtn, howContent, howContentPad = makeOverlay("HowOverlay", "HOW TO PLAY")
 local creditsOverlay, creditsBackBtn, creditsContent, creditsContentPad = makeOverlay("CreditsOverlay", "CREDITS")
+howContent.AutomaticSize = Enum.AutomaticSize.Y
 creditsContentPad.PaddingLeft = UDim.new(0, 40)
 creditsContentPad.PaddingRight = UDim.new(0, 40)
 creditsContentPad.PaddingTop = UDim.new(0, 100)
@@ -379,7 +432,7 @@ local function makeRuleCard(parent, order, num, title, body)
 	pad.PaddingLeft = UDim.new(0, 16)
 	pad.PaddingRight = UDim.new(0, 16)
 	pad.PaddingTop = UDim.new(0, 14)
-	pad.PaddingBottom = UDim.new(0, 14)
+	pad.PaddingBottom = UDim.new(0, 20)
 	pad.Parent = card
 	local n = makeLabel(num, Enum.Font.GothamBlack, 28, C.gold, 0.25, Enum.TextXAlignment.Left, 23, card)
 	n.Size = UDim2.fromOffset(52, 32)
@@ -395,7 +448,7 @@ local function makeRuleCard(parent, order, num, title, body)
 end
 
 local howList = Instance.new("UIListLayout")
-howList.Padding = UDim.new(0, 10)
+howList.Padding = UDim.new(0, 16)
 howList.SortOrder = Enum.SortOrder.LayoutOrder
 howList.Parent = howContent
 
