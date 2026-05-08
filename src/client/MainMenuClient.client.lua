@@ -4,10 +4,23 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local function setMenuCoreGuiEnabled(enabled)
+	pcall(function() StarterGui:SetCore("TopbarEnabled", enabled) end)
+	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, enabled) end)
+	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, enabled) end)
+	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, enabled) end)
+	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, enabled) end)
+	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, enabled) end)
+end
+
+local function restoreCoreGui()
+	setMenuCoreGuiEnabled(true)
+end
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
-local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
 
 local playClickedBindable = ReplicatedStorage:FindFirstChild("PlayClicked")
 if not playClickedBindable then
@@ -29,6 +42,11 @@ local C = {
 	card = Color3.fromRGB(10, 11, 18),
 	cardMuted = Color3.fromRGB(14, 15, 23),
 }
+
+local hasEnteredMenu = false
+local isTransitioningToMenu = false
+local menuTransitionToken = 0
+local hasQueuedMatch = false
 
 local activeTweens = {}
 local function playTween(key, inst, info, props)
@@ -83,6 +101,11 @@ gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = playerGui
 
+setMenuCoreGuiEnabled(false)
+task.delay(3, function()
+	setMenuCoreGuiEnabled(false)
+end)
+
 local menuMusic = Instance.new("Sound")
 menuMusic.SoundId = "rbxassetid://87773819933629"
 menuMusic.Volume = 0
@@ -112,7 +135,7 @@ rightEllipse.AnchorPoint = Vector2.new(1, 1)
 makeCorner(250, rightEllipse)
 
 local stripes = {}
-local stripeDurations = {3, 3.5, 4, 4.5, 5, 3.2, 3.8, 4.2}
+local stripeDurations = {6.4, 7.1, 7.8, 8.5, 9.2, 6.9, 7.6, 8.3}
 for i = 1, 8 do
 	local x = (i - 1) / 7
 	local stripe = makeFrame(UDim2.new(0, 3, 1.4, 0), UDim2.new(x, -1, -0.2, 0), C.gold, 0.88, 1, gui)
@@ -131,18 +154,14 @@ vignetteGrad.Parent = vignette
 
 for i, stripe in ipairs(stripes) do
 	task.spawn(function()
-		local d = stripeDurations[i] or 4
+		local d = stripeDurations[i] or 7
 		local up = true
-		while gui.Enabled do
-			if up then
-				local t = TweenService:Create(stripe, TweenInfo.new(d, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.96})
-				t:Play()
-				t.Completed:Wait()
-			else
-				local t = TweenService:Create(stripe, TweenInfo.new(d, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.88})
-				t:Play()
-				t.Completed:Wait()
-			end
+		task.wait(1.25 + (i * 0.17))
+		while gui.Enabled and stripe.Parent do
+			local targetTransparency = up and 0.94 or 0.88
+			local t = TweenService:Create(stripe, TweenInfo.new(d, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = targetTransparency})
+			t:Play()
+			t.Completed:Wait()
 			up = not up
 		end
 	end)
@@ -212,6 +231,9 @@ end
 
 -- Transition overlay
 local transitionOverlay = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 20, gui)
+transitionOverlay.ZIndex = 1000
+transitionOverlay.Visible = true
+transitionOverlay.BackgroundTransparency = 1
 
 -- Splash screen
 local splashScreen = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg, 1, 10, gui)
@@ -229,6 +251,20 @@ splashLayout.Parent = splashContainer
 
 local logoLabel = makeLabel("LIFTED", Enum.Font.GothamBlack, 96, C.titleColor, 1, Enum.TextXAlignment.Center, 12, splashContainer)
 logoLabel.Size = UDim2.new(1, 0, 0, 100)
+
+local logoStroke = Instance.new("UIStroke")
+logoStroke.Color = C.gold
+logoStroke.Thickness = 1.4
+logoStroke.Transparency = 0.62
+logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+logoStroke.Parent = logoLabel
+
+local logoGlowStroke = Instance.new("UIStroke")
+logoGlowStroke.Color = Color3.fromRGB(180, 230, 255)
+logoGlowStroke.Thickness = 3
+logoGlowStroke.Transparency = 0.86
+logoGlowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+logoGlowStroke.Parent = logoLabel
 logoLabel.LayoutOrder = 1
 
 local taglineLabel = makeLabel("Steal the idol. Don't get caught.", Enum.Font.Gotham, 16, Color3.fromRGB(200, 200, 210), 1, Enum.TextXAlignment.Center, 12, splashContainer)
@@ -287,6 +323,12 @@ identityLayout.Parent = identityZone
 
 local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 72, C.titleColor, 0, Enum.TextXAlignment.Center, 12, identityZone)
 wordmark.Size = UDim2.new(1, 0, 0, 80)
+local wordmarkStroke = Instance.new("UIStroke")
+wordmarkStroke.Color = C.gold
+wordmarkStroke.Thickness = 1.1
+wordmarkStroke.Transparency = 0.7
+wordmarkStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+wordmarkStroke.Parent = wordmark
 wordmark.LayoutOrder = 1
 local dividerLine = makeFrame(UDim2.fromOffset(140, 1), UDim2.fromOffset(0, 0), C.gold, 0.55, 12, identityZone)
 dividerLine.LayoutOrder = 2
@@ -402,6 +444,7 @@ addCornerFrame(UDim2.fromOffset(1, 28), UDim2.new(1, -1, 1, -28))
 
 local selectedOption = "findmatch"
 local optionRefs = {}
+local navBottomSep
 local infoBySelection = {
 	findmatch = {
 		mainHeading = "DEPLOYMENT",
@@ -476,6 +519,198 @@ local function updateInfoPanel(rowKey)
 	end)
 end
 
+local function setInfoPanelContentImmediate(rowKey)
+	local info = infoBySelection[rowKey]
+	if not info then return end
+	infoPanelLabel.Text = info.mainHeading
+	infoSecondaryLabel.Text = info.secondaryHeading
+	for i, ln in ipairs(infoMainLines) do ln.Text = info.mainLines[i] or "" end
+	for i, ln in ipairs(infoSecondaryLines) do ln.Text = info.secondaryLines[i] or "" end
+end
+
+local function applyRowStyleImmediate(rowKey)
+	for key, ref in pairs(optionRefs) do
+		local isActive = key == rowKey
+		if isActive then
+			ref.accent.BackgroundTransparency = 0
+			ref.fill.BackgroundTransparency = 0.91
+			ref.num.TextTransparency = 0
+			ref.num.TextColor3 = C.gold
+			ref.title.TextColor3 = C.titleColor
+			ref.title.TextTransparency = 0
+			ref.title.TextSize = 22
+			ref.arrow.TextTransparency = 0
+			ref.arrow.Position = UDim2.new(1, -10, 0.5, 0)
+			ref.arrow.TextColor3 = C.gold
+			ref.subtitle.TextColor3 = C.gold
+			ref.subtitle.TextTransparency = 0.2
+		else
+			ref.accent.BackgroundTransparency = 1
+			ref.fill.BackgroundTransparency = 0.96
+			ref.num.TextTransparency = 0.45
+			ref.num.TextColor3 = C.gold
+			ref.title.TextColor3 = C.titleColor
+			ref.title.TextTransparency = 0.08
+			ref.title.TextSize = 20
+			ref.arrow.TextTransparency = 0.65
+			ref.arrow.Position = UDim2.new(1, -16, 0.5, 0)
+			ref.arrow.TextColor3 = C.gold
+			ref.subtitle.TextColor3 = Color3.fromRGB(165, 175, 195)
+			ref.subtitle.TextTransparency = 0.12
+			ref.button.Position = UDim2.new(0, 0, 0, 0)
+		end
+	end
+	selectedOption = rowKey
+end
+
+local function prepareMenuInitialState()
+	setInfoPanelContentImmediate("findmatch")
+	applyRowStyleImmediate("findmatch")
+
+	wordmark.TextTransparency = 1
+	seasonLabel.TextTransparency = 1
+	tagLabel.TextTransparency = 1
+	asymLabel.TextTransparency = 1
+	dividerLine.BackgroundTransparency = 1
+	navTitle.TextTransparency = 1
+	footerLeft.TextTransparency = 1
+	footerCenter.TextTransparency = 1
+	footerRight.TextTransparency = 1
+	footerLine.BackgroundTransparency = 1
+	navTopSep.BackgroundTransparency = 1
+	navBottomSep.BackgroundTransparency = 1
+	onlineDot.BackgroundTransparency = 1
+	centerSeparator.BackgroundTransparency = 1
+	infoPanelLabel.TextTransparency = 1
+	infoDivider.BackgroundTransparency = 1
+	infoSecondaryLabel.TextTransparency = 1
+	infoSecondaryDivider.BackgroundTransparency = 1
+	infoBacking.BackgroundTransparency = 1
+	infoTopBorder.BackgroundTransparency = 1
+	infoBottomBorder.BackgroundTransparency = 1
+	for _, ln in ipairs(infoMainLines) do ln.TextTransparency = 1 end
+	for _, ln in ipairs(infoSecondaryLines) do ln.TextTransparency = 1 end
+	for _, cf in ipairs(cornerFrames) do cf.BackgroundTransparency = 1 end
+	for _, ref in pairs(optionRefs) do
+		ref.button.Position = UDim2.new(0, 0, 0, 0)
+		ref.accent.BackgroundTransparency = 1
+		if ref.stroke then
+			ref.stroke.Transparency = 1
+		end
+		ref.title.TextTransparency = 1
+		ref.subtitle.TextTransparency = 1
+		ref.num.TextTransparency = 1
+		ref.arrow.TextTransparency = 1
+		ref.sep.BackgroundTransparency = 1
+		ref.fill.BackgroundTransparency = 1
+	end
+end
+
+local function waitRenderFrames(count)
+	for _ = 1, count do
+		RunService.RenderStepped:Wait()
+	end
+end
+
+local function playMenuEntrance(token)
+	if token ~= menuTransitionToken then return end
+
+	playTween("left_wordmark_in", wordmark, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
+
+	task.delay(0.1, function()
+		if token ~= menuTransitionToken then return end
+		playTween("left_season_in", seasonLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.35})
+		playTween("left_div_in", dividerLine, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55})
+	end)
+
+	task.delay(0.15, function()
+		if token ~= menuTransitionToken then return end
+		playTween("left_tag_in", tagLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.18})
+		playTween("left_asym_in", asymLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.55})
+	end)
+
+	task.delay(0.2, function()
+		if token ~= menuTransitionToken then return end
+		playTween("nav_title_in", navTitle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5})
+		playTween("nav_top_sep_in", navTopSep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
+	end)
+
+	for i, key in ipairs({"findmatch", "howtoplay", "credits"}) do
+		local ref = optionRefs[key]
+		task.delay(0.25 + (i - 1) * 0.07, function()
+			if token ~= menuTransitionToken then return end
+			local isActive = key == selectedOption
+			playTween(key .. "_fill_in", ref.fill, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = isActive and 0.91 or 0.96})
+			playTween(key .. "_accent_in", ref.accent, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = isActive and 0 or 1})
+			if ref.stroke then
+				playTween(key .. "_stroke_in", ref.stroke, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.88})
+			end
+			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = isActive and 0 or 0.08, TextSize = isActive and 22 or 20, TextColor3 = C.titleColor})
+			playTween(key .. "_sub_in", ref.subtitle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = isActive and 0.2 or 0.12, TextColor3 = isActive and C.gold or Color3.fromRGB(165, 175, 195)})
+			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = isActive and 0 or 0.45, TextColor3 = C.gold})
+			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = isActive and 0 or 0.65, Position = isActive and UDim2.new(1, -10, 0.5, 0) or UDim2.new(1, -16, 0.5, 0), TextColor3 = C.gold})
+			playTween(key .. "_sep_in", ref.sep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
+		end)
+	end
+
+	task.delay(0.35, function()
+		if token ~= menuTransitionToken then return end
+		playTween("center_sep_in", centerSeparator, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.85})
+	end)
+
+	task.delay(0.38, function()
+		if token ~= menuTransitionToken then return end
+		playTween("info_backing_in", infoBacking, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5})
+		playTween("info_top_border_in", infoTopBorder, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
+		playTween("info_bottom_border_in", infoBottomBorder, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
+		playTween("info_panel_lbl_in", infoPanelLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
+		playTween("info_panel_div_in", infoDivider, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.82})
+		playTween("info_panel_slbl_in", infoSecondaryLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
+		playTween("info_panel_sdiv_in", infoSecondaryDivider, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
+		for i, ln in ipairs(infoMainLines) do
+			playTween("info_panel_mln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.05})
+		end
+		for i, ln in ipairs(infoSecondaryLines) do
+			playTween("info_panel_sln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.08})
+		end
+	end)
+
+	task.delay(0.45, function()
+		if token ~= menuTransitionToken then return end
+		playTween("bottom_line_in", footerLine, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
+		playTween("bottom_left_in", footerLeft, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
+		playTween("bottom_center_in", footerCenter, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
+		playTween("bottom_right_in", footerRight, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
+		playTween("bottom_dot_in", onlineDot, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.4})
+	end)
+
+	task.delay(0.48, function()
+		if token ~= menuTransitionToken then return end
+		for i, cf in ipairs(cornerFrames) do
+			playTween("corner_in_" .. i, cf, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.65})
+		end
+	end)
+
+	task.delay(0.5, function()
+		if token ~= menuTransitionToken then return end
+		task.spawn(function()
+			local up = false
+			while gui.Enabled and menuScreen.Visible do
+				if up then
+					local t = TweenService:Create(wordmark, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 0.04})
+					t:Play()
+					t.Completed:Wait()
+				else
+					local t = TweenService:Create(wordmark, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 0})
+					t:Play()
+					t.Completed:Wait()
+				end
+				up = not up
+			end
+		end)
+	end)
+end
+
 local function makeOption(order, num, title, subtitle, key)
 	local btn = Instance.new("TextButton")
 	btn.AutoButtonColor = false
@@ -534,11 +769,12 @@ end
 local findMatchBtn = makeOption(1, "01", "FIND MATCH", "Queue into a heist", "findmatch")
 local howToBtn = makeOption(2, "02", "HOW TO PLAY", "Learn rules and roles", "howtoplay")
 local creditsBtn = makeOption(3, "03", "CREDITS", "Meet the developers", "credits")
-local navBottomSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 12, navRows)
+navBottomSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 12, navRows)
 navBottomSep.LayoutOrder = 4
 -- Overlays
 local function makeOverlay(name, titleText)
-	local overlay = makeFrame(UDim2.fromScale(1, 1), UDim2.new(1, 0, 0, 0), C.bg, 0, 20, gui)
+	local overlay = makeFrame(UDim2.fromScale(1, 1), UDim2.new(1, 0, 0, 0), C.bg, 0, 50, gui)
+	overlay.Active = true
 	overlay.Visible = false
 	overlay.Name = name
 
@@ -550,16 +786,16 @@ local function makeOverlay(name, titleText)
 	backBtn.Size = UDim2.fromOffset(100, 32)
 	backBtn.Position = UDim2.new(0, 40, 0, 56)
 	backBtn.Text = ""
-	backBtn.ZIndex = 25
+	backBtn.ZIndex = 52
 	makeCorner(6, backBtn)
 
-	local backLabel = makeLabel("← BACK", Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Left, 22, backBtn)
+	local backLabel = makeLabel("← BACK", Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Left, 53, backBtn)
 	backLabel.Size = UDim2.new(1, 0, 1, 0)
 	backLabel.TextTransparency = 0
 
 	backBtn.Parent = overlay
 
-	local content = makeFrame(UDim2.fromOffset(700, 0), UDim2.new(0.5, 0, 0, 120), C.bg, 1, 21, overlay)
+	local content = makeFrame(UDim2.fromOffset(700, 0), UDim2.new(0.5, 0, 0, 120), C.bg, 1, 51, overlay)
 	content.AnchorPoint = Vector2.new(0.5, 0)
 	content.AutomaticSize = Enum.AutomaticSize.Y
 	content.ClipsDescendants = false
@@ -844,28 +1080,58 @@ stripRight.Size = UDim2.fromOffset(140, 18)
 
 local _, _, _, _, _ = makeOverlayFooter(creditsOverlay)
 
-local function fadeOverlayCard(card, key, targetTransparency)
-	playTween(key .. "_bg", card, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = targetTransparency})
-	for _, d in ipairs(card:GetDescendants()) do
-		if d:IsA("TextLabel") then
-			playTween(key .. "_txt_" .. d:GetDebugId(), d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-		elseif d:IsA("UIStroke") then
-			playTween(key .. "_stroke_" .. d:GetDebugId(), d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.82})
-		end
+local function cacheOriginalTransparency(inst)
+	if inst:IsA("GuiObject") and inst:GetAttribute("OrigBgTransparency") == nil then
+		inst:SetAttribute("OrigBgTransparency", inst.BackgroundTransparency)
 	end
+	if (inst:IsA("TextLabel") or inst:IsA("TextButton")) and inst:GetAttribute("OrigTextTransparency") == nil then
+		inst:SetAttribute("OrigTextTransparency", inst.TextTransparency)
+	end
+	if inst:IsA("UIStroke") and inst:GetAttribute("OrigStrokeTransparency") == nil then
+		inst:SetAttribute("OrigStrokeTransparency", inst.Transparency)
+	end
+end
+
+local function getAttrNumber(inst, attrName, fallback)
+	local value = inst:GetAttribute(attrName)
+	if typeof(value) == "number" then
+		return value
+	end
+	return fallback
 end
 
 local function setOverlayCardsHidden(cards)
 	for _, card in ipairs(cards) do
+		cacheOriginalTransparency(card)
+		card.Visible = false
 		card.BackgroundTransparency = 1
 		for _, d in ipairs(card:GetDescendants()) do
-			if d:IsA("TextLabel") then
+			cacheOriginalTransparency(d)
+			if d:IsA("GuiObject") then
+				d.BackgroundTransparency = 1
+			end
+			if d:IsA("TextLabel") or d:IsA("TextButton") then
 				d.TextTransparency = 1
 			elseif d:IsA("UIStroke") then
 				d.Transparency = 1
-			elseif d:IsA("Frame") and d ~= card then
-				d.BackgroundTransparency = 1
 			end
+		end
+	end
+end
+
+local function fadeOverlayCard(card, key, targetTransparency)
+	card.Visible = true
+	playTween(key .. "_card_bg", card, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = targetTransparency})
+	local index = 0
+	for _, d in ipairs(card:GetDescendants()) do
+		index += 1
+		if d:IsA("GuiObject") then
+			playTween(key .. "_bg_" .. index, d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = getAttrNumber(d, "OrigBgTransparency", d.BackgroundTransparency)})
+		end
+		if d:IsA("TextLabel") or d:IsA("TextButton") then
+			playTween(key .. "_txt_" .. index, d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = getAttrNumber(d, "OrigTextTransparency", 0)})
+		elseif d:IsA("UIStroke") then
+			playTween(key .. "_stroke_" .. index, d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = getAttrNumber(d, "OrigStrokeTransparency", 0.82)})
 		end
 	end
 end
@@ -873,15 +1139,23 @@ end
 local howCards = {howCard1, howCard2, howCard3}
 local creditsCards = {creditsCard1, creditsCard2, statusCard, seasonStrip}
 
+local overlayOpenToken = 0
+
+local function prepareOverlayCards(overlay)
+	if overlay == howOverlay then
+		setOverlayCardsHidden(howCards)
+	elseif overlay == creditsOverlay then
+		setOverlayCardsHidden(creditsCards)
+	end
+end
+
 local function animateHowOverlayCards()
-	setOverlayCardsHidden(howCards)
 	task.delay(0.00, function() fadeOverlayCard(howCard1, "how_card1", 0.55) end)
 	task.delay(0.08, function() fadeOverlayCard(howCard2, "how_card2", 0.55) end)
 	task.delay(0.16, function() fadeOverlayCard(howCard3, "how_card3", 0.55) end)
 end
 
 local function animateCreditsOverlayCards()
-	setOverlayCardsHidden(creditsCards)
 	task.delay(0.00, function() fadeOverlayCard(creditsCard1, "cr_card1", 0.55) end)
 	task.delay(0.08, function() fadeOverlayCard(creditsCard2, "cr_card2", 0.55) end)
 	task.delay(0.20, function() fadeOverlayCard(statusCard, "cr_status", 0.55) end)
@@ -889,20 +1163,16 @@ local function animateCreditsOverlayCards()
 end
 
 local function openOverlay(overlay)
-	task.delay(0.05, function()
-		if overlay.Visible then
-			menuScreen.Active = false
-		end
-	end)
+	overlayOpenToken += 1
+	local token = overlayOpenToken
+	prepareOverlayCards(overlay)
 	overlay.Visible = true
 	overlay.Position = UDim2.new(1, 0, 0, 0)
 	playTween("open_" .. overlay.Name, overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0, 0, 0, 0),
 	})
 	task.delay(0.31, function()
-		if not overlay.Visible then
-			return
-		end
+		if token ~= overlayOpenToken or not overlay.Visible then return end
 		if overlay == howOverlay then
 			animateHowOverlayCards()
 		elseif overlay == creditsOverlay then
@@ -912,12 +1182,12 @@ local function openOverlay(overlay)
 end
 
 local function closeOverlay(overlay)
+	overlayOpenToken += 1
 	playTween("close_" .. overlay.Name, overlay, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
 		Position = UDim2.new(1, 0, 0, 0),
 	})
 	task.delay(0.26, function()
 		overlay.Visible = false
-		menuScreen.Active = true
 	end)
 end
 
@@ -928,132 +1198,53 @@ creditsBackBtn.Activated:Connect(function()
 	closeOverlay(creditsOverlay)
 end)
 
-local function menuEntrance()
-	wordmark.TextTransparency = 1
-	seasonLabel.TextTransparency = 1
-	tagLabel.TextTransparency = 1
-	asymLabel.TextTransparency = 1
-	dividerLine.BackgroundTransparency = 1
-	navTitle.TextTransparency = 1
-	footerLeft.TextTransparency = 1
-	footerCenter.TextTransparency = 1
-	footerRight.TextTransparency = 1
-	footerLine.BackgroundTransparency = 1
-	navTopSep.BackgroundTransparency = 1
-	navBottomSep.BackgroundTransparency = 1
-	onlineDot.BackgroundTransparency = 1
-	centerSeparator.BackgroundTransparency = 1
-	infoPanelLabel.TextTransparency = 1
-	infoDivider.BackgroundTransparency = 1
-	infoSecondaryLabel.TextTransparency = 1
-	infoSecondaryDivider.BackgroundTransparency = 1
-	infoBacking.BackgroundTransparency = 1
-	infoTopBorder.BackgroundTransparency = 1
-	infoBottomBorder.BackgroundTransparency = 1
-	for _, ln in ipairs(infoMainLines) do
-		ln.TextTransparency = 1
-	end
-	for _, ln in ipairs(infoSecondaryLines) do
-		ln.TextTransparency = 1
-	end
-	for _, cf in ipairs(cornerFrames) do
-		cf.BackgroundTransparency = 1
-	end
-
-	playTween("left_wordmark_in", wordmark, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0})
-	task.delay(0.1, function()
-		playTween("left_season_in", seasonLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.35})
-		playTween("left_div_in", dividerLine, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55})
-	end)
-	task.delay(0.15, function()
-		playTween("left_tag_in", tagLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.18})
-		playTween("left_asym_in", asymLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0.55})
-	end)
-	task.delay(0.2, function()
-		playTween("nav_title_in", navTitle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-		playTween("nav_top_sep_in", navTopSep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
-	end)
-
-	for i, key in ipairs({"findmatch", "howtoplay", "credits"}) do
-		local ref = optionRefs[key]
-		ref.title.TextTransparency = 1
-		ref.subtitle.TextTransparency = 1
-		ref.num.TextTransparency = 1
-		ref.arrow.TextTransparency = 1
-		ref.sep.BackgroundTransparency = 1
-		ref.accent.BackgroundTransparency = 1
-		ref.fill.BackgroundTransparency = 1
-		task.delay(0.25 + (i - 1) * 0.07, function()
-			playTween(key .. "_title_in", ref.title, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-			playTween(key .. "_sub_in", ref.subtitle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-			playTween(key .. "_num_in", ref.num, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.45})
-			playTween(key .. "_arrow_in", ref.arrow, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.65})
-			playTween(key .. "_sep_in", ref.sep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
-		end)
-	end
-	task.delay(0.35, function()
-		playTween("center_sep_in", centerSeparator, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.85})
-	end)
-	task.delay(0.38, function()
-		playTween("info_backing_in", infoBacking, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5})
-		playTween("info_top_border_in", infoTopBorder, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
-		playTween("info_bottom_border_in", infoBottomBorder, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7})
-		playTween("info_panel_lbl_in", infoPanelLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-		playTween("info_panel_div_in", infoDivider, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.82})
-		playTween("info_panel_slbl_in", infoSecondaryLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
-		playTween("info_panel_sdiv_in", infoSecondaryDivider, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
-		for i, ln in ipairs(infoMainLines) do
-			playTween("info_panel_mln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.05})
-		end
-		for i, ln in ipairs(infoSecondaryLines) do
-			playTween("info_panel_sln_in_" .. i, ln, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.08})
-		end
-	end)
-	task.delay(0.45, function()
-		playTween("bottom_line_in", footerLine, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
-		playTween("bottom_left_in", footerLeft, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
-		playTween("bottom_center_in", footerCenter, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
-		playTween("bottom_right_in", footerRight, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.4})
-		playTween("bottom_dot_in", onlineDot, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.4})
-	end)
-	task.delay(0.48, function()
-		for i, cf in ipairs(cornerFrames) do
-			playTween("corner_in_" .. i, cf, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.65})
-		end
-	end)
-	task.delay(0.5, function()
-		applyRowStyle("findmatch")
-		updateInfoPanel("findmatch")
-		task.spawn(function()
-			local up = false
-			while gui.Enabled and menuScreen.Visible do
-				if up then
-					local t = TweenService:Create(wordmark, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 0.04})
-					t:Play()
-					t.Completed:Wait()
-				else
-					local t = TweenService:Create(wordmark, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 0})
-					t:Play()
-					t.Completed:Wait()
-				end
-				up = not up
-			end
-		end)
-	end)
-end
-
 local function transitionSplashToMenu()
-	playTween("overlay_in", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		BackgroundTransparency = 0,
-	})
-	task.delay(0.3, function()
-		splashScreen.Visible = false
+	if hasEnteredMenu or isTransitioningToMenu then return end
+
+	isTransitioningToMenu = true
+	menuTransitionToken += 1
+	local token = menuTransitionToken
+
+	clickAnywhere.Active = false
+	clickAnywhere.Selectable = false
+
+	transitionOverlay.ZIndex = 1000
+	transitionOverlay.Visible = true
+	transitionOverlay.BackgroundTransparency = 1
+
+	local fadeIn = playTween("transition_overlay_in", transitionOverlay, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 0})
+
+	local fadeInConn
+	fadeInConn = fadeIn.Completed:Connect(function(playbackState)
+		if fadeInConn then fadeInConn:Disconnect() end
+		if playbackState ~= Enum.PlaybackState.Completed then return end
+		if token ~= menuTransitionToken then return end
+		if not gui.Parent then return end
+
+		prepareMenuInitialState()
 		menuScreen.Visible = true
-		playTween("overlay_out", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 1,
-		})
-		task.delay(0.35, function()
-			menuEntrance()
+		splashScreen.Visible = false
+
+		waitRenderFrames(3)
+
+		if token ~= menuTransitionToken then return end
+		if not gui.Parent then return end
+
+		local fadeOut = playTween("transition_overlay_out", transitionOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+
+		local fadeOutConn
+		fadeOutConn = fadeOut.Completed:Connect(function(outState)
+			if fadeOutConn then fadeOutConn:Disconnect() end
+			if outState ~= Enum.PlaybackState.Completed then return end
+			if token ~= menuTransitionToken then return end
+			if not gui.Parent then return end
+
+			transitionOverlay.Visible = false
+			transitionOverlay.BackgroundTransparency = 1
+			hasEnteredMenu = true
+			isTransitioningToMenu = false
+
+			playMenuEntrance(token)
 		end)
 	end)
 end
@@ -1063,6 +1254,8 @@ clickAnywhere.Activated:Connect(function()
 end)
 
 findMatchBtn.Activated:Connect(function()
+	if hasQueuedMatch then return end
+	hasQueuedMatch = true
 	applyRowStyle("findmatch")
 	updateInfoPanel("findmatch")
 	playClickedBindable:Fire()
@@ -1071,6 +1264,7 @@ findMatchBtn.Activated:Connect(function()
 	TweenService:Create(menuMusic, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Volume = 0}):Play()
 	task.delay(0.3, function()
 		if gui.Parent then
+			restoreCoreGui()
 			gui.Enabled = false
 		end
 	end)
@@ -1121,22 +1315,6 @@ task.delay(0.2, function()
 
 	task.delay(0.82, function()
 		task.spawn(function()
-			local up = true
-			while gui.Enabled and splashScreen.Visible do
-				if up then
-					local t = TweenService:Create(logoScale, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Scale = 1.008})
-					t:Play()
-					t.Completed:Wait()
-				else
-					local t = TweenService:Create(logoScale, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Scale = 1.0})
-					t:Play()
-					t.Completed:Wait()
-				end
-				up = not up
-			end
-		end)
-
-		task.spawn(function()
 			local up = false
 			while gui.Enabled and splashScreen.Visible do
 				if up then
@@ -1151,33 +1329,32 @@ task.delay(0.2, function()
 				up = not up
 			end
 		end)
+
+		task.spawn(function()
+			local up = true
+			while gui.Enabled and splashScreen.Visible do
+				local target = up and 0.72 or 0.88
+				local t = TweenService:Create(logoGlowStroke, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = target})
+				t:Play()
+				t.Completed:Wait()
+				up = not up
+			end
+		end)
 	end)
 end)
 
 -- Heartbeat: online dot pulse + scan line drift only
 RunService.Heartbeat:Connect(function(dt)
-	local t = os.clock()
-	onlineDot.BackgroundTransparency = 0.35 + math.sin(t * 3.2) * 0.15
-
-	for _, s in ipairs(scanLines) do
-		local p = s.frame.Position
-		local ny = p.Y.Scale + s.speed * dt
-		if ny > 1 then
-			ny = 0
-		end
-		s.frame.Position = UDim2.new(0, 0, ny, 0)
+	if menuScreen.Visible and hasEnteredMenu then
+		local t = os.clock()
+		onlineDot.BackgroundTransparency = 0.35 + math.sin(t * 3.2) * 0.15
 	end
-end)
-
-roleAssignedRemote.OnClientEvent:Connect(function()
-	playTween("full_fade_bg", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
-	playTween("full_fade_splash", splashScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
-	playTween("full_fade_menu", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
-	playTween("full_fade_overlay", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
-	TweenService:Create(menuMusic, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Volume = 0}):Play()
-	task.delay(0.3, function()
-		if gui.Parent then
-			gui.Enabled = false
+	if menuScreen.Visible then
+		for _, s in ipairs(scanLines) do
+			local p = s.frame.Position
+			local ny = p.Y.Scale + s.speed * dt
+			if ny > 1 then ny = 0 end
+			s.frame.Position = UDim2.new(0, 0, ny, 0)
 		end
-	end)
+	end
 end)
