@@ -21,6 +21,7 @@ end
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
+local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
 
 local playClickedBindable = ReplicatedStorage:FindFirstChild("PlayClicked")
 if not playClickedBindable then
@@ -46,7 +47,9 @@ local C = {
 local hasEnteredMenu = false
 local isTransitioningToMenu = false
 local menuTransitionToken = 0
-local hasQueuedMatch = false
+local hasQueuedForMatch = false
+local isClosingForGame = false
+local menuInputLocked = false
 
 local activeTweens = {}
 local function playTween(key, inst, info, props)
@@ -252,16 +255,16 @@ splashLayout.Parent = splashContainer
 local logoLabel = makeLabel("LIFTED", Enum.Font.GothamBlack, 96, C.titleColor, 1, Enum.TextXAlignment.Center, 12, splashContainer)
 logoLabel.Size = UDim2.new(1, 0, 0, 100)
 
-local logoStroke = Instance.new("UIStroke")
-logoStroke.Color = C.gold
-logoStroke.Thickness = 1.4
-logoStroke.Transparency = 0.62
-logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-logoStroke.Parent = logoLabel
+local logoInnerStroke = Instance.new("UIStroke")
+logoInnerStroke.Color = C.gold
+logoInnerStroke.Thickness = 1.2
+logoInnerStroke.Transparency = 0.55
+logoInnerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+logoInnerStroke.Parent = logoLabel
 
 local logoGlowStroke = Instance.new("UIStroke")
 logoGlowStroke.Color = Color3.fromRGB(180, 230, 255)
-logoGlowStroke.Thickness = 3
+logoGlowStroke.Thickness = 3.5
 logoGlowStroke.Transparency = 0.86
 logoGlowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 logoGlowStroke.Parent = logoLabel
@@ -306,6 +309,17 @@ local menuScreen = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg,
 menuScreen.Visible = false
 menuScreen.Active = true
 
+local overlayBlocker = Instance.new("Frame")
+overlayBlocker.Name = "OverlayBlocker"
+overlayBlocker.Size = UDim2.fromScale(1, 1)
+overlayBlocker.Position = UDim2.fromScale(0, 0)
+overlayBlocker.BackgroundTransparency = 1
+overlayBlocker.BorderSizePixel = 0
+overlayBlocker.ZIndex = 18
+overlayBlocker.Active = true
+overlayBlocker.Visible = false
+overlayBlocker.Parent = gui
+
 local scanLines = {}
 for _, sy in ipairs({0.1, 0.45, 0.75}) do
 	local line = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, sy, 0), C.gold, 0.97, 3, menuScreen)
@@ -325,8 +339,8 @@ local wordmark = makeLabel("LIFTED", Enum.Font.GothamBlack, 72, C.titleColor, 0,
 wordmark.Size = UDim2.new(1, 0, 0, 80)
 local wordmarkStroke = Instance.new("UIStroke")
 wordmarkStroke.Color = C.gold
-wordmarkStroke.Thickness = 1.1
-wordmarkStroke.Transparency = 0.7
+wordmarkStroke.Thickness = 1.0
+wordmarkStroke.Transparency = 0.72
 wordmarkStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 wordmarkStroke.Parent = wordmark
 wordmark.LayoutOrder = 1
@@ -769,6 +783,29 @@ end
 local findMatchBtn = makeOption(1, "01", "FIND MATCH", "Queue into a heist", "findmatch")
 local howToBtn = makeOption(2, "02", "HOW TO PLAY", "Learn rules and roles", "howtoplay")
 local creditsBtn = makeOption(3, "03", "CREDITS", "Meet the developers", "credits")
+
+local function lockMenuInput()
+	menuInputLocked = true
+	findMatchBtn.Active = false
+	findMatchBtn.Selectable = false
+	howToBtn.Active = false
+	howToBtn.Selectable = false
+	creditsBtn.Active = false
+	creditsBtn.Selectable = false
+	overlayBlocker.Visible = true
+end
+
+local function unlockMenuInput()
+	menuInputLocked = false
+	findMatchBtn.Active = true
+	findMatchBtn.Selectable = true
+	howToBtn.Active = true
+	howToBtn.Selectable = true
+	creditsBtn.Active = true
+	creditsBtn.Selectable = true
+	overlayBlocker.Visible = false
+end
+
 navBottomSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 12, navRows)
 navBottomSep.LayoutOrder = 4
 -- Overlays
@@ -841,14 +878,32 @@ howSubtitle.Size = UDim2.fromOffset(500, 20)
 local howTitleDivider = makeFrame(UDim2.fromOffset(200, 1), UDim2.new(0.5, 0, 0, 108), C.gold, 0.7, 22, howOverlay)
 howTitleDivider.AnchorPoint = Vector2.new(0.5, 0)
 
-howContent.Size = UDim2.fromOffset(640, 0)
-howContent.AnchorPoint = Vector2.new(0.5, 0)
-howContent.Position = UDim2.new(0.5, 0, 0, 130)
-howContent.BackgroundTransparency = 1
-local howList = Instance.new("UIListLayout")
-howList.Padding = UDim.new(0, 14)
-howList.SortOrder = Enum.SortOrder.LayoutOrder
-howList.Parent = howContent
+howContent:Destroy()
+local howScrollFrame = Instance.new("ScrollingFrame")
+howScrollFrame.Name = "HowScrollFrame"
+howScrollFrame.Size = UDim2.new(1, -40, 1, -160)
+howScrollFrame.Position = UDim2.new(0, 20, 0, 140)
+howScrollFrame.BackgroundTransparency = 1
+howScrollFrame.BorderSizePixel = 0
+howScrollFrame.ScrollBarThickness = 6
+howScrollFrame.ScrollBarImageColor3 = C.gold
+howScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+howScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+howScrollFrame.CanvasSize = UDim2.new()
+howScrollFrame.ElasticBehavior = Enum.ElasticBehavior.Never
+howScrollFrame.ZIndex = 21
+howScrollFrame.Parent = howOverlay
+howContent = howScrollFrame
+
+local howScrollLayout = Instance.new("UIListLayout")
+howScrollLayout.Padding = UDim.new(0, 14)
+howScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+howScrollLayout.Parent = howScrollFrame
+
+local howScrollPad = Instance.new("UIPadding")
+howScrollPad.PaddingBottom = UDim.new(0, 80)
+howScrollPad.PaddingTop = UDim.new(0, 8)
+howScrollPad.Parent = howScrollFrame
 
 local function makeChip(parent, text)
 	local chip = makeFrame(UDim2.fromOffset(0, 28), UDim2.fromOffset(0, 0), Color3.fromRGB(20, 25, 40), 0.3, 24, parent)
@@ -944,14 +999,32 @@ creditsSubtitle.Size = UDim2.fromOffset(500, 20)
 local creditsTitleDivider = makeFrame(UDim2.fromOffset(200, 1), UDim2.new(0.5, 0, 0, 108), C.gold, 0.7, 22, creditsOverlay)
 creditsTitleDivider.AnchorPoint = Vector2.new(0.5, 0)
 
-creditsContent.Size = UDim2.fromOffset(740, 0)
-creditsContent.AnchorPoint = Vector2.new(0.5, 0)
-creditsContent.Position = UDim2.new(0.5, 0, 0, 130)
-creditsContent.BackgroundTransparency = 1
-local creditsList = Instance.new("UIListLayout")
-creditsList.Padding = UDim.new(0, 14)
-creditsList.SortOrder = Enum.SortOrder.LayoutOrder
-creditsList.Parent = creditsContent
+creditsContent:Destroy()
+local creditsScrollFrame = Instance.new("ScrollingFrame")
+creditsScrollFrame.Name = "CreditsScrollFrame"
+creditsScrollFrame.Size = UDim2.new(1, -40, 1, -160)
+creditsScrollFrame.Position = UDim2.new(0, 20, 0, 140)
+creditsScrollFrame.BackgroundTransparency = 1
+creditsScrollFrame.BorderSizePixel = 0
+creditsScrollFrame.ScrollBarThickness = 6
+creditsScrollFrame.ScrollBarImageColor3 = C.gold
+creditsScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+creditsScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+creditsScrollFrame.CanvasSize = UDim2.new()
+creditsScrollFrame.ElasticBehavior = Enum.ElasticBehavior.Never
+creditsScrollFrame.ZIndex = 21
+creditsScrollFrame.Parent = creditsOverlay
+creditsContent = creditsScrollFrame
+
+local creditsScrollLayout = Instance.new("UIListLayout")
+creditsScrollLayout.Padding = UDim.new(0, 14)
+creditsScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+creditsScrollLayout.Parent = creditsScrollFrame
+
+local creditsScrollPad = Instance.new("UIPadding")
+creditsScrollPad.PaddingBottom = UDim.new(0, 80)
+creditsScrollPad.PaddingTop = UDim.new(0, 8)
+creditsScrollPad.Parent = creditsScrollFrame
 
 local devRow = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.bg, 1, 22, creditsContent)
 devRow.LayoutOrder = 1
@@ -1166,6 +1239,7 @@ local function openOverlay(overlay)
 	overlayOpenToken += 1
 	local token = overlayOpenToken
 	prepareOverlayCards(overlay)
+	lockMenuInput()
 	overlay.Visible = true
 	overlay.Position = UDim2.new(1, 0, 0, 0)
 	playTween("open_" .. overlay.Name, overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -1188,6 +1262,7 @@ local function closeOverlay(overlay)
 	})
 	task.delay(0.26, function()
 		overlay.Visible = false
+		unlockMenuInput()
 	end)
 end
 
@@ -1253,30 +1328,47 @@ clickAnywhere.Activated:Connect(function()
 	transitionSplashToMenu()
 end)
 
-findMatchBtn.Activated:Connect(function()
-	if hasQueuedMatch then return end
-	hasQueuedMatch = true
-	applyRowStyle("findmatch")
-	updateInfoPanel("findmatch")
-	playClickedBindable:Fire()
-	playTween("menu_hide", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
-	playTween("bg_hide", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+local function closeMenuForGame()
+	if isClosingForGame then return end
+	isClosingForGame = true
+	playTween("full_fade_bg", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("full_fade_splash", splashScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("full_fade_menu", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("full_fade_overlay", transitionOverlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
 	TweenService:Create(menuMusic, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Volume = 0}):Play()
 	task.delay(0.3, function()
 		if gui.Parent then
-			restoreCoreGui()
 			gui.Enabled = false
 		end
 	end)
+end
+
+roleAssignedRemote.OnClientEvent:Connect(function()
+	if not hasQueuedForMatch then
+		warn("[MainMenu] Ignored RoleAssigned before player clicked FIND MATCH")
+		return
+	end
+	closeMenuForGame()
+end)
+
+findMatchBtn.Activated:Connect(function()
+	if menuInputLocked then return end
+	hasQueuedForMatch = true
+	applyRowStyle("findmatch")
+	updateInfoPanel("findmatch")
+	playClickedBindable:Fire()
+	closeMenuForGame()
 end)
 
 howToBtn.Activated:Connect(function()
+	if menuInputLocked then return end
 	applyRowStyle("howtoplay")
 	updateInfoPanel("howtoplay")
 	openOverlay(howOverlay)
 end)
 
 creditsBtn.Activated:Connect(function()
+	if menuInputLocked then return end
 	applyRowStyle("credits")
 	updateInfoPanel("credits")
 	openOverlay(creditsOverlay)
@@ -1333,7 +1425,7 @@ task.delay(0.2, function()
 		task.spawn(function()
 			local up = true
 			while gui.Enabled and splashScreen.Visible do
-				local target = up and 0.72 or 0.88
+				local target = up and 0.70 or 0.88
 				local t = TweenService:Create(logoGlowStroke, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = target})
 				t:Play()
 				t.Completed:Wait()
