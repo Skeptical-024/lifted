@@ -881,8 +881,9 @@ howTitleDivider.AnchorPoint = Vector2.new(0.5, 0)
 howContent:Destroy()
 local howScrollFrame = Instance.new("ScrollingFrame")
 howScrollFrame.Name = "HowScrollFrame"
-howScrollFrame.Size = UDim2.new(1, -40, 1, -160)
-howScrollFrame.Position = UDim2.new(0, 20, 0, 140)
+howScrollFrame.Size = UDim2.fromOffset(640, 0)
+howScrollFrame.Size = UDim2.new(0, 640, 1, -160)
+howScrollFrame.Position = UDim2.new(0.5, -320, 0, 140)
 howScrollFrame.BackgroundTransparency = 1
 howScrollFrame.BorderSizePixel = 0
 howScrollFrame.ScrollBarThickness = 6
@@ -1002,8 +1003,8 @@ creditsTitleDivider.AnchorPoint = Vector2.new(0.5, 0)
 creditsContent:Destroy()
 local creditsScrollFrame = Instance.new("ScrollingFrame")
 creditsScrollFrame.Name = "CreditsScrollFrame"
-creditsScrollFrame.Size = UDim2.new(1, -40, 1, -160)
-creditsScrollFrame.Position = UDim2.new(0, 20, 0, 140)
+creditsScrollFrame.Size = UDim2.new(0, 740, 1, -160)
+creditsScrollFrame.Position = UDim2.new(0.5, -370, 0, 140)
 creditsScrollFrame.BackgroundTransparency = 1
 creditsScrollFrame.BorderSizePixel = 0
 creditsScrollFrame.ScrollBarThickness = 6
