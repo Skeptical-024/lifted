@@ -250,25 +250,17 @@ for _, xo in ipairs({-12, 0, 12}) do
 	table.insert(diamonds, d)
 end
 
-local playButton = Instance.new("TextButton")
-playButton.AutoButtonColor = false
-playButton.BackgroundTransparency = 1
-playButton.BorderSizePixel = 0
-playButton.Size = UDim2.fromOffset(200, 44)
-playButton.Text = ""
-playButton.ZIndex = 12
-playButton.LayoutOrder = 4
-playButton.Parent = splashContainer
-makeCorner(4, playButton)
+local playLabel = makeLabel("PRESS TO PLAY", Enum.Font.GothamBold, 12, C.gold, 1, Enum.TextXAlignment.Center, 13, splashContainer)
+playLabel.Size = UDim2.fromOffset(200, 44)
+playLabel.LayoutOrder = 4
 
-local playStroke = Instance.new("UIStroke")
-playStroke.Color = C.gold
-playStroke.Thickness = 1
-playStroke.Transparency = 1
-playStroke.Parent = playButton
-
-local playLabel = makeLabel("PRESS TO PLAY", Enum.Font.GothamBold, 12, C.gold, 1, Enum.TextXAlignment.Center, 13, playButton)
-playLabel.Size = UDim2.new(1, 0, 1, 0)
+local clickAnywhere = Instance.new("TextButton")
+clickAnywhere.BackgroundTransparency = 1
+clickAnywhere.Size = UDim2.fromScale(1, 1)
+clickAnywhere.Position = UDim2.fromScale(0, 0)
+clickAnywhere.Text = ""
+clickAnywhere.ZIndex = 15
+clickAnywhere.Parent = splashScreen
 local logoScale = Instance.new("UIScale")
 logoScale.Scale = 1
 logoScale.Parent = logoLabel
@@ -567,12 +559,6 @@ local function makeOverlay(name, titleText)
 
 	backBtn.Parent = overlay
 
-	local title = makeLabel(titleText, Enum.Font.GothamBlack, 32, C.white, 0, Enum.TextXAlignment.Center, 21, overlay)
-	title.AnchorPoint = Vector2.new(0.5, 0)
-	title.TextXAlignment = Enum.TextXAlignment.Center
-	title.Size = UDim2.fromOffset(700, 40)
-	title.Position = UDim2.new(0.5, 0, 0, 50)
-
 	local content = makeFrame(UDim2.fromOffset(700, 0), UDim2.new(0.5, 0, 0, 120), C.bg, 1, 21, overlay)
 	content.AnchorPoint = Vector2.new(0.5, 0)
 	content.AutomaticSize = Enum.AutomaticSize.Y
@@ -863,13 +849,8 @@ local function fadeOverlayCard(card, key, targetTransparency)
 	for _, d in ipairs(card:GetDescendants()) do
 		if d:IsA("TextLabel") then
 			playTween(key .. "_txt_" .. d:GetDebugId(), d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-		elseif d:IsA("Frame") then
-			local c = d:FindFirstChildOfClass("UICorner")
-			if not c and d ~= card then
-				playTween(key .. "_frm_" .. d:GetDebugId(), d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = d.BackgroundTransparency})
-			end
 		elseif d:IsA("UIStroke") then
-			playTween(key .. "_stroke_" .. d:GetDebugId(), d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = d.Transparency})
+			playTween(key .. "_stroke_" .. d:GetDebugId(), d, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.82})
 		end
 	end
 end
@@ -908,7 +889,11 @@ local function animateCreditsOverlayCards()
 end
 
 local function openOverlay(overlay)
-	menuScreen.Active = false
+	task.delay(0.05, function()
+		if overlay.Visible then
+			menuScreen.Active = false
+		end
+	end)
 	overlay.Visible = true
 	overlay.Position = UDim2.new(1, 0, 0, 0)
 	playTween("open_" .. overlay.Name, overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -1073,24 +1058,7 @@ local function transitionSplashToMenu()
 	end)
 end
 
-playButton.MouseEnter:Connect(function()
-	playTween("play_stroke_in", playStroke, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.1})
-	playTween("play_label_in", playLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-end)
-
-playButton.MouseLeave:Connect(function()
-	playTween("play_stroke_out", playStroke, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.5})
-	playTween("play_label_out", playLabel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
-end)
-
-playButton.MouseButton1Down:Connect(function()
-	playTween("play_btn_press", playButton, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(194, 42)})
-end)
-playButton.MouseButton1Up:Connect(function()
-	playTween("play_btn_release", playButton, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(200, 44)})
-end)
-
-playButton.Activated:Connect(function()
+clickAnywhere.Activated:Connect(function()
 	transitionSplashToMenu()
 end)
 
@@ -1129,7 +1097,6 @@ lineR.BackgroundTransparency = 1
 for _, d in ipairs(diamonds) do
 	d.BackgroundTransparency = 1
 end
-playStroke.Transparency = 1
 playLabel.TextTransparency = 1
 
 task.delay(0.2, function()
@@ -1149,7 +1116,6 @@ task.delay(0.2, function()
 	end)
 
 	task.delay(0.4, function()
-		playTween("play_stroke_default", playStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.5})
 		playTween("play_label_default", playLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.2})
 	end)
 
