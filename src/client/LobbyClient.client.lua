@@ -26,6 +26,11 @@ local C = {
 	black = Color3.fromRGB(4, 3, 3),
 }
 
+local WAITING_TEXT = Color3.fromRGB(245, 248, 255)
+local WAITING_MUTED = Color3.fromRGB(150, 165, 185)
+local WAITING_ACCENT = Color3.fromRGB(120, 220, 255)
+local WAITING_ACCENT_DEEP = Color3.fromRGB(40, 150, 220)
+
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 
@@ -107,7 +112,7 @@ local panelBasePos = UDim2.new(0.5, -240, 0.5, -140)
 local panel = makePanel(UDim2.fromOffset(480, 280), panelBasePos + UDim2.fromOffset(0, 20), overlay)
 panel.Visible = false
 
-local logo = makeLabel("LIFTED", Enum.Font.GothamBlack, C.gold, panel)
+local logo = makeLabel("LIFTED", Enum.Font.GothamBlack, WAITING_TEXT, panel)
 logo.Size = UDim2.fromOffset(420, 64)
 logo.Position = UDim2.fromOffset(30, 16)
 logo.TextSize = 50
@@ -118,17 +123,17 @@ local divider = Instance.new("Frame")
 divider.Size = UDim2.fromOffset(400, 1)
 divider.Position = UDim2.fromOffset(40, 84)
 divider.BorderSizePixel = 0
-divider.BackgroundColor3 = C.crimson
+divider.BackgroundColor3 = WAITING_ACCENT
 divider.BackgroundTransparency = 0.2
 divider.Parent = panel
 
-local statusLabel = makeLabel("WAITING FOR PLAYERS", Enum.Font.GothamBold, C.parchment, panel)
+local statusLabel = makeLabel("WAITING FOR PLAYERS", Enum.Font.GothamBold, WAITING_TEXT, panel)
 statusLabel.Size = UDim2.fromOffset(420, 40)
 statusLabel.Position = UDim2.fromOffset(30, 102)
 statusLabel.TextSize = 30
 statusLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-local countdownLabel = makeLabel("", Enum.Font.GothamBlack, C.parchment, panel)
+local countdownLabel = makeLabel("", Enum.Font.GothamBlack, WAITING_TEXT, panel)
 countdownLabel.Size = UDim2.fromOffset(420, 92)
 countdownLabel.Position = UDim2.fromOffset(30, 136)
 countdownLabel.TextSize = 84
@@ -148,17 +153,17 @@ pillCorner.CornerRadius = UDim.new(0, 18)
 pillCorner.Parent = countPill
 
 local pillStroke = Instance.new("UIStroke")
-pillStroke.Color = C.crimson
+pillStroke.Color = WAITING_ACCENT
 pillStroke.Transparency = 0.45
 pillStroke.Thickness = 1
 pillStroke.Parent = countPill
 
-local countLabel = makeLabel("1 / 2 PLAYERS", Enum.Font.GothamBold, C.gold, countPill)
+local countLabel = makeLabel("1 / 2 PLAYERS", Enum.Font.GothamBold, WAITING_ACCENT, countPill)
 countLabel.Size = UDim2.fromScale(1, 1)
 countLabel.TextSize = 18
 countLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-local subtext = makeLabel("Steal the idol. Don't get caught.", Enum.Font.Gotham, C.greyWarm, panel)
+local subtext = makeLabel("Steal the idol. Don't get caught.", Enum.Font.Gotham, WAITING_MUTED, panel)
 subtext.Size = UDim2.fromOffset(420, 24)
 subtext.Position = UDim2.fromOffset(30, 240)
 subtext.TextSize = 18
@@ -170,13 +175,25 @@ local baseWaiting = "WAITING FOR PLAYERS"
 local dotCount = 0
 local pulseConnection
 
+local function applyWaitingLobbyTheme()
+	logo.TextColor3 = WAITING_TEXT
+	divider.BackgroundColor3 = WAITING_ACCENT
+	statusLabel.TextColor3 = WAITING_TEXT
+	countdownLabel.TextColor3 = WAITING_TEXT
+	pillStroke.Color = WAITING_ACCENT
+	countLabel.TextColor3 = WAITING_ACCENT
+	subtext.TextColor3 = WAITING_MUTED
+end
+
+applyWaitingLobbyTheme()
+
 local function startCriticalPulse()
 	if pulseConnection then return end
 	pulseConnection = RunService.Heartbeat:Connect(function()
 		local alpha = (math.sin(os.clock() * 8) + 1) / 2
 		local stroke = panel:FindFirstChildOfClass("UIStroke")
 		if stroke then
-			stroke.Color = C.crimson
+			stroke.Color = WAITING_ACCENT_DEEP
 			stroke.Transparency = 0.2 + (0.35 * (1 - alpha))
 		end
 	end)
@@ -189,7 +206,7 @@ local function stopCriticalPulse()
 	end
 	local stroke = panel:FindFirstChildOfClass("UIStroke")
 	if stroke then
-		stroke.Color = Color3.fromRGB(255, 255, 255)
+		stroke.Color = WAITING_ACCENT
 		stroke.Transparency = 0.85
 	end
 end
@@ -226,6 +243,7 @@ local function setWaiting(playerCount, required)
 	countPill.Visible = true
 	countLabel.Text = string.format("%d / %d PLAYERS", playerCount, required)
 	subtext.Text = "Steal the idol. Don't get caught."
+	applyWaitingLobbyTheme()
 	stopCriticalPulse()
 	showPanel()
 end
@@ -246,8 +264,9 @@ local function setCountdown(seconds)
 	countPill.Visible = false
 	countdownLabel.Visible = true
 	countdownLabel.Text = tostring(seconds)
-	countdownLabel.TextColor3 = seconds <= 3 and C.goldBright or C.parchment
+	countdownLabel.TextColor3 = WAITING_TEXT
 	subtext.Text = "Get ready..."
+	applyWaitingLobbyTheme()
 	showPanel()
 	pulseCountdown()
 	if seconds <= 3 then startCriticalPulse() else stopCriticalPulse() end
