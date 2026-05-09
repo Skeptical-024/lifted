@@ -35,7 +35,7 @@ local playClicked = false
 local C = {
 	bg = Color3.fromRGB(6, 7, 13),
 	gold = Color3.fromRGB(180, 230, 255),
-	titleColor = Color3.fromRGB(220, 235, 255),
+	titleColor = Color3.fromRGB(245, 248, 255),
 	text = Color3.fromRGB(220, 220, 230),
 	textMuted = Color3.fromRGB(170, 170, 190),
 	textDim = Color3.fromRGB(130, 130, 150),
@@ -44,6 +44,15 @@ local C = {
 	card = Color3.fromRGB(10, 11, 18),
 	cardMuted = Color3.fromRGB(14, 15, 23),
 }
+local COLOR_TEXT = Color3.fromRGB(245, 248, 255)
+local COLOR_MUTED = Color3.fromRGB(150, 165, 185)
+local COLOR_ACCENT = Color3.fromRGB(120, 220, 255)
+local COLOR_ACCENT_DEEP = Color3.fromRGB(40, 150, 220)
+local WAITING_TEXT = Color3.fromRGB(245, 248, 255)
+local WAITING_MUTED = Color3.fromRGB(150, 165, 185)
+local WAITING_ACCENT = Color3.fromRGB(120, 220, 255)
+local WAITING_ACCENT_DEEP = Color3.fromRGB(40, 150, 220)
+local WAITING_PANEL = Color3.fromRGB(8, 10, 16)
 
 local hasEnteredMenu = false
 local isTransitioningToMenu = false
@@ -1385,39 +1394,138 @@ local function closeMenuForGame()
 	end)
 end
 
+local function forceWaitingScreenCyanTheme()
+	-- Hard-force waiting screen colors. No gold/yellow in this overlay.
+	local function clearGoldGradients(instance)
+		for _, child in ipairs(instance:GetChildren()) do
+			if child:IsA("UIGradient") then
+				child:Destroy()
+			end
+		end
+	end
+
+	wordmark.TextColor3 = WAITING_TEXT
+	clearGoldGradients(wordmark)
+	dividerLine.BackgroundColor3 = WAITING_ACCENT
+	clearGoldGradients(dividerLine)
+	seasonLabel.TextColor3 = WAITING_ACCENT
+	clearGoldGradients(seasonLabel)
+	navTitle.TextColor3 = WAITING_ACCENT
+	clearGoldGradients(navTitle)
+	navTopSep.BackgroundColor3 = WAITING_ACCENT
+	clearGoldGradients(navTopSep)
+	navBottomSep.BackgroundColor3 = WAITING_ACCENT
+	clearGoldGradients(navBottomSep)
+	centerSeparator.BackgroundColor3 = WAITING_ACCENT_DEEP
+	clearGoldGradients(centerSeparator)
+	footerCenter.TextColor3 = WAITING_ACCENT
+	clearGoldGradients(footerCenter)
+
+	local ref = optionRefs["find"] or optionRefs["findmatch"]
+	if ref then
+		clearGoldGradients(ref.title)
+		clearGoldGradients(ref.subtitle)
+		clearGoldGradients(ref.num)
+		clearGoldGradients(ref.arrow)
+		clearGoldGradients(ref.fill)
+		clearGoldGradients(ref.accent)
+		clearGoldGradients(ref.sep)
+		ref.title.TextColor3 = WAITING_TEXT
+		ref.subtitle.TextColor3 = WAITING_MUTED
+		ref.num.TextColor3 = WAITING_ACCENT
+		ref.arrow.TextColor3 = WAITING_ACCENT
+		ref.fill.BackgroundColor3 = WAITING_PANEL
+		ref.accent.BackgroundColor3 = WAITING_ACCENT
+		ref.sep.BackgroundColor3 = WAITING_ACCENT
+		if ref.stroke then
+			ref.stroke.Color = WAITING_ACCENT
+		end
+	end
+
+	for _, d in ipairs(gui:GetDescendants()) do
+		if d:IsA("TextLabel") or d:IsA("TextButton") then
+			local t = d.Text or ""
+			if t == "LIFTED" then
+				clearGoldGradients(d)
+				d.TextColor3 = WAITING_TEXT
+			elseif string.find(t, "PLAYERS", 1, true) then
+				clearGoldGradients(d)
+				d.TextColor3 = WAITING_ACCENT
+			elseif string.find(t, "WAITING FOR PLAYERS", 1, true) then
+				clearGoldGradients(d)
+				d.TextColor3 = WAITING_TEXT
+			elseif string.find(t, "Steal the idol", 1, true) then
+				clearGoldGradients(d)
+				d.TextColor3 = WAITING_MUTED
+			end
+		elseif d:IsA("UIStroke") and d.Parent and d.Parent:IsA("GuiObject") then
+			local parent = d.Parent
+			local hasPlayersText = false
+			for _, sub in ipairs(parent:GetDescendants()) do
+				if (sub:IsA("TextLabel") or sub:IsA("TextButton")) and string.find(sub.Text or "", "PLAYERS", 1, true) then
+					hasPlayersText = true
+					break
+				end
+			end
+			if hasPlayersText then
+				d.Color = WAITING_ACCENT
+			end
+		elseif d:IsA("Frame") then
+			local n = string.lower(d.Name or "")
+			if string.find(n, "line", 1, true) or string.find(n, "divider", 1, true) or string.find(n, "accent", 1, true) then
+				clearGoldGradients(d)
+				d.BackgroundColor3 = WAITING_ACCENT
+			end
+		end
+	end
+end
+
 local function setPlayButtonState(state)
 	local ref = optionRefs["find"]
 	if not ref then return end
+	-- Waiting screen uses cyan/white scheme. No gold here.
 	if state == "waiting" then
 		ref.title.Text = "WAITING FOR ROUND"
 		ref.subtitle.Text = "Round starting soon"
-		ref.title.TextColor3 = C.white
-		ref.subtitle.TextColor3 = C.gold
-		ref.num.TextColor3 = C.gold
-		ref.arrow.TextColor3 = C.gold
+		ref.title.TextColor3 = WAITING_TEXT
+		ref.subtitle.TextColor3 = WAITING_MUTED
+		ref.num.TextColor3 = WAITING_ACCENT
+		ref.arrow.TextColor3 = WAITING_ACCENT
 		if ref.stroke then
-			ref.stroke.Color = C.gold
+			ref.stroke.Color = WAITING_ACCENT
 		end
+		forceWaitingScreenCyanTheme()
+		task.defer(forceWaitingScreenCyanTheme)
+		task.delay(0.2, forceWaitingScreenCyanTheme)
+		task.delay(0.6, forceWaitingScreenCyanTheme)
 	elseif state == "disabled" then
 		ref.title.Text = "WAITING FOR ROUND"
 		ref.subtitle.Text = ""
-		ref.title.TextColor3 = C.white
-		ref.num.TextColor3 = C.gold
-		ref.arrow.TextColor3 = C.gold
+		ref.title.TextColor3 = WAITING_TEXT
+		ref.num.TextColor3 = WAITING_ACCENT
+		ref.arrow.TextColor3 = WAITING_ACCENT
 		if ref.stroke then
-			ref.stroke.Color = C.gold
+			ref.stroke.Color = WAITING_ACCENT
 		end
+		forceWaitingScreenCyanTheme()
+		task.defer(forceWaitingScreenCyanTheme)
+		task.delay(0.2, forceWaitingScreenCyanTheme)
+		task.delay(0.6, forceWaitingScreenCyanTheme)
 	else
 		-- "default"
 		ref.title.Text = "PLAY"
 		ref.subtitle.Text = "Join a match"
-		ref.title.TextColor3 = C.titleColor
-		ref.subtitle.TextColor3 = Color3.fromRGB(165, 175, 195)
-		ref.num.TextColor3 = C.gold
-		ref.arrow.TextColor3 = C.gold
+		ref.title.TextColor3 = WAITING_TEXT
+		ref.subtitle.TextColor3 = WAITING_MUTED
+		ref.num.TextColor3 = WAITING_ACCENT
+		ref.arrow.TextColor3 = WAITING_ACCENT
 		if ref.stroke then
-			ref.stroke.Color = C.gold
+			ref.stroke.Color = WAITING_ACCENT
 		end
+		forceWaitingScreenCyanTheme()
+		task.defer(forceWaitingScreenCyanTheme)
+		task.delay(0.2, forceWaitingScreenCyanTheme)
+		task.delay(0.6, forceWaitingScreenCyanTheme)
 		playClicked = false
 	end
 end
@@ -1444,6 +1552,10 @@ findMatchBtn.Activated:Connect(function()
 	if playClicked then return end
 	playClicked = true
 	setPlayButtonState("waiting")
+	forceWaitingScreenCyanTheme()
+	task.defer(forceWaitingScreenCyanTheme)
+	task.delay(0.2, forceWaitingScreenCyanTheme)
+	task.delay(0.6, forceWaitingScreenCyanTheme)
 	playClickedBindable:Fire()
 	playTween("menu_hide", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
 	playTween("bg_hide", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})

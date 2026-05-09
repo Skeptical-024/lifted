@@ -224,10 +224,15 @@ local function buildMap(folder)
 
 	-- Simple test lighting (do not override real map lighting)
 	pcall(function()
-		Lighting.ClockTime = 0
-		Lighting.Brightness = 0.4
-		Lighting.Ambient = Color3.fromRGB(20, 22, 35)
-		Lighting.OutdoorAmbient = Color3.fromRGB(15, 18, 30)
+		Lighting.ClockTime = 14
+		Lighting.Brightness = 2
+		Lighting.Ambient = Color3.fromRGB(90, 100, 115)
+		Lighting.OutdoorAmbient = Color3.fromRGB(120, 130, 145)
+		Lighting.FogEnd = 100000
+		local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+		if atmosphere then
+			atmosphere.Density = math.min(atmosphere.Density, 0.15)
+		end
 	end)
 end
 
