@@ -2,8 +2,10 @@ local GuardianController = {}
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ReplicatedStorage_local = game:GetService("ReplicatedStorage")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 
 local sprintStateByPlayer = {}
 
@@ -100,9 +102,6 @@ function GuardianController.TryCatch(guardianPlayer, targetPlayer, rolesByPlayer
 	if rolesByPlayer[guardianPlayer] ~= "Guardian" then
 		return false, "not_guardian"
 	end
-	if rolesByPlayer[targetPlayer] ~= "Thief" then
-		return false, "target_not_thief"
-	end
 	if not Players:FindFirstChild(guardianPlayer.Name) or not Players:FindFirstChild(targetPlayer.Name) then
 		return false, "player_missing"
 	end
@@ -117,9 +116,22 @@ function GuardianController.TryCatch(guardianPlayer, targetPlayer, rolesByPlayer
 	if distance > Constants.GUARDIAN_CATCH_DISTANCE then
 		return false, "too_far"
 	end
-
-	if targetPlayer.Character then
-		targetPlayer.Character:Destroy()
+	-- Use PlayerStateService as source of truth, not just rolesByPlayer
+	if not PlayerStateService.CanBeCaught(targetPlayer) then
+		return false, "target_not_catchable"
+	end
+	-- Line-of-sight validation
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterDescendantsInstances = {
+		guardianPlayer.Character,
+		targetPlayer.Character,
+	}
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	local direction = thiefRoot.Position - guardianRoot.Position
+	local rayResult = workspace:Raycast(guardianRoot.Position, direction, raycastParams)
+	if rayResult then
+		-- Something blocked the ray before reaching the thief
+		return false, "no_line_of_sight"
 	end
 
 	local thiefCaughtRemote = ReplicatedStorage:FindFirstChild("ThiefCaught")

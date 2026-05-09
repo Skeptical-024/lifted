@@ -12,6 +12,7 @@ local RoleManager = require(script.Parent:WaitForChild("RoleManager"))
 local GuardianController = require(script.Parent:WaitForChild("GuardianController"))
 local ThiefController = require(script.Parent:WaitForChild("ThiefController"))
 local BrazierManager = require(script.Parent:WaitForChild("BrazierManager"))
+local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 print("GameManager: all modules loaded")
 
 local function getOrCreateRemote(name)
@@ -43,6 +44,7 @@ local brazierProgressUpdateRemote = getOrCreateRemote("BrazierProgressUpdate")
 local lobbyUpdateRemote = getOrCreateRemote("LobbyUpdate")
 
 local roundActive = false
+local roundId = 0
 local rolesByPlayer = {}
 local activeThieves = {}
 local guardianPlayer = nil
@@ -122,7 +124,77 @@ local function resetPlayerMovement(player)
 		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			humanoid.WalkSpeed = Constants.DEFAULT_WALK_SPEED
+			if humanoid.UseJumpPower then
+				humanoid.JumpPower = 50
+			else
+				humanoid.JumpHeight = 7.2
+			end
 		end
+	end
+	player:SetAttribute("IsCaught", false)
+end
+
+local function getOrCreateCaughtHoldingSpawn()
+	local tagged = CollectionService:GetTagged("CageSpawn")
+	for _, instance in ipairs(tagged) do
+		if instance:IsA("BasePart") and instance:IsDescendantOf(workspace) then
+			return instance
+		end
+	end
+
+	local named = workspace:FindFirstChild("CageSpawn", true)
+	if named and named:IsA("BasePart") then
+		return named
+	end
+
+	local existing = workspace:FindFirstChild("TemporaryCaughtHoldingSpawn")
+	if existing and existing:IsA("BasePart") then
+		return existing
+	end
+
+	local part = Instance.new("Part")
+	part.Name = "TemporaryCaughtHoldingSpawn"
+	part.Size = Vector3.new(8, 1, 8)
+	part.Anchored = true
+	part.CanCollide = true
+	part.Position = Vector3.new(0, 5, 130)
+	part.Color = Color3.fromRGB(120, 120, 120)
+	part.Transparency = 0.35
+	part.Parent = workspace
+	return part
+end
+
+local function freezeThiefCharacter(player)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not rootPart or not humanoid then
+		return
+	end
+
+	local holdingSpawn = getOrCreateCaughtHoldingSpawn()
+	if holdingSpawn then
+		rootPart.CFrame = CFrame.new(holdingSpawn.Position + Vector3.new(0, 5, 0))
+	end
+
+	humanoid.WalkSpeed = 0
+	if humanoid.UseJumpPower then
+		humanoid.JumpPower = 0
+	else
+		humanoid.JumpHeight = 0
+	end
+	humanoid.PlatformStand = false
+	player:SetAttribute("IsCaught", true)
+end
+
+local function handleCaughtThief(targetPlayer, newState)
+	if newState == PlayerStateService.State.Caught then
+		freezeThiefCharacter(targetPlayer)
+	elseif newState == PlayerStateService.State.Eliminated then
+		freezeThiefCharacter(targetPlayer)
 	end
 end
 
@@ -201,6 +273,8 @@ local function fireBrazierProgressToThieves(count)
 end
 
 local function clearRoundState()
+	PlayerStateService.ResetForNewRound(roundId)
+
 	for player in rolesByPlayer do
 		player:SetAttribute("Role", nil)
 		resetPlayerMovement(player)
@@ -232,6 +306,7 @@ Players.PlayerRemoving:Connect(function(player)
 	if player == guardianPlayer then
 		guardianPlayer = nil
 	end
+	PlayerStateService.UnregisterPlayer(player)
 end)
 
 Players.PlayerAdded:Connect(function(player)
@@ -239,6 +314,22 @@ Players.PlayerAdded:Connect(function(player)
 		local humanoid = character:WaitForChild("Humanoid", 5)
 		if humanoid then
 			humanoid.WalkSpeed = Constants.DEFAULT_WALK_SPEED
+			if humanoid.UseJumpPower then
+				humanoid.JumpPower = 50
+			else
+				humanoid.JumpHeight = 7.2
+			end
+		end
+
+		local state = PlayerStateService.GetState(player)
+		if state == PlayerStateService.State.Caught or state == PlayerStateService.State.Eliminated then
+			task.defer(function()
+				if player.Parent then
+					handleCaughtThief(player, state)
+				end
+			end)
+		else
+			player:SetAttribute("IsCaught", false)
 		end
 	end)
 end)
@@ -273,7 +364,7 @@ brazierInteractRemote.OnServerEvent:Connect(function(player, brazierName)
 	end
 
 	local role = rolesByPlayer[player]
-	if role == Types.PlayerRole.Thief then
+	if role == Types.PlayerRole.Thief and PlayerStateService.CanInteractObjective(player) then
 		local success = BrazierManager.TryLightBrazier(player, brazierName, rolesByPlayer, roundActive)
 		if success then
 			fireBrazierProgressToThieves(BrazierManager.GetLitCount())
@@ -301,10 +392,22 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 	if typeof(targetPlayer) ~= "Instance" or not targetPlayer:IsA("Player") then
 		return
 	end
+	-- State gate: only alive thieves can be caught
+	if not PlayerStateService.CanBeCaught(targetPlayer) then
+		return
+	end
+	if not PlayerStateService.IsGuardian(player) then
+		return
+	end
 	local success = GuardianController.TryCatch(player, targetPlayer, rolesByPlayer, roundActive)
 	if success then
-		activeThieves[targetPlayer] = nil
-		fireThiefCountToGuardian()
+		local caught, newState = PlayerStateService.MarkCaught(targetPlayer)
+		if caught then
+			handleCaughtThief(targetPlayer, newState)
+			-- Remove from activeThieves regardless of Caught vs Eliminated
+			activeThieves[targetPlayer] = nil
+			fireThiefCountToGuardian()
+		end
 	end
 end)
 
@@ -354,6 +457,11 @@ while true do
 	clearRoundState()
 	roundActive = true
 	rolesByPlayer, guardianPlayer = RoleManager.AssignRoles(roundPlayers)
+	roundId += 1
+	PlayerStateService.ResetForNewRound(roundId)
+	for player, role in rolesByPlayer do
+		PlayerStateService.RegisterPlayer(player, role, roundId)
+	end
 
 	for player, role in rolesByPlayer do
 		applyBaseMovementForRole(player, role)
@@ -396,23 +504,22 @@ while true do
 			break
 		end
 
-		local remainingThieves = 0
+		-- PlayerStateService is source of truth for alive thief count
+		if PlayerStateService.AreAllThievesOut() then
+			result = "Guardian caught all thieves"
+			winner = "Guardian"
+			roundActive = false
+			break
+		end
+		-- Keep activeThieves pruned for any legacy references
 		local staleThieves = {}
 		for thiefPlayer in activeThieves do
-			if Players:FindFirstChild(thiefPlayer.Name) then
-				remainingThieves += 1
-			else
+			if not Players:FindFirstChild(thiefPlayer.Name) then
 				table.insert(staleThieves, thiefPlayer)
 			end
 		end
 		for _, stalePlayer in staleThieves do
 			activeThieves[stalePlayer] = nil
-		end
-		if remainingThieves == 0 then
-			result = "Guardian caught all thieves"
-			winner = "Guardian"
-			roundActive = false
-			break
 		end
 
 		if os.clock() >= roundEndsAt then

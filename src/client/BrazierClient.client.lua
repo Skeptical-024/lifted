@@ -8,6 +8,17 @@ local RunService = game:GetService("RunService")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
+local UIStateController = nil
+do
+	local controllersFolder = script.Parent:FindFirstChild("controllers")
+	local stateModule = controllersFolder and controllersFolder:FindFirstChild("UIStateController")
+	if stateModule then
+		local ok, mod = pcall(require, stateModule)
+		if ok then
+			UIStateController = mod
+		end
+	end
+end
 
 local brazierInteractRemote = ReplicatedStorage:WaitForChild("BrazierInteract")
 local guardianSequenceRemote = ReplicatedStorage:WaitForChild("GuardianBrazierSequence")
@@ -311,6 +322,7 @@ brazierStateChangedRemote.OnClientEvent:Connect(function(litBraziers)
 	if type(litBraziers) ~= "table" then
 		return
 	end
+	local previousLitSet = litSet
 	litSet = {}
 	for _, name in ipairs(litBraziers) do
 		litSet[name] = true
@@ -318,6 +330,29 @@ brazierStateChangedRemote.OnClientEvent:Connect(function(litBraziers)
 	for i = 1, 8 do
 		local name = "Brazier" .. i
 		setFillVisual(name, litSet[name] == true)
+	end
+	if UIStateController then
+		local objectiveMap = {}
+		for i = 1, 8 do
+			local name = "Brazier" .. i
+			objectiveMap[name] = litSet[name] == true
+		end
+		local objectiveList = {}
+		for id, completed in pairs(objectiveMap) do
+			table.insert(objectiveList, { id = id, completed = completed })
+		end
+		table.sort(objectiveList, function(a, b)
+			return a.id < b.id
+		end)
+		UIStateController.Set("objectives", objectiveList)
+		for id, isLit in pairs(objectiveMap) do
+			local wasLit = previousLitSet[id] == true
+			if isLit and not wasLit then
+				UIStateController.Set("lastAlert", "brazier_lit")
+			elseif (not isLit) and wasLit then
+				UIStateController.Set("lastAlert", "brazier_extinguished")
+			end
+		end
 	end
 	updateThiefHints()
 end)

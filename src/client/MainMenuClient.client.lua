@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
 local function setMenuCoreGuiEnabled(enabled)
 	pcall(function() StarterGui:SetCore("TopbarEnabled", enabled) end)
@@ -21,7 +22,6 @@ end
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
-local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
 
 local playClickedBindable = ReplicatedStorage:FindFirstChild("PlayClicked")
 if not playClickedBindable then
@@ -30,6 +30,7 @@ if not playClickedBindable then
 	bindable.Parent = ReplicatedStorage
 	playClickedBindable = bindable
 end
+local playClicked = false
 
 local C = {
 	bg = Color3.fromRGB(6, 7, 13),
@@ -47,9 +48,7 @@ local C = {
 local hasEnteredMenu = false
 local isTransitioningToMenu = false
 local menuTransitionToken = 0
-local hasQueuedForMatch = false
 local isClosingForGame = false
-local menuInputLocked = false
 local activeOverlay = nil
 
 local activeTweens = {}
@@ -256,16 +255,6 @@ splashLayout.Parent = splashContainer
 local logoLabel = makeLabel("LIFTED", Enum.Font.GothamBlack, 96, C.titleColor, 1, Enum.TextXAlignment.Center, 12, splashContainer)
 logoLabel.Size = UDim2.new(1, 0, 0, 100)
 
-local logoAuraBack1 = makeLabel("LIFTED", Enum.Font.GothamBlack, 98, C.titleColor, 0.86, Enum.TextXAlignment.Center, 11, splashContainer)
-logoAuraBack1.Size = UDim2.new(1, 0, 0, 100)
-logoAuraBack1.Position = UDim2.new(0, -1, 0, 0)
-logoAuraBack1.TextStrokeTransparency = 0.62
-
-local logoAuraBack2 = makeLabel("LIFTED", Enum.Font.GothamBlack, 100, C.titleColor, 0.9, Enum.TextXAlignment.Center, 11, splashContainer)
-logoAuraBack2.Size = UDim2.new(1, 0, 0, 100)
-logoAuraBack2.Position = UDim2.new(0, 1, 0, 1)
-logoAuraBack2.TextStrokeTransparency = 0.7
-
 local logoInnerStroke = Instance.new("UIStroke")
 logoInnerStroke.Color = C.gold
 logoInnerStroke.Thickness = 1.2
@@ -320,17 +309,6 @@ local menuScreen = makeFrame(UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), C.bg,
 menuScreen.Visible = false
 menuScreen.Active = true
 
-local overlayBlocker = Instance.new("Frame")
-overlayBlocker.Name = "OverlayBlocker"
-overlayBlocker.Size = UDim2.fromScale(1, 1)
-overlayBlocker.Position = UDim2.fromScale(0, 0)
-overlayBlocker.BackgroundTransparency = 1
-overlayBlocker.BorderSizePixel = 0
-overlayBlocker.ZIndex = 18
-overlayBlocker.Active = true
-overlayBlocker.Visible = false
-overlayBlocker.Parent = gui
-
 local scanLines = {}
 for _, sy in ipairs({0.1, 0.45, 0.75}) do
 	local line = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, sy, 0), C.gold, 0.97, 3, menuScreen)
@@ -367,7 +345,7 @@ local asymLabel = makeLabel("4V1 ASYMMETRIC HEIST", Enum.Font.GothamBold, 10, C.
 asymLabel.Size = UDim2.new(1, 0, 0, 14)
 asymLabel.LayoutOrder = 5
 
-local navZone = makeFrame(UDim2.fromOffset(460, 388), UDim2.new(0.16, 0, 0.52, 0), C.bg, 1, 11, menuScreen)
+local navZone = makeFrame(UDim2.fromOffset(460, 260), UDim2.new(0.16, 0, 0.52, 0), C.bg, 1, 11, menuScreen)
 navZone.AnchorPoint = Vector2.new(0, 0.5)
 local navTitle = makeLabel("MAIN MENU", Enum.Font.GothamBold, 11, C.gold, 0.5, Enum.TextXAlignment.Left, 12, navZone)
 navTitle.Size = UDim2.new(1, 0, 0, 14)
@@ -479,7 +457,7 @@ local infoBySelection = {
 	},
 	howtoplay = {
 		mainHeading = "OVERVIEW",
-		mainLines = {"4 thieves infiltrate the temple", "Solve the brazier puzzle", "Steal the idol and extract", "1 guardian hunts them all"},
+		mainLines = {"4 thieves infiltrate the temple", "Break 3 cursed seals", "Steal the idol and extract", "1 guardian hunts them all"},
 		secondaryHeading = "ROLES",
 		secondaryLines = {"Thieves: Stealth / Objective", "Guardian: Hunt / Eliminate", "Win: Extract the idol"},
 	},
@@ -487,19 +465,7 @@ local infoBySelection = {
 		mainHeading = "DEVELOPERS",
 		mainLines = {"IMPLECTE2 — Dev / Design", "SHOTSON_YOU — World / Art", "Season 1: The Cursed Temple", "Early Access Build"},
 		secondaryHeading = "SEASON",
-		secondaryLines = {"Map in development", "Sound design coming", "Testing coming soon"},
-	},
-	settings = {
-		mainHeading = "SETTINGS",
-		mainLines = {"Tune music and SFX volume", "Adjust graphics quality", "Toggle camera shake", "Local changes apply instantly"},
-		secondaryHeading = "QUICK NOTE",
-		secondaryLines = {"Audio and display options", "No restart required", "Saved for this session"},
-	},
-	news = {
-		mainHeading = "NEWS",
-		mainLines = {"v0.1.0 Early Access", "Season 1 development active", "Temple map in progress", "UI polish and testing ongoing"},
-		secondaryHeading = "UPDATES",
-		secondaryLines = {"Core loop online", "More content coming", "Feedback welcome"},
+		secondaryLines = {"SEASON 1", "THE CURSED TEMPLE", "EARLY ACCESS BUILD"},
 	},
 }
 
@@ -672,7 +638,7 @@ local function playMenuEntrance(token)
 		playTween("nav_top_sep_in", navTopSep, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.88})
 	end)
 
-	for i, key in ipairs({"findmatch", "howtoplay", "credits", "settings", "news"}) do
+	for i, key in ipairs({"findmatch", "howtoplay", "credits"}) do
 		local ref = optionRefs[key]
 		task.delay(0.25 + (i - 1) * 0.07, function()
 			if token ~= menuTransitionToken then return end
@@ -803,44 +769,13 @@ local function makeOption(order, num, title, subtitle, key)
 	return btn
 end
 
-local findMatchBtn = makeOption(1, "01", "FIND MATCH", "Queue into a heist", "findmatch")
+local findMatchBtn = makeOption(1, "01", "PLAY", "Join a match", "findmatch")
 local howToBtn = makeOption(2, "02", "HOW TO PLAY", "Learn rules and roles", "howtoplay")
 local creditsBtn = makeOption(3, "03", "CREDITS", "Meet the developers", "credits")
-local settingsBtn = makeOption(4, "04", "SETTINGS", "Audio and display", "settings")
-local newsBtn = makeOption(5, "05", "NEWS", "Latest updates", "news")
-
-local function lockMenuInput()
-	menuInputLocked = true
-	findMatchBtn.Active = false
-	findMatchBtn.Selectable = false
-	howToBtn.Active = false
-	howToBtn.Selectable = false
-	creditsBtn.Active = false
-	creditsBtn.Selectable = false
-	settingsBtn.Active = false
-	settingsBtn.Selectable = false
-	newsBtn.Active = false
-	newsBtn.Selectable = false
-	overlayBlocker.Visible = true
-end
-
-local function unlockMenuInput()
-	menuInputLocked = false
-	findMatchBtn.Active = true
-	findMatchBtn.Selectable = true
-	howToBtn.Active = true
-	howToBtn.Selectable = true
-	creditsBtn.Active = true
-	creditsBtn.Selectable = true
-	settingsBtn.Active = true
-	settingsBtn.Selectable = true
-	newsBtn.Active = true
-	newsBtn.Selectable = true
-	overlayBlocker.Visible = false
-end
+optionRefs["find"] = optionRefs["findmatch"]
 
 navBottomSep = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.88, 12, navRows)
-navBottomSep.LayoutOrder = 6
+navBottomSep.LayoutOrder = 4
 -- Overlays
 local function makeOverlay(name, titleText)
 	local overlay = makeFrame(UDim2.fromScale(1, 1), UDim2.new(1, 0, 0, 0), C.bg, 0, 50, gui)
@@ -848,22 +783,20 @@ local function makeOverlay(name, titleText)
 	overlay.Visible = false
 	overlay.Name = name
 
-	local backBtn = Instance.new("TextButton")
-	backBtn.AutoButtonColor = false
-	backBtn.BackgroundColor3 = Color3.fromRGB(10, 11, 18)
-	backBtn.BackgroundTransparency = 0.6
-	backBtn.BorderSizePixel = 0
-	backBtn.Size = UDim2.fromOffset(100, 32)
-	backBtn.Position = UDim2.new(0, 40, 0, 56)
-	backBtn.Text = ""
-	backBtn.ZIndex = 52
-	makeCorner(6, backBtn)
-
-	local backLabel = makeLabel("← BACK", Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Left, 53, backBtn)
-	backLabel.Size = UDim2.new(1, 0, 1, 0)
-	backLabel.TextTransparency = 0
-
-	backBtn.Parent = overlay
+	local blocker = Instance.new("TextButton")
+	blocker.Name = "InputBlocker"
+	blocker.Size = UDim2.fromScale(1, 1)
+	blocker.Position = UDim2.fromScale(0, 0)
+	blocker.BackgroundTransparency = 1
+	blocker.BorderSizePixel = 0
+	blocker.Text = ""
+	blocker.AutoButtonColor = false
+	blocker.Active = true
+	blocker.ZIndex = 50
+	blocker.Parent = overlay
+	pcall(function()
+		blocker.Modal = true
+	end)
 
 	local content = makeFrame(UDim2.fromOffset(700, 0), UDim2.new(0.5, 0, 0, 120), C.bg, 1, 51, overlay)
 	content.AnchorPoint = Vector2.new(0.5, 0)
@@ -873,17 +806,95 @@ local function makeOverlay(name, titleText)
 	contentPad.PaddingTop = UDim.new(0, 80)
 	contentPad.Parent = content
 
+	local backBtn = Instance.new("TextButton")
+	backBtn.AutoButtonColor = false
+	backBtn.BackgroundColor3 = Color3.fromRGB(10, 11, 18)
+	backBtn.BackgroundTransparency = 0.6
+	backBtn.BorderSizePixel = 0
+	backBtn.Size = UDim2.fromOffset(100, 32)
+	backBtn.AnchorPoint = Vector2.new(1, 0)
+	backBtn.Position = UDim2.new(1, -12, 0, -64)
+	backBtn.Text = ""
+	backBtn.ZIndex = 54
+	makeCorner(6, backBtn)
+
+	local backLabel = makeLabel("CLOSE", Enum.Font.GothamBold, 13, C.gold, 0, Enum.TextXAlignment.Center, 55, backBtn)
+	backLabel.Size = UDim2.new(1, 0, 1, 0)
+	backLabel.TextTransparency = 0
+
+	backBtn.Parent = content
+
 	return overlay, backBtn, content, contentPad
+end
+
+local function replaceWithScrollableVerticalContent(oldContent, width, topY)
+	local parent = oldContent.Parent
+	local pos = oldContent.Position
+	local anchor = oldContent.AnchorPoint
+	local z = oldContent.ZIndex
+
+	oldContent:Destroy()
+
+	local content = Instance.new("ScrollingFrame")
+	content.Name = "Content"
+	content.Size = UDim2.new(0, width, 1, -(topY + 70))
+	content.Position = pos
+	content.AnchorPoint = anchor
+	content.BackgroundTransparency = 1
+	content.BorderSizePixel = 0
+	content.ZIndex = z
+	content.CanvasSize = UDim2.fromScale(0, 0)
+	content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	content.ScrollingDirection = Enum.ScrollingDirection.Y
+	content.ScrollBarThickness = 3
+	content.ScrollBarImageColor3 = C.gold
+	content.ScrollBarImageTransparency = 0.35
+	content.ClipsDescendants = true
+	content.Active = true
+	content.Parent = parent
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 0)
+	pad.PaddingBottom = UDim.new(0, 90)
+	pad.PaddingLeft = UDim.new(0, 0)
+	pad.PaddingRight = UDim.new(0, 0)
+	pad.Parent = content
+
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Vertical
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.VerticalAlignment = Enum.VerticalAlignment.Top
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, 16)
+	list.Parent = content
+
+	return content, pad, list
 end
 
 local howOverlay, howBackBtn, howContent, howContentPad = makeOverlay("HowOverlay", "HOW TO PLAY")
 local creditsOverlay, creditsBackBtn, creditsContent, creditsContentPad = makeOverlay("CreditsOverlay", "CREDITS")
-local settingsOverlay, settingsBackBtn, settingsContent, settingsContentPad = makeOverlay("SettingsOverlay", "SETTINGS")
-local newsOverlay, newsBackBtn, newsContent, newsContentPad = makeOverlay("NewsOverlay", "NEWS")
-howContentPad.PaddingTop = UDim.new(0, 0)
-creditsContentPad.PaddingTop = UDim.new(0, 0)
-settingsContentPad.PaddingTop = UDim.new(0, 0)
-newsContentPad.PaddingTop = UDim.new(0, 0)
+
+-- Reposition back buttons to top-right, clear of Roblox CoreGui/chat
+howBackBtn.AnchorPoint = Vector2.new(1, 0)
+howBackBtn.Position = UDim2.new(1, -32, 0, 48)
+
+creditsBackBtn.AnchorPoint = Vector2.new(1, 0)
+creditsBackBtn.Position = UDim2.new(1, -32, 0, 48)
+
+local howBackLabel = howBackBtn:FindFirstChildOfClass("TextLabel")
+if howBackLabel then
+	howBackLabel.Text = "BACK"
+	howBackLabel.TextXAlignment = Enum.TextXAlignment.Center
+end
+
+local creditsBackLabel = creditsBackBtn:FindFirstChildOfClass("TextLabel")
+if creditsBackLabel then
+	creditsBackLabel.Text = "BACK"
+	creditsBackLabel.TextXAlignment = Enum.TextXAlignment.Center
+end
+
+howContent, howContentPad = replaceWithScrollableVerticalContent(howContent, 860, 120)
+creditsContent, creditsContentPad = replaceWithScrollableVerticalContent(creditsContent, 860, 120)
 
 local function makeOverlayFooter(parent)
 	local footer = makeFrame(UDim2.new(1, -60, 0, 24), UDim2.new(0.5, 0, 1, -14), C.bg, 1, 22, parent)
@@ -914,35 +925,6 @@ howSubtitle.Position = UDim2.new(0.5, 0, 0, 82)
 howSubtitle.Size = UDim2.fromOffset(500, 20)
 local howTitleDivider = makeFrame(UDim2.fromOffset(200, 1), UDim2.new(0.5, 0, 0, 108), C.gold, 0.7, 22, howOverlay)
 howTitleDivider.AnchorPoint = Vector2.new(0.5, 0)
-
-howContent:Destroy()
-local howScrollFrame = Instance.new("ScrollingFrame")
-howScrollFrame.Name = "HowScrollFrame"
-howScrollFrame.Size = UDim2.fromOffset(640, 0)
-howScrollFrame.Size = UDim2.new(0, 640, 1, -160)
-howScrollFrame.Position = UDim2.new(0.5, -320, 0, 140)
-howScrollFrame.BackgroundTransparency = 1
-howScrollFrame.BorderSizePixel = 0
-howScrollFrame.ScrollBarThickness = 4
-howScrollFrame.ScrollBarImageColor3 = C.gold
-howScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-howScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-howScrollFrame.CanvasSize = UDim2.new()
-howScrollFrame.ElasticBehavior = Enum.ElasticBehavior.Never
-howScrollFrame.ClipsDescendants = true
-howScrollFrame.ZIndex = 21
-howScrollFrame.Parent = howOverlay
-howContent = howScrollFrame
-
-local howScrollLayout = Instance.new("UIListLayout")
-howScrollLayout.Padding = UDim.new(0, 14)
-howScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-howScrollLayout.Parent = howScrollFrame
-
-local howScrollPad = Instance.new("UIPadding")
-howScrollPad.PaddingBottom = UDim.new(0, 80)
-howScrollPad.PaddingTop = UDim.new(0, 8)
-howScrollPad.Parent = howScrollFrame
 
 local function makeChip(parent, text)
 	local chip = makeFrame(UDim2.fromOffset(0, 28), UDim2.fromOffset(0, 0), Color3.fromRGB(20, 25, 40), 0.3, 24, parent)
@@ -1009,30 +991,17 @@ local function makeHowCard(order, num, title, lines, chips)
 	return card
 end
 
-local howCard1 = makeHowCard(1, "01", "THE OBJECTIVE", {
-	"- Infiltrate as a team of 4 thieves.",
-	"- Light the puzzle braziers in order.",
-	"- Steal the idol and extract in time.",
+local howCard1 = makeHowCard(1, "01", "THIEVES", {
+	"Break 3 cursed seals, open the vault, steal the idol, and escape through an extraction point before the timer runs out.",
 }, nil)
-local howCard2 = makeHowCard(2, "02", "THE BRAZIERS", {
-	"- Press F near a brazier to light it.",
-	"- Wrong order resets progress.",
-	"- Guardian can extinguish lit braziers.",
-}, {"[F]  Light / Extinguish", "[Guardian] Extinguish yours"})
-local howCard3 = makeHowCard(3, "03", "THE GUARDIAN", {
-	"- Track thieves and cut rotations.",
-	"- Press E to catch nearby targets.",
-	"- Press F to deny brazier progress.",
-}, {"[E]  Catch", "[F]  Extinguish", "[Shift]  Sprint"})
-local howCard4 = makeHowCard(4, "04", "THIEF TIPS", {
-	"- Split pressure to force bad paths.",
-	"- Call guardian position constantly.",
-	"- Save sprint for escape windows.",
+local howCard2 = makeHowCard(2, "02", "GUARDIAN", {
+	"Hunt the thieves, stop the seals from being broken, protect the idol, and prevent extraction. Sprint with Shift - 10 second cooldown.",
 }, nil)
-local howCard5 = makeHowCard(5, "05", "WINNING THE MATCH", {
-	"- Thieves win by extracting with idol.",
-	"- Guardian wins by wiping thieves.",
-	"- Time expires: guardian advantage.",
+local howCard3 = makeHowCard(3, "03", "SEALS", {
+	"Each seal takes time to break. Failed timing checks can attract danger. All 3 seals must be broken to unlock the vault.",
+}, nil)
+local howCard4 = makeHowCard(4, "04", "IDOL", {
+	"Once the vault opens, one thief carries the idol and must reach an extraction point. The carrier is slowed and visible to all players.",
 }, nil)
 
 local _, _, _, _, _ = makeOverlayFooter(howOverlay)
@@ -1047,33 +1016,6 @@ creditsSubtitle.Position = UDim2.new(0.5, 0, 0, 82)
 creditsSubtitle.Size = UDim2.fromOffset(500, 20)
 local creditsTitleDivider = makeFrame(UDim2.fromOffset(200, 1), UDim2.new(0.5, 0, 0, 108), C.gold, 0.7, 22, creditsOverlay)
 creditsTitleDivider.AnchorPoint = Vector2.new(0.5, 0)
-
-creditsContent:Destroy()
-local creditsScrollFrame = Instance.new("ScrollingFrame")
-creditsScrollFrame.Name = "CreditsScrollFrame"
-creditsScrollFrame.Size = UDim2.new(0, 740, 1, -160)
-creditsScrollFrame.Position = UDim2.new(0.5, -370, 0, 140)
-creditsScrollFrame.BackgroundTransparency = 1
-creditsScrollFrame.BorderSizePixel = 0
-creditsScrollFrame.ScrollBarThickness = 4
-creditsScrollFrame.ScrollBarImageColor3 = C.gold
-creditsScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-creditsScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-creditsScrollFrame.CanvasSize = UDim2.new()
-creditsScrollFrame.ElasticBehavior = Enum.ElasticBehavior.Never
-creditsScrollFrame.ZIndex = 21
-creditsScrollFrame.Parent = creditsOverlay
-creditsContent = creditsScrollFrame
-
-local creditsScrollLayout = Instance.new("UIListLayout")
-creditsScrollLayout.Padding = UDim.new(0, 14)
-creditsScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-creditsScrollLayout.Parent = creditsScrollFrame
-
-local creditsScrollPad = Instance.new("UIPadding")
-creditsScrollPad.PaddingBottom = UDim.new(0, 80)
-creditsScrollPad.PaddingTop = UDim.new(0, 8)
-creditsScrollPad.Parent = creditsScrollFrame
 
 local devRow = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), C.bg, 1, 22, creditsContent)
 devRow.LayoutOrder = 1
@@ -1150,7 +1092,7 @@ statusList.FillDirection = Enum.FillDirection.Vertical
 statusList.SortOrder = Enum.SortOrder.LayoutOrder
 statusList.Padding = UDim.new(0, 10)
 statusList.Parent = statusInner
-local statusMicro = makeLabel("PROJECT STATUS", Enum.Font.GothamBold, 10, C.gold, 0.45, Enum.TextXAlignment.Left, 24, statusInner)
+local statusMicro = makeLabel("SEASON STATUS", Enum.Font.GothamBold, 10, C.gold, 0.45, Enum.TextXAlignment.Left, 24, statusInner)
 statusMicro.Size = UDim2.new(1, 0, 0, 14)
 local statusDivider = makeFrame(UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, 0), C.gold, 0.82, 24, statusInner)
 local statusRow = makeFrame(UDim2.new(1, 0, 0, 50), UDim2.fromOffset(0, 0), C.bg, 1, 24, statusInner)
@@ -1169,9 +1111,9 @@ local function makeStatusCol(title, subtitle, order)
 	bot.Size = UDim2.new(1, 0, 0, 18)
 	bot.Position = UDim2.new(0, 0, 0, 28)
 end
-makeStatusCol("CORE SYSTEMS", "Complete", 1)
-makeStatusCol("MAP", "In Development", 2)
-makeStatusCol("TESTING", "Coming Soon", 3)
+makeStatusCol("SEASON 1", "", 1)
+makeStatusCol("THE CURSED TEMPLE", "", 2)
+makeStatusCol("EARLY ACCESS BUILD", "", 3)
 local v1 = makeFrame(UDim2.new(0, 1, 0, 30), UDim2.new(1/3, 0, 0.5, 0), C.gold, 0.88, 25, statusRow)
 v1.AnchorPoint = Vector2.new(0.5, 0.5)
 local v2 = makeFrame(UDim2.new(0, 1, 0, 30), UDim2.new(2/3, 0, 0.5, 0), C.gold, 0.88, 25, statusRow)
@@ -1201,272 +1143,6 @@ stripRight.Position = UDim2.new(1, 0, 0.5, 0)
 stripRight.Size = UDim2.fromOffset(140, 18)
 
 local _, _, _, _, _ = makeOverlayFooter(creditsOverlay)
-
-local settingsTitle = makeLabel("SETTINGS", Enum.Font.GothamBlack, 32, C.white, 0, Enum.TextXAlignment.Center, 22, settingsOverlay)
-settingsTitle.AnchorPoint = Vector2.new(0.5, 0)
-settingsTitle.Position = UDim2.new(0.5, 0, 0, 44)
-settingsTitle.Size = UDim2.fromOffset(500, 40)
-local settingsSubtitle = makeLabel("Tune the experience.", Enum.Font.Gotham, 13, Color3.fromRGB(160, 175, 200), 0.2, Enum.TextXAlignment.Center, 22, settingsOverlay)
-settingsSubtitle.AnchorPoint = Vector2.new(0.5, 0)
-settingsSubtitle.Position = UDim2.new(0.5, 0, 0, 82)
-settingsSubtitle.Size = UDim2.fromOffset(500, 20)
-local settingsDivider = makeFrame(UDim2.fromOffset(200, 1), UDim2.new(0.5, 0, 0, 108), C.gold, 0.7, 22, settingsOverlay)
-settingsDivider.AnchorPoint = Vector2.new(0.5, 0)
-
-settingsContent:Destroy()
-local settingsScrollFrame = Instance.new("ScrollingFrame")
-settingsScrollFrame.Name = "SettingsScrollFrame"
-settingsScrollFrame.Size = UDim2.new(0, 680, 1, -160)
-settingsScrollFrame.Position = UDim2.new(0.5, -340, 0, 140)
-settingsScrollFrame.BackgroundTransparency = 1
-settingsScrollFrame.BorderSizePixel = 0
-settingsScrollFrame.ScrollBarThickness = 4
-settingsScrollFrame.ScrollBarImageColor3 = C.gold
-settingsScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-settingsScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-settingsScrollFrame.CanvasSize = UDim2.new()
-settingsScrollFrame.ElasticBehavior = Enum.ElasticBehavior.Never
-settingsScrollFrame.ZIndex = 21
-settingsScrollFrame.ClipsDescendants = true
-settingsScrollFrame.Parent = settingsOverlay
-settingsContent = settingsScrollFrame
-
-local settingsList = Instance.new("UIListLayout")
-settingsList.Padding = UDim.new(0, 14)
-settingsList.SortOrder = Enum.SortOrder.LayoutOrder
-settingsList.Parent = settingsScrollFrame
-local settingsPad = Instance.new("UIPadding")
-settingsPad.PaddingBottom = UDim.new(0, 80)
-settingsPad.PaddingTop = UDim.new(0, 8)
-settingsPad.Parent = settingsScrollFrame
-
-local menuMusicVolume = 60
-local sfxVolume = 80
-local graphicsQuality = "MEDIUM"
-local cameraShakeEnabled = true
-
-local function makeSettingsCard(order, titleText)
-	local card = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), Color3.fromRGB(10, 12, 20), 0.55, 22, settingsContent)
-	card.LayoutOrder = order
-	card.AutomaticSize = Enum.AutomaticSize.Y
-	makeCorner(10, card)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = C.gold
-	stroke.Thickness = 0.5
-	stroke.Transparency = 0.82
-	stroke.Parent = card
-	local accent = makeFrame(UDim2.new(0, 3, 0.65, 0), UDim2.new(0, 0, 0.5, 0), C.gold, 0, 23, card)
-	accent.AnchorPoint = Vector2.new(0, 0.5)
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 16)
-	pad.PaddingBottom = UDim.new(0, 16)
-	pad.PaddingLeft = UDim.new(0, 20)
-	pad.PaddingRight = UDim.new(0, 20)
-	pad.Parent = card
-	local title = makeLabel(titleText, Enum.Font.GothamBold, 14, C.white, 0, Enum.TextXAlignment.Left, 24, card)
-	title.Size = UDim2.new(1, 0, 0, 20)
-	return card
-end
-
-local function makeSlider(card, y, initialValue, onChanged)
-	local track = makeFrame(UDim2.new(1, -80, 0, 8), UDim2.new(0, 0, 0, y), Color3.fromRGB(20, 28, 44), 0.2, 24, card)
-	makeCorner(4, track)
-	local fill = makeFrame(UDim2.new(initialValue / 100, 0, 1, 0), UDim2.new(0, 0, 0, 0), C.gold, 0.05, 25, track)
-	makeCorner(4, fill)
-	local knob = makeFrame(UDim2.fromOffset(14, 14), UDim2.new(initialValue / 100, -7, 0.5, 0), C.gold, 0, 26, track)
-	knob.AnchorPoint = Vector2.new(0, 0.5)
-	makeCorner(7, knob)
-	local valueLabel = makeLabel(tostring(initialValue) .. "%", Enum.Font.GothamBold, 12, C.gold, 0.1, Enum.TextXAlignment.Right, 24, card)
-	valueLabel.Size = UDim2.fromOffset(70, 16)
-	valueLabel.Position = UDim2.new(1, -70, 0, y - 4)
-
-	local dragging = false
-	local function setFromX(x)
-		local rel = math.clamp((x - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
-		local v = math.floor(rel * 100 + 0.5)
-		fill.Size = UDim2.new(v / 100, 0, 1, 0)
-		knob.Position = UDim2.new(v / 100, -7, 0.5, 0)
-		valueLabel.Text = tostring(v) .. "%"
-		onChanged(v)
-	end
-
-	track.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			setFromX(input.Position.X)
-		end
-	end)
-	track.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
-	RunService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			setFromX(input.Position.X)
-		end
-	end)
-end
-
-local settingsCard1 = makeSettingsCard(1, "MUSIC VOLUME")
-makeSlider(settingsCard1, 26, menuMusicVolume, function(v)
-	menuMusicVolume = v
-	menuMusic.Volume = v / 100
-end)
-settingsCard1.Size = UDim2.new(1, 0, 0, 58)
-
-local settingsCard2 = makeSettingsCard(2, "SFX VOLUME")
-makeSlider(settingsCard2, 26, sfxVolume, function(v)
-	sfxVolume = v
-end)
-settingsCard2.Size = UDim2.new(1, 0, 0, 58)
-
-local settingsCard3 = makeSettingsCard(3, "GRAPHICS QUALITY")
-settingsCard3.Size = UDim2.new(1, 0, 0, 62)
-local segWrap = makeFrame(UDim2.new(1, 0, 0, 30), UDim2.new(0, 0, 0, 26), C.bg, 1, 24, settingsCard3)
-local segLayout = Instance.new("UIListLayout")
-segLayout.FillDirection = Enum.FillDirection.Horizontal
-segLayout.SortOrder = Enum.SortOrder.LayoutOrder
-segLayout.Padding = UDim.new(0, 8)
-segLayout.Parent = segWrap
-local segButtons = {}
-for _, q in ipairs({"LOW", "MEDIUM", "HIGH"}) do
-	local b = Instance.new("TextButton")
-	b.AutoButtonColor = false
-	b.BackgroundColor3 = Color3.fromRGB(18, 24, 38)
-	b.BackgroundTransparency = q == graphicsQuality and 0.1 or 0.35
-	b.BorderSizePixel = 0
-	b.Size = UDim2.new(0, 110, 1, 0)
-	b.Text = q
-	b.Font = Enum.Font.GothamBold
-	b.TextSize = 12
-	b.TextColor3 = q == graphicsQuality and C.gold or C.white
-	b.TextTransparency = 0
-	b.LayoutOrder = #segButtons + 1
-	b.ZIndex = 24
-	b.Parent = segWrap
-	makeCorner(6, b)
-	segButtons[q] = b
-	b.Activated:Connect(function()
-		graphicsQuality = q
-		for key, sb in pairs(segButtons) do
-			sb.BackgroundTransparency = key == q and 0.1 or 0.35
-			sb.TextColor3 = key == q and C.gold or C.white
-		end
-	end)
-end
-
-local settingsCard4 = makeSettingsCard(4, "CAMERA SHAKE")
-settingsCard4.Size = UDim2.new(1, 0, 0, 58)
-local shakeToggle = Instance.new("TextButton")
-shakeToggle.AutoButtonColor = false
-shakeToggle.BackgroundColor3 = Color3.fromRGB(18, 24, 38)
-shakeToggle.BackgroundTransparency = 0.2
-shakeToggle.BorderSizePixel = 0
-shakeToggle.Size = UDim2.fromOffset(100, 30)
-shakeToggle.Position = UDim2.new(0, 0, 0, 24)
-shakeToggle.Text = "ON"
-shakeToggle.Font = Enum.Font.GothamBold
-shakeToggle.TextSize = 12
-shakeToggle.TextColor3 = C.gold
-shakeToggle.ZIndex = 24
-shakeToggle.Parent = settingsCard4
-makeCorner(6, shakeToggle)
-shakeToggle.Activated:Connect(function()
-	cameraShakeEnabled = not cameraShakeEnabled
-	shakeToggle.Text = cameraShakeEnabled and "ON" or "OFF"
-	shakeToggle.TextColor3 = cameraShakeEnabled and C.gold or C.textMuted
-end)
-
-local _, _, _, _, _ = makeOverlayFooter(settingsOverlay)
-
-local newsTitle = makeLabel("NEWS", Enum.Font.GothamBlack, 32, C.white, 0, Enum.TextXAlignment.Center, 22, newsOverlay)
-newsTitle.AnchorPoint = Vector2.new(0.5, 0)
-newsTitle.Position = UDim2.new(0.5, 0, 0, 44)
-newsTitle.Size = UDim2.fromOffset(500, 40)
-local newsSubtitle = makeLabel("Latest development updates.", Enum.Font.Gotham, 13, Color3.fromRGB(160, 175, 200), 0.2, Enum.TextXAlignment.Center, 22, newsOverlay)
-newsSubtitle.AnchorPoint = Vector2.new(0.5, 0)
-newsSubtitle.Position = UDim2.new(0.5, 0, 0, 82)
-newsSubtitle.Size = UDim2.fromOffset(500, 20)
-local newsDivider = makeFrame(UDim2.fromOffset(200, 1), UDim2.new(0.5, 0, 0, 108), C.gold, 0.7, 22, newsOverlay)
-newsDivider.AnchorPoint = Vector2.new(0.5, 0)
-
-newsContent:Destroy()
-local newsScrollFrame = Instance.new("ScrollingFrame")
-newsScrollFrame.Name = "NewsScrollFrame"
-newsScrollFrame.Size = UDim2.new(0, 680, 1, -160)
-newsScrollFrame.Position = UDim2.new(0.5, -340, 0, 140)
-newsScrollFrame.BackgroundTransparency = 1
-newsScrollFrame.BorderSizePixel = 0
-newsScrollFrame.ScrollBarThickness = 4
-newsScrollFrame.ScrollBarImageColor3 = C.gold
-newsScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-newsScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-newsScrollFrame.CanvasSize = UDim2.new()
-newsScrollFrame.ElasticBehavior = Enum.ElasticBehavior.Never
-newsScrollFrame.ZIndex = 21
-newsScrollFrame.ClipsDescendants = true
-newsScrollFrame.Parent = newsOverlay
-newsContent = newsScrollFrame
-
-local newsList = Instance.new("UIListLayout")
-newsList.Padding = UDim.new(0, 14)
-newsList.SortOrder = Enum.SortOrder.LayoutOrder
-newsList.Parent = newsScrollFrame
-local newsPad = Instance.new("UIPadding")
-newsPad.PaddingBottom = UDim.new(0, 80)
-newsPad.PaddingTop = UDim.new(0, 8)
-newsPad.Parent = newsScrollFrame
-
-local function makeNewsCard(order, titleText, lines)
-	local card = makeFrame(UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, 0), Color3.fromRGB(10, 12, 20), 0.55, 22, newsContent)
-	card.LayoutOrder = order
-	card.AutomaticSize = Enum.AutomaticSize.Y
-	makeCorner(10, card)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = C.gold
-	stroke.Thickness = 0.5
-	stroke.Transparency = 0.82
-	stroke.Parent = card
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 16)
-	pad.PaddingBottom = UDim.new(0, 16)
-	pad.PaddingLeft = UDim.new(0, 20)
-	pad.PaddingRight = UDim.new(0, 20)
-	pad.Parent = card
-	local accent = makeFrame(UDim2.new(0, 3, 0.65, 0), UDim2.new(0, 0, 0.5, 0), C.gold, 0, 23, card)
-	accent.AnchorPoint = Vector2.new(0, 0.5)
-	local title = makeLabel(titleText, Enum.Font.GothamBold, 15, C.white, 0, Enum.TextXAlignment.Left, 24, card)
-	title.Size = UDim2.new(1, 0, 0, 20)
-	local y = 22
-	for _, line in ipairs(lines) do
-		local ln = makeLabel("• " .. line, Enum.Font.Gotham, 13, Color3.fromRGB(170, 185, 210), 0.08, Enum.TextXAlignment.Left, 24, card)
-		ln.Size = UDim2.new(1, 0, 0, 18)
-		ln.Position = UDim2.new(0, 0, 0, y)
-		y += 18
-	end
-	card.Size = UDim2.new(1, 0, 0, y + 10)
-	return card
-end
-
-local newsCard1 = makeNewsCard(1, "v0.1.0 Early Access", {
-	"Main menu overhaul",
-	"Core heist loop online",
-	"Guardian sprint, catch, and brazier extinguish systems",
-})
-local newsCard2 = makeNewsCard(2, "Season 1: The Cursed Temple", {
-	"First map in development",
-	"Brazier puzzle and idol vault gameplay",
-	"More maps planned after launch",
-})
-local newsCard3 = makeNewsCard(3, "Coming Soon", {
-	"Full temple map",
-	"Sound polish",
-	"More UI polish",
-	"Testing with real players",
-})
-
-local _, _, _, _, _ = makeOverlayFooter(newsOverlay)
 
 local function cacheOriginalTransparency(inst)
 	if inst:IsA("GuiObject") and inst:GetAttribute("OrigBgTransparency") == nil then
@@ -1524,7 +1200,7 @@ local function fadeOverlayCard(card, key, targetTransparency)
 	end
 end
 
-local howCards = {howCard1, howCard2, howCard3, howCard4, howCard5}
+local howCards = {howCard1, howCard2, howCard3}
 local creditsCards = {creditsCard1, creditsCard2, statusCard, seasonStrip}
 
 local overlayOpenToken = 0
@@ -1541,8 +1217,6 @@ local function animateHowOverlayCards()
 	task.delay(0.00, function() fadeOverlayCard(howCard1, "how_card1", 0.55) end)
 	task.delay(0.08, function() fadeOverlayCard(howCard2, "how_card2", 0.55) end)
 	task.delay(0.16, function() fadeOverlayCard(howCard3, "how_card3", 0.55) end)
-	task.delay(0.24, function() fadeOverlayCard(howCard4, "how_card4", 0.55) end)
-	task.delay(0.32, function() fadeOverlayCard(howCard5, "how_card5", 0.55) end)
 end
 
 local function animateCreditsOverlayCards()
@@ -1552,18 +1226,13 @@ local function animateCreditsOverlayCards()
 	task.delay(0.28, function() fadeOverlayCard(seasonStrip, "cr_strip", 0.6) end)
 end
 
-local function openOverlay(overlayKey, overlay)
-	if activeOverlay ~= nil then return end
+local function openOverlay(overlay)
+	if activeOverlay then return end
+	activeOverlay = overlay
 	overlayOpenToken += 1
 	local token = overlayOpenToken
 	prepareOverlayCards(overlay)
-	activeOverlay = overlayKey
-	lockMenuInput()
-	if overlay == howOverlay and howContent and howContent:IsA("ScrollingFrame") then
-		howContent.CanvasPosition = Vector2.new(0, 0)
-	end
 	overlay.Visible = true
-	overlay.Active = true
 	overlay.Position = UDim2.new(1, 0, 0, 0)
 	playTween("open_" .. overlay.Name, overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0, 0, 0, 0),
@@ -1578,31 +1247,25 @@ local function openOverlay(overlayKey, overlay)
 	end)
 end
 
-local function closeOverlay(overlayKey, overlay)
-	if activeOverlay ~= overlayKey then return end
+local function closeOverlay(overlay)
+	if activeOverlay ~= overlay then return end
 	overlayOpenToken += 1
 	playTween("close_" .. overlay.Name, overlay, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
 		Position = UDim2.new(1, 0, 0, 0),
 	})
 	task.delay(0.26, function()
 		overlay.Visible = false
-		overlay.Active = false
-		activeOverlay = nil
-		unlockMenuInput()
+		if activeOverlay == overlay then
+			activeOverlay = nil
+		end
 	end)
 end
 
 howBackBtn.Activated:Connect(function()
-	closeOverlay("howtoplay", howOverlay)
+	closeOverlay(howOverlay)
 end)
 creditsBackBtn.Activated:Connect(function()
-	closeOverlay("credits", creditsOverlay)
-end)
-settingsBackBtn.Activated:Connect(function()
-	closeOverlay("settings", settingsOverlay)
-end)
-newsBackBtn.Activated:Connect(function()
-	closeOverlay("news", newsOverlay)
+	closeOverlay(creditsOverlay)
 end)
 
 local function transitionSplashToMenu()
@@ -1675,54 +1338,94 @@ local function closeMenuForGame()
 	end)
 end
 
-roleAssignedRemote.OnClientEvent:Connect(function()
-	if not hasQueuedForMatch then
-		warn("[MainMenu] Ignored RoleAssigned before player clicked FIND MATCH")
-		return
+local function setPlayButtonState(state)
+	local ref = optionRefs["find"]
+	if not ref then return end
+	if state == "waiting" then
+		ref.title.Text = "WAITING FOR ROUND"
+		ref.subtitle.Text = "Round starting soon"
+	elseif state == "disabled" then
+		ref.title.Text = "WAITING FOR ROUND"
+		ref.subtitle.Text = ""
+	else
+		-- "default"
+		ref.title.Text = "PLAY"
+		ref.subtitle.Text = "Join a match"
+		playClicked = false
 	end
-	closeMenuForGame()
-end)
+end
+
+local function hideMainMenu()
+	gui.Enabled = false
+	playClicked = false
+end
+
+local function showMainMenu()
+	playClicked = false
+	setPlayButtonState("default")
+	gui.Enabled = true
+	-- Reset visual transparency in case fade-out left them hidden
+	bg.BackgroundTransparency = 0
+	menuScreen.BackgroundTransparency = 1  -- kept transparent, menuEntrance drives content
+	menuScreen.Visible = true
+	splashScreen.Visible = false
+	TweenService:Create(menuMusic, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Volume = 0.35}):Play()
+	playMenuEntrance(menuTransitionToken)
+end
 
 findMatchBtn.Activated:Connect(function()
-	if menuInputLocked then return end
-	if activeOverlay ~= nil then return end
-	hasQueuedForMatch = true
-	applyRowStyle("findmatch")
-	updateInfoPanel("findmatch")
+	if playClicked then return end
+	playClicked = true
+	setPlayButtonState("waiting")
 	playClickedBindable:Fire()
-	closeMenuForGame()
+	playTween("menu_hide", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	playTween("bg_hide", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+	TweenService:Create(menuMusic, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Volume = 0}):Play()
+	task.delay(0.3, function()
+		if gui.Parent then
+			restoreCoreGui()
+			gui.Enabled = false
+		end
+	end)
 end)
 
 howToBtn.Activated:Connect(function()
-	if menuInputLocked then return end
-	if activeOverlay ~= nil then return end
+	if activeOverlay then return end
 	applyRowStyle("howtoplay")
 	updateInfoPanel("howtoplay")
-	openOverlay("howtoplay", howOverlay)
+	openOverlay(howOverlay)
 end)
 
 creditsBtn.Activated:Connect(function()
-	if menuInputLocked then return end
-	if activeOverlay ~= nil then return end
+	if activeOverlay then return end
 	applyRowStyle("credits")
 	updateInfoPanel("credits")
-	openOverlay("credits", creditsOverlay)
+	openOverlay(creditsOverlay)
 end)
 
-settingsBtn.Activated:Connect(function()
-	if menuInputLocked then return end
-	if activeOverlay ~= nil then return end
-	applyRowStyle("settings")
-	updateInfoPanel("settings")
-	openOverlay("settings", settingsOverlay)
-end)
+-- Escape key returns from submenu to main menu
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then
+		return
+	end
 
-newsBtn.Activated:Connect(function()
-	if menuInputLocked then return end
-	if activeOverlay ~= nil then return end
-	applyRowStyle("news")
-	updateInfoPanel("news")
-	openOverlay("news", newsOverlay)
+	if input.KeyCode ~= Enum.KeyCode.Escape then
+		return
+	end
+
+	if not gui.Enabled then
+		return
+	end
+
+	if howOverlay.Visible then
+		closeOverlay(howOverlay)
+		return
+	end
+
+	if creditsOverlay.Visible then
+		closeOverlay(creditsOverlay)
+		return
+	end
 end)
 
 -- Splash entrance
@@ -1783,20 +1486,6 @@ task.delay(0.2, function()
 				up = not up
 			end
 		end)
-
-		task.spawn(function()
-			local up = true
-			while gui.Enabled and splashScreen.Visible do
-				local aura1 = up and 0.78 or 0.9
-				local aura2 = up and 0.82 or 0.9
-				local t1 = TweenService:Create(logoAuraBack1, TweenInfo.new(2.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = aura1})
-				local t2 = TweenService:Create(logoAuraBack2, TweenInfo.new(2.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = aura2})
-				t1:Play()
-				t2:Play()
-				t1.Completed:Wait()
-				up = not up
-			end
-		end)
 	end)
 end)
 
@@ -1815,3 +1504,25 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 end)
+
+local roundEndedRemote = ReplicatedStorage:FindFirstChild("RoundEnded")
+if roundEndedRemote and roundEndedRemote:IsA("RemoteEvent") then
+	roundEndedRemote.OnClientEvent:Connect(function()
+		-- Wait for the results screen in RoundUIClient to finish (approx 4s)
+		task.delay(4.5, function()
+			if gui and gui.Parent then
+				showMainMenu()
+			end
+		end)
+	end)
+end
+
+-- Also handle RoundStarted to ensure menu is hidden if somehow still visible
+local roundStartedRemote = ReplicatedStorage:FindFirstChild("RoundStarted")
+if roundStartedRemote and roundStartedRemote:IsA("RemoteEvent") then
+	roundStartedRemote.OnClientEvent:Connect(function()
+		if gui and gui.Parent then
+			hideMainMenu()
+		end
+	end)
+end

@@ -158,6 +158,8 @@ function BrazierManager.InitRound(rolesByPlayer)
 end
 
 function BrazierManager.TryLightBrazier(player, brazierName, rolesByPlayer, roundActive)
+	-- Note: caller (GameManager) is responsible for PlayerStateService.CanInteractObjective check.
+	-- BrazierManager does not require PlayerStateService directly.
 	if not roundActive then
 		return false
 	end
