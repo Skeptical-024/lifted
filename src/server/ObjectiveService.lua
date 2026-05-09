@@ -1,23 +1,26 @@
 -- ObjectiveService
 -- Server-authoritative 3-seal objective system for LIFTED.
--- Clients cannot set progress or mark completion.
--- Requires PlayerStateService as sibling module.
+-- Clients can only request start/stop interactions.
 
 local ObjectiveService = {}
 
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
+local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
--- Config
-local INTERACT_DISTANCE = 12
-local SOLO_COMPLETION_TIME = 18
+local INTERACT_DISTANCE = Constants.OBJECTIVE_INTERACTION_DISTANCE or 12
+local SOLO_COMPLETION_TIME = Constants.OBJECTIVE_SOLO_SECONDS or 18
 local PROGRESS_PER_SECOND = 1 / SOLO_COMPLETION_TIME
 
-local MULTIPLIERS = { [1] = 1.0, [2] = 1.45, [3] = 1.8, [4] = 2.0 }
+local MULTIPLIERS = {
+	[1] = 1.0,
+	[2] = 1.45,
+	[3] = 1.8,
+	[4] = 2.0,
+}
 
 local OBJECTIVE_DEFS = {
 	{ id = "FlameSeal", displayName = "FLAME SEAL" },
@@ -25,29 +28,40 @@ local OBJECTIVE_DEFS = {
 	{ id = "StoneSigil", displayName = "STONE SIGIL" },
 }
 
--- Runtime state
 local objectives = {}
 local vaultOpen = false
 local currentRoundId = 0
 local heartbeatConn = nil
+local initialized = false
+local remotes = {}
 
--- Remote helpers
+local function getOrCreateRemote(name)
+	local remote = ReplicatedStorage:FindFirstChild(name)
+	if remote and remote:IsA("RemoteEvent") then
+		return remote
+	end
+	if remote then
+		remote:Destroy()
+	end
+	local created = Instance.new("RemoteEvent")
+	created.Name = name
+	created.Parent = ReplicatedStorage
+	return created
+end
 
 local function fireAll(remoteName, ...)
-	local r = ReplicatedStorage:FindFirstChild(remoteName)
+	local r = remotes[remoteName] or ReplicatedStorage:FindFirstChild(remoteName)
 	if r and r:IsA("RemoteEvent") then
 		r:FireAllClients(...)
 	end
 end
 
 local function fireOne(player, remoteName, ...)
-	local r = ReplicatedStorage:FindFirstChild(remoteName)
+	local r = remotes[remoteName] or ReplicatedStorage:FindFirstChild(remoteName)
 	if r and r:IsA("RemoteEvent") then
 		r:FireClient(player, ...)
 	end
 end
-
--- Internal helpers
 
 local function getRootPart(player)
 	local char = player.Character
@@ -66,7 +80,7 @@ local function newObjectiveRecord(def)
 		progress = 0,
 		completed = false,
 		activePlayers = {},
-		lastProgressAt = 0,
+		lastProgressEmitAt = 0,
 	}
 end
 
@@ -80,7 +94,23 @@ local function updatePartAttribs(obj)
 	end)
 end
 
--- Progress heartbeat
+local function setVaultPartsOpen(open)
+	for _, part in ipairs(CollectionService:GetTagged("Vault")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			pcall(function()
+				part:SetAttribute("VaultOpen", open)
+			end)
+		end
+	end
+
+	for _, part in ipairs(workspace:GetDescendants()) do
+		if part:IsA("BasePart") and part.Name == "Vault" then
+			pcall(function()
+				part:SetAttribute("VaultOpen", open)
+			end)
+		end
+	end
+end
 
 local function stopHeartbeat()
 	if heartbeatConn then
@@ -97,7 +127,6 @@ local function startHeartbeat()
 				continue
 			end
 
-			-- Re-validate active players each tick
 			local valid = {}
 			for _, p in ipairs(obj.activePlayers) do
 				if p and p.Parent and PlayerStateService.CanInteractObjective(p) then
@@ -107,24 +136,26 @@ local function startHeartbeat()
 							table.insert(valid, p)
 						end
 					elseif not obj.part then
-						-- No part bound yet - allow without distance check (prototype)
 						table.insert(valid, p)
 					end
 				end
 			end
 			obj.activePlayers = valid
 
-			local count = #valid
-			if count == 0 then
+			local activeCount = #valid
+			if activeCount == 0 then
 				continue
 			end
 
-			local gain = PROGRESS_PER_SECOND * getMultiplier(count) * dt
+			local gain = PROGRESS_PER_SECOND * getMultiplier(activeCount) * dt
 			obj.progress = math.clamp(obj.progress + gain, 0, 1)
-			obj.lastProgressAt = os.clock()
 			updatePartAttribs(obj)
 
-			fireAll("ObjectiveProgress", obj.id, obj.progress)
+			local now = os.clock()
+			if obj.progress >= 1 or (now - obj.lastProgressEmitAt) >= 0.1 then
+				fireAll("ObjectiveProgress", obj.id, obj.progress)
+				obj.lastProgressEmitAt = now
+			end
 
 			if obj.progress >= 1 then
 				obj.progress = 1
@@ -137,6 +168,7 @@ local function startHeartbeat()
 
 				if completedCount >= 3 and not vaultOpen then
 					vaultOpen = true
+					setVaultPartsOpen(true)
 					fireAll("VaultOpened")
 				end
 			end
@@ -144,15 +176,46 @@ local function startHeartbeat()
 	end)
 end
 
--- Public API
+function ObjectiveService.Init()
+	if initialized then
+		return
+	end
+	initialized = true
+
+	remotes.RequestObjectiveStart = getOrCreateRemote("RequestObjectiveStart")
+	remotes.RequestObjectiveStop = getOrCreateRemote("RequestObjectiveStop")
+	remotes.ObjectiveInteractionStarted = getOrCreateRemote("ObjectiveInteractionStarted")
+	remotes.ObjectiveProgress = getOrCreateRemote("ObjectiveProgress")
+	remotes.ObjectiveCompleted = getOrCreateRemote("ObjectiveCompleted")
+	remotes.ObjectiveFailed = getOrCreateRemote("ObjectiveFailed")
+	remotes.VaultOpened = getOrCreateRemote("VaultOpened")
+
+	ObjectiveService.ResetForRound(0)
+	ObjectiveService.AutoRegisterObjectiveParts()
+
+	remotes.RequestObjectiveStart.OnServerEvent:Connect(function(player, objectiveId)
+		if type(objectiveId) ~= "string" then
+			return
+		end
+		ObjectiveService.StartInteraction(player, objectiveId)
+	end)
+
+	remotes.RequestObjectiveStop.OnServerEvent:Connect(function(player, objectiveId)
+		if type(objectiveId) ~= "string" then
+			return
+		end
+		ObjectiveService.StopInteraction(player, objectiveId)
+	end)
+end
 
 function ObjectiveService.ResetForRound(roundId)
-	currentRoundId = roundId or 0
+	currentRoundId = roundId or currentRoundId or 0
 	vaultOpen = false
 	objectives = {}
 	for _, def in ipairs(OBJECTIVE_DEFS) do
 		objectives[def.id] = newObjectiveRecord(def)
 	end
+	setVaultPartsOpen(false)
 	stopHeartbeat()
 	startHeartbeat()
 end
@@ -174,25 +237,22 @@ function ObjectiveService.RegisterObjectivePart(objectiveId, part)
 	pcall(function()
 		part:SetAttribute("ObjectiveId", objectiveId)
 		part:SetAttribute("ObjectiveName", obj.displayName)
-		part:SetAttribute("ObjectiveProgress", 0)
-		part:SetAttribute("ObjectiveCompleted", false)
+		part:SetAttribute("ObjectiveProgress", obj.progress)
+		part:SetAttribute("ObjectiveCompleted", obj.completed)
 		CollectionService:AddTag(part, "ObjectiveStation")
 	end)
 end
 
 function ObjectiveService.AutoRegisterObjectiveParts()
-	-- Pass 1: tagged parts with ObjectiveId attribute
 	for _, part in ipairs(CollectionService:GetTagged("ObjectiveStation")) do
-		if not part:IsA("BasePart") or not part:IsDescendantOf(workspace) then
-			continue
-		end
-		local id = part:GetAttribute("ObjectiveId")
-		if id and objectives[id] and not objectives[id].part then
-			ObjectiveService.RegisterObjectivePart(id, part)
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			local id = part:GetAttribute("ObjectiveId")
+			if id and objectives[id] and not objectives[id].part then
+				ObjectiveService.RegisterObjectivePart(id, part)
+			end
 		end
 	end
 
-	-- Pass 2: prototype fallback - map brazier parts to seal ids in order
 	local unmapped = {}
 	for _, def in ipairs(OBJECTIVE_DEFS) do
 		if not objectives[def.id].part then
@@ -200,29 +260,33 @@ function ObjectiveService.AutoRegisterObjectiveParts()
 		end
 	end
 
-	if #unmapped > 0 then
-		local candidates = {}
-		for _, p in ipairs(CollectionService:GetTagged("Brazier")) do
-			if p:IsA("BasePart") and p:IsDescendantOf(workspace) then
-				table.insert(candidates, p)
-			end
+	if #unmapped == 0 then
+		return
+	end
+
+	local candidates = {}
+	for _, p in ipairs(CollectionService:GetTagged("Brazier")) do
+		if p:IsA("BasePart") and p:IsDescendantOf(workspace) then
+			table.insert(candidates, p)
 		end
-		if #candidates == 0 then
-			for _, obj in ipairs(workspace:GetDescendants()) do
-				if obj:IsA("BasePart") and obj.Name:lower():find("brazier") then
-					table.insert(candidates, obj)
-					if #candidates >= 3 then
-						break
-					end
+	end
+
+	if #candidates == 0 then
+		for _, obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("BasePart") and obj.Name:lower():find("brazier") then
+				table.insert(candidates, obj)
+				if #candidates >= 3 then
+					break
 				end
 			end
 		end
-		for i, id in ipairs(unmapped) do
-			if candidates[i] then
-				ObjectiveService.RegisterObjectivePart(id, candidates[i])
-			else
-				warn("[ObjectiveService] No part found for", id, "- distance check disabled")
-			end
+	end
+
+	for i, id in ipairs(unmapped) do
+		if candidates[i] then
+			ObjectiveService.RegisterObjectivePart(id, candidates[i])
+		else
+			warn("[ObjectiveService] No part found for", id, "distance checks disabled for this objective")
 		end
 	end
 end
@@ -234,6 +298,7 @@ function ObjectiveService.CanPlayerInteract(player, objectiveId)
 	if not PlayerStateService.CanInteractObjective(player) then
 		return false, "not_eligible"
 	end
+
 	local obj = objectives[objectiveId]
 	if not obj then
 		return false, "invalid_objective"
@@ -244,6 +309,7 @@ function ObjectiveService.CanPlayerInteract(player, objectiveId)
 	if vaultOpen then
 		return false, "vault_open"
 	end
+
 	if obj.part then
 		local root = getRootPart(player)
 		if not root then
@@ -253,12 +319,14 @@ function ObjectiveService.CanPlayerInteract(player, objectiveId)
 			return false, "too_far"
 		end
 	end
+
 	return true, "ok"
 end
 
 function ObjectiveService.StartInteraction(player, objectiveId)
 	local ok, reason = ObjectiveService.CanPlayerInteract(player, objectiveId)
 	if not ok then
+		fireOne(player, "ObjectiveFailed", objectiveId, reason)
 		return false, reason
 	end
 
@@ -268,10 +336,10 @@ function ObjectiveService.StartInteraction(player, objectiveId)
 			return true, "already_active"
 		end
 	end
-	table.insert(obj.activePlayers, player)
 
+	table.insert(obj.activePlayers, player)
 	fireOne(player, "ObjectiveInteractionStarted", objectiveId, obj.displayName)
-	fireAll("ObjectiveProgress", objectiveId, obj.progress)
+	fireOne(player, "ObjectiveProgress", objectiveId, obj.progress)
 	return true, "ok"
 end
 
@@ -283,13 +351,12 @@ function ObjectiveService.StopInteraction(player, objectiveId)
 	for i, p in ipairs(obj.activePlayers) do
 		if p == player then
 			table.remove(obj.activePlayers, i)
-			fireOne(player, "ObjectivePromptHidden", objectiveId)
 			break
 		end
 	end
 end
 
-function ObjectiveService.StopAllInteractionsForPlayer(player)
+function ObjectiveService.StopAllForPlayer(player)
 	for _, obj in pairs(objectives) do
 		for i, p in ipairs(obj.activePlayers) do
 			if p == player then
@@ -298,28 +365,6 @@ function ObjectiveService.StopAllInteractionsForPlayer(player)
 			end
 		end
 	end
-end
-
-function ObjectiveService.GetObjective(objectiveId)
-	local obj = objectives[objectiveId]
-	if not obj then
-		return nil
-	end
-	return {
-		id = obj.id,
-		displayName = obj.displayName,
-		progress = obj.progress,
-		completed = obj.completed,
-		activeCount = #obj.activePlayers,
-	}
-end
-
-function ObjectiveService.GetObjectivesSnapshot()
-	local snap = {}
-	for id in pairs(objectives) do
-		snap[id] = ObjectiveService.GetObjective(id)
-	end
-	return snap
 end
 
 function ObjectiveService.GetCompletedCount()
@@ -336,22 +381,18 @@ function ObjectiveService.IsVaultOpen()
 	return vaultOpen
 end
 
--- Debug only - never expose to client
-function ObjectiveService.ForceCompleteObjective(objectiveId)
-	local obj = objectives[objectiveId]
-	if not obj then
-		return
+function ObjectiveService.GetObjectivesSnapshot()
+	local snap = {}
+	for id, obj in pairs(objectives) do
+		snap[id] = {
+			id = obj.id,
+			displayName = obj.displayName,
+			progress = obj.progress,
+			completed = obj.completed,
+			activeCount = #obj.activePlayers,
+		}
 	end
-	obj.progress = 1
-	obj.completed = true
-	obj.activePlayers = {}
-	updatePartAttribs(obj)
-	local n = ObjectiveService.GetCompletedCount()
-	fireAll("ObjectiveCompleted", obj.id, obj.displayName, n)
-	if n >= 3 and not vaultOpen then
-		vaultOpen = true
-		fireAll("VaultOpened")
-	end
+	return snap
 end
 
 return ObjectiveService

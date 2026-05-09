@@ -286,7 +286,7 @@ Players.PlayerRemoving:Connect(function(player)
 		guardianPlayer = nil
 	end
 	PlayerStateService.UnregisterPlayer(player)
-	ObjectiveService.StopAllInteractionsForPlayer(player)
+	ObjectiveService.StopAllForPlayer(player)
 end)
 
 Players.PlayerAdded:Connect(function(player)
@@ -387,28 +387,12 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 		local caught, newState = PlayerStateService.MarkCaught(targetPlayer)
 		if caught then
 			handleCaughtThief(targetPlayer, newState)
+			ObjectiveService.StopAllForPlayer(targetPlayer)
 			-- Remove from activeThieves regardless of Caught vs Eliminated
 			activeThieves[targetPlayer] = nil
 			fireThiefCountToGuardian()
 		end
 	end
-end)
-
-requestObjectiveStartRemote.OnServerEvent:Connect(function(player, objectiveId)
-	if not roundActive then
-		return
-	end
-	if type(objectiveId) ~= "string" then
-		return
-	end
-	ObjectiveService.StartInteraction(player, objectiveId)
-end)
-
-requestObjectiveStopRemote.OnServerEvent:Connect(function(player, objectiveId)
-	if type(objectiveId) ~= "string" then
-		return
-	end
-	ObjectiveService.StopInteraction(player, objectiveId)
 end)
 
 local function getRoundPlayers()
@@ -420,6 +404,7 @@ local function getRoundPlayers()
 end
 
 TestMapService.Init()
+ObjectiveService.Init()
 -- ensureBasicMap, ensureVaultPart, ensureSpawnPoints disabled:
 -- TestMapService provides all tagged gameplay parts.
 print("GameManager: vault ensured")
@@ -543,6 +528,9 @@ while true do
 
 	fireRoundEnded(result, winner)
 	print(string.format("[RoundResult] %s", result))
+	for _, player in ipairs(Players:GetPlayers()) do
+		ObjectiveService.StopAllForPlayer(player)
+	end
 	clearRoundState()
 	task.wait(3)
 end
