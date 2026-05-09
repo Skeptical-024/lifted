@@ -50,6 +50,7 @@ local isTransitioningToMenu = false
 local menuTransitionToken = 0
 local isClosingForGame = false
 local activeOverlay = nil
+local closeOverlay
 
 local activeTweens = {}
 local function playTween(key, inst, info, props)
@@ -827,6 +828,42 @@ local function makeOverlay(name, titleText)
 	return overlay, backBtn, content, contentPad
 end
 
+local function createVisibleBackButton(parentOverlay, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Name = "VisibleBackButton"
+	btn.Text = "BACK"
+	btn.Size = UDim2.fromOffset(120, 44)
+	btn.AnchorPoint = Vector2.new(1, 0)
+	btn.Position = UDim2.new(1, -220, 0, 96)
+	btn.ZIndex = 1000
+	btn.AutoButtonColor = false
+	btn.Visible = true
+	btn.BackgroundColor3 = Color3.fromRGB(10, 11, 18)
+	btn.BackgroundTransparency = 0.25
+	btn.BorderSizePixel = 0
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	btn.TextColor3 = C.gold
+	makeCorner(8, btn)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = C.gold
+	stroke.Thickness = 1
+	stroke.Transparency = 0.25
+	stroke.Parent = btn
+	btn.Parent = parentOverlay
+
+	btn.MouseEnter:Connect(function()
+		playTween("visible_back_hover_bg_" .. parentOverlay.Name, btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.1, TextColor3 = C.white})
+		playTween("visible_back_hover_stroke_" .. parentOverlay.Name, stroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.05})
+	end)
+	btn.MouseLeave:Connect(function()
+		playTween("visible_back_leave_bg_" .. parentOverlay.Name, btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.25, TextColor3 = C.gold})
+		playTween("visible_back_leave_stroke_" .. parentOverlay.Name, stroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.25})
+	end)
+	btn.Activated:Connect(onClick)
+	return btn
+end
+
 local function replaceWithScrollableVerticalContent(oldContent, width, topY)
 	local parent = oldContent.Parent
 	local pos = oldContent.Position
@@ -892,6 +929,16 @@ if creditsBackLabel then
 	creditsBackLabel.Text = "BACK"
 	creditsBackLabel.TextXAlignment = Enum.TextXAlignment.Center
 end
+
+howBackBtn.Visible = false
+creditsBackBtn.Visible = false
+
+local howVisibleBackBtn = createVisibleBackButton(howOverlay, function()
+	closeOverlay(howOverlay)
+end)
+local creditsVisibleBackBtn = createVisibleBackButton(creditsOverlay, function()
+	closeOverlay(creditsOverlay)
+end)
 
 howContent, howContentPad = replaceWithScrollableVerticalContent(howContent, 860, 120)
 creditsContent, creditsContentPad = replaceWithScrollableVerticalContent(creditsContent, 860, 120)
@@ -1247,7 +1294,7 @@ local function openOverlay(overlay)
 	end)
 end
 
-local function closeOverlay(overlay)
+closeOverlay = function(overlay)
 	if activeOverlay ~= overlay then return end
 	overlayOpenToken += 1
 	playTween("close_" .. overlay.Name, overlay, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
@@ -1344,13 +1391,33 @@ local function setPlayButtonState(state)
 	if state == "waiting" then
 		ref.title.Text = "WAITING FOR ROUND"
 		ref.subtitle.Text = "Round starting soon"
+		ref.title.TextColor3 = C.white
+		ref.subtitle.TextColor3 = C.gold
+		ref.num.TextColor3 = C.gold
+		ref.arrow.TextColor3 = C.gold
+		if ref.stroke then
+			ref.stroke.Color = C.gold
+		end
 	elseif state == "disabled" then
 		ref.title.Text = "WAITING FOR ROUND"
 		ref.subtitle.Text = ""
+		ref.title.TextColor3 = C.white
+		ref.num.TextColor3 = C.gold
+		ref.arrow.TextColor3 = C.gold
+		if ref.stroke then
+			ref.stroke.Color = C.gold
+		end
 	else
 		-- "default"
 		ref.title.Text = "PLAY"
 		ref.subtitle.Text = "Join a match"
+		ref.title.TextColor3 = C.titleColor
+		ref.subtitle.TextColor3 = Color3.fromRGB(165, 175, 195)
+		ref.num.TextColor3 = C.gold
+		ref.arrow.TextColor3 = C.gold
+		if ref.stroke then
+			ref.stroke.Color = C.gold
+		end
 		playClicked = false
 	end
 end

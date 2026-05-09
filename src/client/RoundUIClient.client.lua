@@ -16,12 +16,16 @@ local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState"
 local thiefCaughtRemote = ReplicatedStorage:WaitForChild("ThiefCaught")
 
 local COLORS = {
-	panel = Color3.fromRGB(10, 10, 14),
-	white = Color3.fromRGB(245, 245, 245),
-	grey = Color3.fromRGB(165, 165, 175),
-	teal = Color3.fromRGB(40, 220, 200),
-	red = Color3.fromRGB(220, 60, 60),
-	gold = Color3.fromRGB(210, 165, 50),
+	bg = Color3.fromRGB(8, 10, 16),
+	panel = Color3.fromRGB(12, 16, 24),
+	panelSoft = Color3.fromRGB(18, 24, 34),
+	white = Color3.fromRGB(245, 248, 255),
+	grey = Color3.fromRGB(150, 165, 185),
+	teal = Color3.fromRGB(120, 220, 255),
+	tealDeep = Color3.fromRGB(40, 150, 220),
+	red = Color3.fromRGB(230, 65, 75),
+	warning = Color3.fromRGB(255, 150, 80),
+	gold = Color3.fromRGB(220, 175, 55),
 }
 
 local function tweenIn(element, property, targetValue, duration, style, direction)
@@ -98,7 +102,7 @@ objectiveDirectiveLabel.Position = UDim2.new(0.5, -140, 0, 80)
 objectiveDirectiveLabel.BackgroundTransparency = 1
 objectiveDirectiveLabel.Font = Enum.Font.GothamBold
 objectiveDirectiveLabel.TextSize = 13
-objectiveDirectiveLabel.TextColor3 = Color3.fromRGB(165, 165, 175)
+objectiveDirectiveLabel.TextColor3 = COLORS.grey
 objectiveDirectiveLabel.TextXAlignment = Enum.TextXAlignment.Center
 objectiveDirectiveLabel.Text = ""
 objectiveDirectiveLabel.Visible = false
@@ -106,7 +110,7 @@ objectiveDirectiveLabel.ZIndex = 5
 
 local timerStroke = timerPanel:FindFirstChildOfClass("UIStroke")
 if timerStroke then
-	timerStroke.Color = COLORS.gold
+	timerStroke.Color = COLORS.teal
 	timerStroke.Transparency = 0.4
 end
 
@@ -165,13 +169,13 @@ for i = 1, 3 do
 	local sq = Instance.new("Frame")
 	sq.Size = UDim2.fromOffset(20, 20)
 	sq.Position = UDim2.fromOffset(10 + (i - 1) * 28, 26)
-	sq.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	sq.BackgroundColor3 = COLORS.panelSoft
 	sq.Parent = brazierPanel
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, 5)
 	c.Parent = sq
 	local s = Instance.new("UIStroke")
-	s.Color = Color3.fromRGB(255, 255, 255)
+	s.Color = COLORS.white
 	s.Transparency = 0.85
 	s.Parent = sq
 	local nameLabel = Instance.new("TextLabel")
@@ -181,7 +185,7 @@ for i = 1, 3 do
 	nameLabel.Text = sealNames[i] or ""
 	nameLabel.TextSize = 8
 	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextColor3 = Color3.fromRGB(40, 220, 200)
+	nameLabel.TextColor3 = COLORS.teal
 	nameLabel.TextTransparency = 0.5
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
 	nameLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -189,7 +193,7 @@ for i = 1, 3 do
 	brazierIcons[i] = {frame = sq, stroke = s, label = nameLabel}
 end
 
-local vaultStatusLabel = makeLabel("VAULT SEALED", Enum.Font.GothamBold, Color3.fromRGB(165, 165, 175), brazierPanel)
+local vaultStatusLabel = makeLabel("VAULT SEALED", Enum.Font.GothamBold, COLORS.grey, brazierPanel)
 vaultStatusLabel.Name = "VaultStatusLabel"
 vaultStatusLabel.Position = UDim2.fromOffset(0, 66)
 vaultStatusLabel.Size = UDim2.new(1, 0, 0, 14)
@@ -230,7 +234,7 @@ guardianSprintLabel.Size = UDim2.new(1, 0, 0, 13)
 guardianSprintLabel.Position = UDim2.fromOffset(0, 50)
 guardianSprintLabel.TextSize = 11
 
-local guardianCarrierLabel = makeLabel("", Enum.Font.Gotham, COLORS.gold, guardianStatusPanel)
+local guardianCarrierLabel = makeLabel("", Enum.Font.Gotham, COLORS.red, guardianStatusPanel)
 guardianCarrierLabel.Size = UDim2.new(1, 0, 0, 14)
 guardianCarrierLabel.Position = UDim2.fromOffset(0, 65)
 guardianCarrierLabel.TextSize = 12
@@ -280,7 +284,7 @@ sprintLabel.TextSize = 14
 local barBg = Instance.new("Frame")
 barBg.Size = UDim2.fromOffset(136, 12)
 barBg.Position = UDim2.fromOffset(74, 12)
-barBg.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+barBg.BackgroundColor3 = COLORS.panelSoft
 barBg.BorderSizePixel = 0
 barBg.Parent = sprintPanel
 local barBgCorner = Instance.new("UICorner")
@@ -339,7 +343,7 @@ objectivePromptLabel.TextSize = 13
 local objectiveProgressBack = Instance.new("Frame")
 objectiveProgressBack.Size = UDim2.new(1, -16, 0, 8)
 objectiveProgressBack.Position = UDim2.fromOffset(8, 34)
-objectiveProgressBack.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+objectiveProgressBack.BackgroundColor3 = COLORS.panelSoft
 objectiveProgressBack.BorderSizePixel = 0
 objectiveProgressBack.Parent = objectiveInteractionPanel
 local opbCorner = Instance.new("UICorner")
@@ -376,7 +380,7 @@ skillCheckShadow.Visible = false
 
 local scpStroke = skillCheckPanel:FindFirstChildOfClass("UIStroke")
 if scpStroke then
-	scpStroke.Color = COLORS.gold
+	scpStroke.Color = COLORS.teal
 	scpStroke.Transparency = 0.3
 end
 
@@ -387,7 +391,7 @@ skillCheckLabel.TextSize = 11
 local skillCheckBack = Instance.new("Frame")
 skillCheckBack.Size = UDim2.new(1, -16, 0, 20)
 skillCheckBack.Position = UDim2.fromOffset(8, 20)
-skillCheckBack.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+skillCheckBack.BackgroundColor3 = COLORS.panelSoft
 skillCheckBack.BorderSizePixel = 0
 skillCheckBack.Parent = skillCheckPanel
 local scbCorner = Instance.new("UICorner")
@@ -435,7 +439,7 @@ carrierLabel.TextSize = 12
 local extractProgressBack = Instance.new("Frame")
 extractProgressBack.Size = UDim2.new(1, -16, 0, 8)
 extractProgressBack.Position = UDim2.fromOffset(8, 50)
-extractProgressBack.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+extractProgressBack.BackgroundColor3 = COLORS.panelSoft
 extractProgressBack.BorderSizePixel = 0
 extractProgressBack.Visible = false
 extractProgressBack.Parent = idolStatusPanel
@@ -478,7 +482,7 @@ proxCorner.Parent = proximity
 local roundResultsOverlay = Instance.new("Frame")
 roundResultsOverlay.Name = "RoundResultsOverlay"
 roundResultsOverlay.Size = UDim2.fromScale(1, 1)
-roundResultsOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+roundResultsOverlay.BackgroundColor3 = COLORS.bg
 roundResultsOverlay.BackgroundTransparency = 1
 roundResultsOverlay.Visible = false
 roundResultsOverlay.ZIndex = 10
@@ -516,7 +520,7 @@ accentLine.Size = UDim2.fromOffset(0, 2)
 accentLine.Position = UDim2.new(0.5, 0, 0, 96)
 accentLine.AnchorPoint = Vector2.new(0.5, 0)
 accentLine.BorderSizePixel = 0
-accentLine.BackgroundColor3 = COLORS.gold
+accentLine.BackgroundColor3 = COLORS.teal
 accentLine.ZIndex = 12
 accentLine.Parent = resultPanel
 
@@ -574,7 +578,7 @@ do
 end
 
 -- Reward label
-local resultRewardLabel = makeLabel("", Enum.Font.GothamBold, COLORS.gold, resultPanel)
+local resultRewardLabel = makeLabel("", Enum.Font.GothamBold, COLORS.teal, resultPanel)
 resultRewardLabel.Size = UDim2.new(1, -20, 0, 18)
 resultRewardLabel.Position = UDim2.fromOffset(10, 224)
 resultRewardLabel.TextSize = 14
@@ -642,7 +646,16 @@ end
 local feedItems = {}
 local function addKillFeedEvent(text)
 	local pill = makePanel(UDim2.fromOffset(280, 28), UDim2.fromOffset(20, #feedItems * 34), killFeed, 0.3)
-	local lbl = makeLabel(text, Enum.Font.GothamBold, COLORS.white, pill)
+	local msg = string.lower(text or "")
+	local eventColor = COLORS.white
+	if string.find(msg, "caught") then
+		eventColor = COLORS.red
+	elseif string.find(msg, "seal") or string.find(msg, "vault") then
+		eventColor = COLORS.teal
+	elseif string.find(msg, "idol") then
+		eventColor = COLORS.gold
+	end
+	local lbl = makeLabel(text, Enum.Font.GothamBold, eventColor, pill)
 	lbl.Size = UDim2.fromScale(1, 1)
 	lbl.TextSize = 14
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -1154,7 +1167,7 @@ local function showRoundResults(...)
 	local data = normalizeRoundResult(...)
 	local winningTeam = data.winningTeam or ""
 
-	local accentColor = COLORS.gold
+	local accentColor = COLORS.white
 	if winningTeam == "Thieves" then
 		accentColor = COLORS.teal
 		roundResultsOverlay.BackgroundColor3 = Color3.fromRGB(8, 32, 40)
@@ -1162,7 +1175,7 @@ local function showRoundResults(...)
 		accentColor = COLORS.red
 		roundResultsOverlay.BackgroundColor3 = Color3.fromRGB(40, 8, 8)
 	else
-		roundResultsOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+		roundResultsOverlay.BackgroundColor3 = COLORS.bg
 	end
 
 	if winningTeam == "Thieves" then
@@ -1173,7 +1186,7 @@ local function showRoundResults(...)
 		resultTitleLabel.TextColor3 = COLORS.red
 	elseif winningTeam == "Draw" then
 		resultTitleLabel.Text = "ROUND ENDED"
-		resultTitleLabel.TextColor3 = COLORS.gold
+		resultTitleLabel.TextColor3 = COLORS.white
 	else
 		resultTitleLabel.Text = "ROUND OVER"
 		resultTitleLabel.TextColor3 = COLORS.white
@@ -1322,8 +1335,8 @@ brazierProgressUpdateRemote.OnClientEvent:Connect(function(litCount)
 				end
 			end)
 		else
-			icon.frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-			icon.stroke.Color = Color3.fromRGB(255, 255, 255)
+			icon.frame.BackgroundColor3 = COLORS.panelSoft
+			icon.stroke.Color = COLORS.white
 			icon.stroke.Transparency = 0.85
 		end
 	end
@@ -1343,13 +1356,13 @@ brazierProgressUpdateRemote.OnClientEvent:Connect(function(litCount)
 	if status and status:IsA("TextLabel") then
 		if litCount >= 3 then
 			status.Text = "VAULT OPEN"
-			status.TextColor3 = Color3.fromRGB(40, 220, 200)
+			status.TextColor3 = COLORS.teal
 		elseif litCount > 0 then
 			status.Text = "VAULT SEALED"
-			status.TextColor3 = Color3.fromRGB(165, 165, 175)
+			status.TextColor3 = COLORS.grey
 		else
 			status.Text = "VAULT SEALED"
-			status.TextColor3 = Color3.fromRGB(165, 165, 175)
+			status.TextColor3 = COLORS.grey
 		end
 	end
 	-- Edge-check: only trigger vault open once when count first reaches 3
@@ -1409,20 +1422,20 @@ RunService.Heartbeat:Connect(function()
 				timerStroke.Color = COLORS.red
 				timerStroke.Transparency = 0.2 + ((math.sin(os.clock() * 6) + 1) * 0.15)
 			end
-		else
-			timerText.TextColor3 = COLORS.white
-			if timerStroke then
-				timerStroke.Color = COLORS.gold
-				timerStroke.Transparency = 0.4
+			else
+				timerText.TextColor3 = COLORS.white
+				if timerStroke then
+					timerStroke.Color = COLORS.teal
+					timerStroke.Transparency = 0.4
+				end
 			end
-		end
 
 		if localPlayer:GetAttribute("Role") == "Guardian" and sprintPanel.Visible then
 			local elapsed = os.clock() - sprintStateChangedAt
-			if sprintState == "Sprinting" then
-				local ratio = math.clamp(1 - (elapsed / 6), 0, 1)
-				barFill.Size = UDim2.fromScale(ratio, 1)
-				barFill.BackgroundColor3 = COLORS.white
+				if sprintState == "Sprinting" then
+					local ratio = math.clamp(1 - (elapsed / 6), 0, 1)
+					barFill.Size = UDim2.fromScale(ratio, 1)
+					barFill.BackgroundColor3 = COLORS.teal
 				if ratio <= 0 then
 					sprintState = "Cooldown"
 					sprintStateChangedAt = os.clock()
@@ -1435,10 +1448,10 @@ RunService.Heartbeat:Connect(function()
 					sprintState = "Ready"
 					sprintStateChangedAt = os.clock()
 				end
-			else
-				barFill.Size = UDim2.fromScale(1, 1)
-				barFill.BackgroundColor3 = COLORS.white
-			end
+				else
+					barFill.Size = UDim2.fromScale(1, 1)
+					barFill.BackgroundColor3 = COLORS.teal
+				end
 		end
 
 		if localPlayer:GetAttribute("Role") == "Thief" then
