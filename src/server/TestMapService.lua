@@ -222,6 +222,12 @@ local function buildMap(folder)
 	tag(cageSpawn, "CageSpawn")
 	setAttribs(cageSpawn, { CageId = "MainCage" })
 
+	local cageRescuePoint = makeMarker("CageRescuePoint",
+		Vector3.new(8, 1, 8), Vector3.new(-58, 2, 60), CYAN, folder)
+	cageRescuePoint.Transparency = 0.5
+	tag(cageRescuePoint, "CageRescuePoint")
+	setAttribs(cageRescuePoint, { RescueId = "MainCageRescue" })
+
 	-- Simple test lighting (do not override real map lighting)
 	pcall(function()
 		Lighting.ClockTime = 14

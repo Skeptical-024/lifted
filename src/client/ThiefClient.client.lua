@@ -7,65 +7,20 @@ local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
 
 local localPlayer = Players.LocalPlayer
-local thiefExtractedRemote = ReplicatedStorage:WaitForChild("ThiefExtracted")
 local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState")
+local requestObjectiveStartRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStart")
+local requestObjectiveStopRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStop")
+local requestIdolPickupRemote = ReplicatedStorage:WaitForChild("RequestIdolPickup")
+local requestExtractRemote = ReplicatedStorage:WaitForChild("RequestExtractWithIdol")
+local requestCageRescueStartRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStart")
+local requestCageRescueStopRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStop")
 
 local crouching = false
-local extracting = false
-local extractToken = 0
+local rescuingActive = false
+local interactingObjectiveId = nil
 
 local footstepSounds = {}
 local originalFootstepVolume = {}
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ThiefExtractGui"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-
-local barContainer = Instance.new("Frame")
-barContainer.Name = "ExtractBarContainer"
-barContainer.Size = UDim2.new(0, 400, 0, 24)
-barContainer.Position = UDim2.new(0.5, -200, 1, -80)
-barContainer.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
-barContainer.BorderSizePixel = 0
-barContainer.Visible = false
-barContainer.Parent = screenGui
-
-local barCorner = Instance.new("UICorner")
-barCorner.CornerRadius = UDim.new(0, 6)
-barCorner.Parent = barContainer
-
-local fill = Instance.new("Frame")
-fill.Name = "Fill"
-fill.Size = UDim2.fromScale(0, 1)
-fill.Position = UDim2.fromScale(0, 0)
-fill.BackgroundColor3 = Color3.fromRGB(35, 220, 200)
-fill.BorderSizePixel = 0
-fill.Parent = barContainer
-
-local fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(0, 6)
-fillCorner.Parent = fill
-
-local label = Instance.new("TextLabel")
-label.Name = "ExtractLabel"
-label.BackgroundTransparency = 1
-label.Size = UDim2.new(0, 400, 0, 28)
-label.Position = UDim2.new(0.5, -200, 1, -112)
-label.Font = Enum.Font.GothamBold
-label.Text = "EXTRACTING..."
-label.TextColor3 = Color3.fromRGB(255, 255, 255)
-label.TextScaled = true
-label.TextStrokeTransparency = 0.5
-label.Visible = false
-label.Parent = screenGui
-
-local function setExtractProgress(visible, progress)
-	barContainer.Visible = visible
-	label.Visible = visible
-	fill.Size = UDim2.fromScale(math.clamp(progress, 0, 1), 1)
-end
 
 local function isThief()
 	return localPlayer:GetAttribute("Role") == Types.PlayerRole.Thief
@@ -107,78 +62,103 @@ local function applyFootstepVolume()
 	end
 end
 
-local function isNearVault()
+local function getNearestObjectiveStation()
 	local rootPart = getRootPart()
 	if not rootPart then
-		return false
+		return nil, nil
 	end
-	for _, vault in CollectionService:GetTagged("Vault") do
-		if vault:IsA("BasePart") and vault:IsDescendantOf(workspace) then
-			if (vault.Position - rootPart.Position).Magnitude <= Constants.THIEF_EXTRACT_DISTANCE then
-				return true
+	local maxDist = Constants.OBJECTIVE_INTERACT_DISTANCE or 12
+	local nearest, nearestId, best = nil, nil, maxDist + 0.001
+	for _, part in ipairs(CollectionService:GetTagged("ObjectiveStation")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			local objectiveId = part:GetAttribute("ObjectiveId")
+			local completed = part:GetAttribute("ObjectiveCompleted")
+			if type(objectiveId) == "string" and completed ~= true then
+				local d = (part.Position - rootPart.Position).Magnitude
+				if d <= maxDist and d < best then
+					nearest, nearestId, best = part, objectiveId, d
+				end
+			end
+		end
+	end
+	return nearest, nearestId
+end
+
+local function beginSealInteraction(objectiveId)
+	if not isThief() then
+		return
+	end
+	if type(objectiveId) ~= "string" then
+		return
+	end
+	interactingObjectiveId = objectiveId
+	requestObjectiveStartRemote:FireServer(objectiveId)
+end
+
+local function stopSealInteraction()
+	if interactingObjectiveId then
+		requestObjectiveStopRemote:FireServer(interactingObjectiveId)
+		interactingObjectiveId = nil
+	end
+end
+
+local function getNearestIdolPart()
+	local root = getRootPart()
+	if not root then
+		return nil
+	end
+	local maxDist = Constants.IDOL_INTERACT_DISTANCE or 10
+	for _, part in ipairs(CollectionService:GetTagged("Idol")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			local idolState = part:GetAttribute("IdolState")
+			if idolState ~= "Locked" and idolState ~= "Carried" then
+				if (part.Position - root.Position).Magnitude <= maxDist then
+					return part
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function getNearestExtractPoint()
+	local root = getRootPart()
+	if not root then
+		return nil
+	end
+	local maxDist = Constants.EXTRACT_INTERACT_DISTANCE or 14
+	for _, part in ipairs(CollectionService:GetTagged("ExtractPoint")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			if (part.Position - root.Position).Magnitude <= maxDist then
+				return part
+			end
+		end
+	end
+	return nil
+end
+
+local function isNearRescuePoint()
+	local char = localPlayer.Character
+	if not char then return false end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if not root then return false end
+	local maxDist = Constants.CAGE_RESCUE_DISTANCE or 12
+	for _, tagName in ipairs({"CageRescuePoint", "CageSpawn"}) do
+		for _, part in ipairs(CollectionService:GetTagged(tagName)) do
+			if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+				if (part.Position - root.Position).Magnitude <= maxDist then
+					return true
+				end
 			end
 		end
 	end
 	return false
 end
 
-local function beginExtract()
-	if extracting or not isThief() then
-		return
-	end
-	if not isNearVault() then
-		return
-	end
-
-	local rootPart = getRootPart()
-	if not rootPart then
-		return
-	end
-
-	extracting = true
-	extractToken += 1
-	local token = extractToken
-	local startPos = rootPart.Position
-	local startTime = os.clock()
-	local deadline = startTime + Constants.THIEF_EXTRACT_HOLD_SECONDS
-
-	setExtractProgress(true, 0)
-
-	while os.clock() < deadline do
-		if token ~= extractToken then
-			setExtractProgress(false, 0)
-			return
-		end
-		if not isThief() then
-			extracting = false
-			setExtractProgress(false, 0)
-			return
-		end
-		local currentRoot = getRootPart()
-		if not currentRoot then
-			extracting = false
-			setExtractProgress(false, 0)
-			return
-		end
-		if (currentRoot.Position - startPos).Magnitude > Constants.THIEF_EXTRACT_MOVE_CANCEL_DISTANCE then
-			extracting = false
-			setExtractProgress(false, 0)
-			return
-		end
-
-		local elapsed = os.clock() - startTime
-		local progress = elapsed / Constants.THIEF_EXTRACT_HOLD_SECONDS
-		setExtractProgress(true, progress)
-		task.wait()
-	end
-
-	if token == extractToken and extracting and isThief() then
-		setExtractProgress(true, 1)
-		extracting = false
-		thiefExtractedRemote:FireServer()
-		task.wait(0.05)
-		setExtractProgress(false, 0)
-	end
+local function stopRescue()
+	if not rescuingActive then return end
+	rescuingActive = false
+	requestCageRescueStopRemote:FireServer()
 end
 
 localPlayer.CharacterAdded:Connect(function()
@@ -190,10 +170,9 @@ end)
 localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 	if not isThief() then
 		crouching = false
-		extracting = false
-		extractToken += 1
 		setMovementStateRemote:FireServer("Crouch", false)
-		setExtractProgress(false, 0)
+		stopSealInteraction()
+		stopRescue()
 	end
 	applyFootstepVolume()
 end)
@@ -213,11 +192,26 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 			applyFootstepVolume()
 		end
 	elseif input.KeyCode == Enum.KeyCode.E then
-		task.spawn(beginExtract)
+		if not isThief() then return end
+		local _, nearObjectiveId = getNearestObjectiveStation()
+		if nearObjectiveId then
+			task.spawn(beginSealInteraction, nearObjectiveId)
+		elseif localPlayer:GetAttribute("HasIdol") and getNearestExtractPoint() then
+			requestExtractRemote:FireServer()
+		elseif not localPlayer:GetAttribute("HasIdol") and isNearRescuePoint() then
+			rescuingActive = true
+			requestCageRescueStartRemote:FireServer()
+		elseif not localPlayer:GetAttribute("HasIdol") and getNearestIdolPart() then
+			requestIdolPickupRemote:FireServer()
+		end
 	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.E then
+		stopSealInteraction()
+		stopRescue()
+	end
 	if input.KeyCode == Enum.KeyCode.LeftShift and crouching then
 		crouching = false
 		if isThief() then

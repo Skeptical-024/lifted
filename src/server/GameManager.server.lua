@@ -14,6 +14,9 @@ local ThiefController = require(script.Parent:WaitForChild("ThiefController"))
 local BrazierManager = require(script.Parent:WaitForChild("BrazierManager"))
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local ObjectiveService = require(script.Parent:WaitForChild("ObjectiveService"))
+local IdolService = require(script.Parent:WaitForChild("IdolService"))
+local CageService = require(script.Parent:WaitForChild("CageService"))
+local GuardianAbilityService = require(script.Parent:WaitForChild("GuardianAbilityService"))
 local TestMapService = require(script.Parent:WaitForChild("TestMapService"))
 print("GameManager: all modules loaded")
 
@@ -171,6 +174,8 @@ end
 local function handleCaughtThief(targetPlayer, newState)
 	if newState == PlayerStateService.State.Caught then
 		freezeThiefCharacter(targetPlayer)
+	elseif newState == PlayerStateService.State.Caged then
+		freezeThiefCharacter(targetPlayer)
 	elseif newState == PlayerStateService.State.Eliminated then
 		freezeThiefCharacter(targetPlayer)
 	end
@@ -253,6 +258,9 @@ end
 local function clearRoundState()
 	PlayerStateService.ResetForNewRound(roundId)
 	ObjectiveService.StopRound()
+	IdolService.StopRound()
+	CageService.StopRound()
+	GuardianAbilityService.StopRound()
 
 	for player in rolesByPlayer do
 		player:SetAttribute("Role", nil)
@@ -287,6 +295,9 @@ Players.PlayerRemoving:Connect(function(player)
 	end
 	PlayerStateService.UnregisterPlayer(player)
 	ObjectiveService.StopAllForPlayer(player)
+	IdolService.DropFromPlayer(player, "left")
+	CageService.StopAllForPlayer(player)
+	GuardianAbilityService.StopAllForPlayer(player)
 end)
 
 Players.PlayerAdded:Connect(function(player)
@@ -302,7 +313,9 @@ Players.PlayerAdded:Connect(function(player)
 		end
 
 		local state = PlayerStateService.GetState(player)
-		if state == PlayerStateService.State.Caught or state == PlayerStateService.State.Eliminated then
+		if state == PlayerStateService.State.Caught
+			or state == PlayerStateService.State.Caged
+			or state == PlayerStateService.State.Eliminated then
 			task.defer(function()
 				if player.Parent then
 					handleCaughtThief(player, state)
@@ -328,6 +341,7 @@ setMovementStateRemote.OnServerEvent:Connect(function(player, requestedState, is
 			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
 			if humanoid then
 				humanoid.WalkSpeed = isActive and Constants.THIEF_CROUCH_SPEED or Constants.DEFAULT_WALK_SPEED
+				player:SetAttribute("IsCrouching", isActive)
 			end
 		end
 	elseif role == Types.PlayerRole.Guardian and requestedState == "Sprint" then
@@ -361,14 +375,7 @@ brazierInteractRemote.OnServerEvent:Connect(function(player, brazierName)
 end)
 
 thiefExtractedRemote.OnServerEvent:Connect(function(player)
-	if not ObjectiveService.IsVaultOpen() then
-		return
-	end
-	local valid = ThiefController.ValidateExtract(player, rolesByPlayer, roundActive)
-	if not valid then
-		return
-	end
-	thievesExtracted = true
+	-- Old extraction path disabled. IdolService owns extraction.
 end)
 
 catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
@@ -388,6 +395,8 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 		if caught then
 			handleCaughtThief(targetPlayer, newState)
 			ObjectiveService.StopAllForPlayer(targetPlayer)
+			IdolService.DropFromPlayer(targetPlayer, "caught")
+			CageService.CagePlayer(targetPlayer)
 			-- Remove from activeThieves regardless of Caught vs Eliminated
 			activeThieves[targetPlayer] = nil
 			fireThiefCountToGuardian()
@@ -405,6 +414,12 @@ end
 
 TestMapService.Init()
 ObjectiveService.Init()
+IdolService.Init()
+CageService.Init()
+GuardianAbilityService.Init()
+IdolService.SetRoundEndCallback(function(extractingPlayer)
+	thievesExtracted = true
+end)
 -- ensureBasicMap, ensureVaultPart, ensureSpawnPoints disabled:
 -- TestMapService provides all tagged gameplay parts.
 print("GameManager: vault ensured")
@@ -449,6 +464,20 @@ while true do
 	end
 	ObjectiveService.ResetForRound(roundId)
 	ObjectiveService.AutoRegisterObjectiveParts()
+	IdolService.ResetForRound(roundId)
+	CageService.ResetForRound(roundId)
+	GuardianAbilityService.ResetForRound(roundId)
+
+	task.spawn(function()
+		local notified = false
+		while roundActive do
+			if not notified and ObjectiveService.IsVaultOpen() then
+				notified = true
+				IdolService.OnVaultOpened()
+			end
+			task.wait(0.2)
+		end
+	end)
 
 	for player, role in rolesByPlayer do
 		applyBaseMovementForRole(player, role)

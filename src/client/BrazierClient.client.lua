@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
@@ -20,11 +21,15 @@ do
 	end
 end
 
-local brazierInteractRemote = ReplicatedStorage:WaitForChild("BrazierInteract")
+local requestObjectiveStartRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStart")
+local requestObjectiveStopRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStop")
 local guardianSequenceRemote = ReplicatedStorage:WaitForChild("GuardianBrazierSequence")
 local brazierStateChangedRemote = ReplicatedStorage:WaitForChild("BrazierStateChanged")
+local objectiveCompletedRemote = ReplicatedStorage:WaitForChild("ObjectiveCompleted")
+local constantsModule = ReplicatedStorage:WaitForChild("Constants")
+local Constants = require(constantsModule)
 
-local INTERACT_DISTANCE = 8
+local INTERACT_DISTANCE = Constants.OBJECTIVE_INTERACT_DISTANCE or 12
 local COLORS = {
 	panel = Color3.fromRGB(10, 10, 14),
 	white = Color3.fromRGB(245, 245, 245),
@@ -101,11 +106,11 @@ local interactShadow = makeShadow(interactPanel)
 interactPanel.Visible = false
 interactShadow.Visible = false
 
-local interactText = makeLabel("[F] Interact", Enum.Font.GothamBold, COLORS.white, interactPanel)
+local interactText = makeLabel("[E] Hold to break seal", Enum.Font.GothamBold, COLORS.white, interactPanel)
 interactText.Size = UDim2.fromScale(1, 1)
 interactText.TextSize = 18
 interactText.RichText = true
-interactText.Text = "<font color='rgb(210,165,50)'>[F]</font> Interact"
+interactText.Text = "<font color='rgb(120,220,255)'>[E]</font> Hold to break seal"
 
 local sequencePanel = makePanel(UDim2.fromOffset(460, 60), UDim2.new(1, -476, 0, 80), gui, 0.2)
 local sequenceShadow = makeShadow(sequencePanel)
@@ -154,10 +159,13 @@ for i = 1, 4 do
 	hintIcons[i] = {frame = slot, label = t, stroke = st}
 end
 
-local currentNearby
+local currentNearbyObjectivePart
+local currentNearbyObjectiveId
 local isHintVisible = false
 local knownSequence = {}
 local litSet = {}
+local isHoldingInteract = false
+local heldObjectiveId = nil
 
 local function findBrazierByName(name)
 	return workspace:FindFirstChild(name, true)
@@ -267,33 +275,62 @@ local function updateThiefHints()
 	end
 end
 
-local function getNearbyBrazier()
+local function getNearbyObjective()
 	local char = localPlayer.Character
 	if not char then
-		return nil
+		return nil, nil
 	end
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root then
-		return nil
+		return nil, nil
 	end
-	for i = 1, 8 do
-		local name = "Brazier" .. i
-		local part = findBrazierByName(name)
-		if part and part:IsA("BasePart") and (part.Position - root.Position).Magnitude <= INTERACT_DISTANCE then
-			return name
+
+	local nearestPart = nil
+	local nearestId = nil
+	local nearestDistance = INTERACT_DISTANCE + 0.001
+	for _, part in ipairs(CollectionService:GetTagged("ObjectiveStation")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			local objectiveCompleted = part:GetAttribute("ObjectiveCompleted")
+			local objectiveId = part:GetAttribute("ObjectiveId")
+			if objectiveCompleted ~= true and type(objectiveId) == "string" then
+				local distance = (part.Position - root.Position).Magnitude
+				if distance <= INTERACT_DISTANCE and distance < nearestDistance then
+					nearestPart = part
+					nearestId = objectiveId
+					nearestDistance = distance
+				end
+			end
 		end
 	end
-	return nil
+	return nearestPart, nearestId
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.F then
-		local nearby = getNearbyBrazier()
-		if nearby then
-			brazierInteractRemote:FireServer(nearby)
+	if input.KeyCode == Enum.KeyCode.E then
+		if localPlayer:GetAttribute("Role") ~= "Thief" then
+			return
+		end
+		local nearbyPart, objectiveId = getNearbyObjective()
+		if nearbyPart and objectiveId then
+			isHoldingInteract = true
+			heldObjectiveId = objectiveId
+			requestObjectiveStartRemote:FireServer(objectiveId)
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input, processed)
+	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.E then
+		isHoldingInteract = false
+		if heldObjectiveId then
+			requestObjectiveStopRemote:FireServer(heldObjectiveId)
+			heldObjectiveId = nil
 		end
 	end
 end)
@@ -357,15 +394,52 @@ brazierStateChangedRemote.OnClientEvent:Connect(function(litBraziers)
 	updateThiefHints()
 end)
 
+objectiveCompletedRemote.OnClientEvent:Connect(function(objectiveId)
+	if type(objectiveId) ~= "string" then
+		return
+	end
+	local indexByObjectiveId = {
+		FlameSeal = 1,
+		MoonLock = 2,
+		StoneSigil = 3,
+	}
+	local slot = indexByObjectiveId[objectiveId]
+	if slot then
+		litSet["Brazier" .. tostring(slot)] = true
+		updateThiefHints()
+	end
+	if heldObjectiveId == objectiveId then
+		heldObjectiveId = nil
+		isHoldingInteract = false
+	end
+end)
+
 RunService.RenderStepped:Connect(function(dt)
-	currentNearby = getNearbyBrazier()
-	if currentNearby then
+	local role = localPlayer:GetAttribute("Role")
+	currentNearbyObjectivePart, currentNearbyObjectiveId = getNearbyObjective()
+	if role == "Thief" and currentNearbyObjectivePart and currentNearbyObjectiveId then
 		showInteract()
 		local s = 1 + (math.sin(os.clock() * math.pi * 2) * 0.05)
 		interactPanel.Size = UDim2.fromOffset(200 * s, 32 * s)
 	else
 		hideInteract()
 		interactPanel.Size = UDim2.fromOffset(200, 32)
+	end
+
+	if isHoldingInteract then
+		local shouldStop = false
+		if role ~= "Thief" then
+			shouldStop = true
+		elseif not currentNearbyObjectivePart or not currentNearbyObjectiveId then
+			shouldStop = true
+		elseif heldObjectiveId ~= currentNearbyObjectiveId then
+			shouldStop = true
+		end
+		if shouldStop and heldObjectiveId then
+			requestObjectiveStopRemote:FireServer(heldObjectiveId)
+			heldObjectiveId = nil
+			isHoldingInteract = false
+		end
 	end
 end)
 
@@ -374,6 +448,11 @@ localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 	if role ~= "Guardian" then
 		sequencePanel.Visible = false
 		sequenceShadow.Visible = false
+	end
+	if role ~= "Thief" and heldObjectiveId then
+		requestObjectiveStopRemote:FireServer(heldObjectiveId)
+		heldObjectiveId = nil
+		isHoldingInteract = false
 	end
 	updateThiefHints()
 end)

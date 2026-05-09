@@ -127,16 +127,19 @@ local function startHeartbeat()
 				continue
 			end
 
+			if not obj.part then
+				obj.activePlayers = {}
+				continue
+			end
+
 			local valid = {}
 			for _, p in ipairs(obj.activePlayers) do
 				if p and p.Parent and PlayerStateService.CanInteractObjective(p) then
 					local root = getRootPart(p)
-					if root and obj.part then
+					if root then
 						if (root.Position - obj.part.Position).Magnitude <= INTERACT_DISTANCE then
 							table.insert(valid, p)
 						end
-					elseif not obj.part then
-						table.insert(valid, p)
 					end
 				end
 			end
@@ -286,7 +289,7 @@ function ObjectiveService.AutoRegisterObjectiveParts()
 		if candidates[i] then
 			ObjectiveService.RegisterObjectivePart(id, candidates[i])
 		else
-			warn("[ObjectiveService] No part found for", id, "distance checks disabled for this objective")
+			warn("[ObjectiveService] No part found for", id, "objective is non-interactable")
 		end
 	end
 end
@@ -310,14 +313,16 @@ function ObjectiveService.CanPlayerInteract(player, objectiveId)
 		return false, "vault_open"
 	end
 
-	if obj.part then
-		local root = getRootPart(player)
-		if not root then
-			return false, "no_character"
-		end
-		if (root.Position - obj.part.Position).Magnitude > INTERACT_DISTANCE then
-			return false, "too_far"
-		end
+	if not obj.part then
+		return false, "objective_unbound"
+	end
+
+	local root = getRootPart(player)
+	if not root then
+		return false, "no_character"
+	end
+	if (root.Position - obj.part.Position).Magnitude > INTERACT_DISTANCE then
+		return false, "too_far"
 	end
 
 	return true, "ok"

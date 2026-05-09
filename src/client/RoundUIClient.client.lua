@@ -629,6 +629,8 @@ local guardianCurrentAlert = nil
 local guardianCarrierName = nil
 local guardianCarrierUserId = nil
 local roundResultVisible = false
+local lastCageRescueFeedAt = 0
+local lastCageRescuePercent = -1
 
 local function onIdolTaken()
 	idolTaken = true
@@ -1314,9 +1316,6 @@ thiefCountUpdateRemote.OnClientEvent:Connect(function(count)
 	end
 end)
 
--- PROTOTYPE NOTE: BrazierProgressUpdate maps to seal progress.
--- litCount from server = number of braziers lit = number of seals broken.
--- When backend is updated, replace BrazierProgressUpdate with SealProgress remote.
 brazierProgressUpdateRemote.OnClientEvent:Connect(function(litCount)
 	litCount = math.clamp(tonumber(litCount) or 0, 0, 3)
 	for i, icon in ipairs(brazierIcons) do
@@ -1340,40 +1339,6 @@ brazierProgressUpdateRemote.OnClientEvent:Connect(function(litCount)
 			icon.stroke.Transparency = 0.85
 		end
 	end
-	-- Update directive based on seal count
-	-- PROTOTYPE NOTE: sealsBroken mirrors litCount from brazier backend
-	local clampedCount = litCount
-	sealsBroken = clampedCount
-	if clampedCount >= 3 then
-		local role = localPlayer:GetAttribute("Role")
-		if role == "Thief" then
-			objectiveDirectiveLabel.Text = "VAULT OPEN: FIND THE IDOL"
-		elseif role == "Guardian" then
-			objectiveDirectiveLabel.Text = "STOP THE ESCAPE"
-		end
-	end
-	local status = brazierPanel:FindFirstChild("VaultStatusLabel")
-	if status and status:IsA("TextLabel") then
-		if litCount >= 3 then
-			status.Text = "VAULT OPEN"
-			status.TextColor3 = COLORS.teal
-		elseif litCount > 0 then
-			status.Text = "VAULT SEALED"
-			status.TextColor3 = COLORS.grey
-		else
-			status.Text = "VAULT SEALED"
-			status.TextColor3 = COLORS.grey
-		end
-	end
-	-- Edge-check: only trigger vault open once when count first reaches 3
-	-- PROTOTYPE NOTE: seal count is driven by brazier backend.
-	-- Replace with VaultOpened remote when server is updated.
-	if clampedCount >= 3 and lastReportedSealCount < 3 then
-		setVaultOpenUI()
-		setGuardianDirective("STOP THE ESCAPE")
-		setGuardianAlert("The vault is open", 4)
-	end
-	lastReportedSealCount = clampedCount
 	lastSealLitCount = litCount
 end)
 
@@ -1570,6 +1535,31 @@ connectOptional("ObjectiveProgress", function(objectiveId, progress)
 end)
 
 connectOptional("ObjectiveCompleted", function(objectiveId)
+	local indexByObjectiveId = {
+		FlameSeal = 1,
+		MoonLock = 2,
+		StoneSigil = 3,
+	}
+	local idx = indexByObjectiveId[objectiveId]
+	if idx and brazierIcons[idx] then
+		local icon = brazierIcons[idx]
+		icon.frame.BackgroundColor3 = COLORS.teal
+		icon.stroke.Color = COLORS.teal
+		icon.stroke.Transparency = 0.15
+		icon.frame.Size = UDim2.fromOffset(20, 20)
+		tweenIn(icon.frame, "Size", UDim2.fromOffset(24, 24), 0.1)
+		task.delay(0.1, function()
+			if icon.frame.Parent then
+				tweenIn(icon.frame, "Size", UDim2.fromOffset(20, 20), 0.1)
+			end
+		end)
+		sealsBroken = math.clamp(sealsBroken + 1, 0, 3)
+		local status = brazierPanel:FindFirstChild("VaultStatusLabel")
+		if status and status:IsA("TextLabel") then
+			status.Text = "VAULT SEALED"
+			status.TextColor3 = COLORS.grey
+		end
+	end
 	completeObjectiveInteraction()
 end)
 
@@ -1611,4 +1601,29 @@ end)
 
 connectOptional("RoundResults", function(resultData)
 	showRoundResults(resultData)
+end)
+
+connectOptional("PlayerCaged", function(userId, playerName)
+	local name = type(playerName) == "string" and playerName or "A thief"
+	addKillFeedEvent(name .. " was caged")
+end)
+
+connectOptional("CageRescueProgress", function(userId, progress, rescuerCount)
+	progress = math.clamp(tonumber(progress) or 0, 0, 1)
+	local now = os.clock()
+	local percent = math.floor(progress * 100)
+	local percentStep = math.floor(percent / 10)
+	local lastStep = math.floor(math.max(lastCageRescuePercent, 0) / 10)
+	if (now - lastCageRescueFeedAt) >= 1.5 and percentStep > lastStep then
+		lastCageRescueFeedAt = now
+		lastCageRescuePercent = percent
+		addKillFeedEvent("Rescue in progress: " .. percent .. "%")
+	end
+end)
+
+connectOptional("CageRescueCompleted", function(userId, playerName)
+	local name = type(playerName) == "string" and playerName or "A thief"
+	lastCageRescueFeedAt = 0
+	lastCageRescuePercent = -1
+	addKillFeedEvent(name .. " was rescued")
 end)

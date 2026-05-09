@@ -7,11 +7,10 @@ local Types = require(ReplicatedStorage:WaitForChild("Types"))
 
 local localPlayer = Players.LocalPlayer
 local catchThiefRemote = ReplicatedStorage:WaitForChild("CatchThief")
-local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState")
-
-local sprinting = false
-local sprintCooldownUntil = 0
-local sprintEndsAt = 0
+local requestRushRemote = ReplicatedStorage:WaitForChild("RequestGuardianRush")
+local requestRevealRemote = ReplicatedStorage:WaitForChild("RequestGuardianReveal")
+local requestRoarRemote = ReplicatedStorage:WaitForChild("RequestGuardianRoar")
+local guardianRevealRemote = ReplicatedStorage:WaitForChild("GuardianRevealStarted")
 
 local function isGuardian()
 	return localPlayer:GetAttribute("Role") == Types.PlayerRole.Guardian
@@ -25,8 +24,27 @@ local function getRootPart(player)
 	return character:FindFirstChild("HumanoidRootPart")
 end
 
-local function canStartSprint(now)
-	return now >= sprintCooldownUntil
+local revealMarkers = {}
+
+local function clearRevealMarkers()
+	for _, marker in ipairs(revealMarkers) do
+		if marker and marker.Parent then
+			marker:Destroy()
+		end
+	end
+	revealMarkers = {}
+end
+
+local function getRevealAdorneeForUserId(userId)
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.UserId == userId then
+			local character = player.Character
+			if not character then return nil end
+			return character:FindFirstChild("Head")
+				or character:FindFirstChild("HumanoidRootPart")
+		end
+	end
+	return nil
 end
 
 local function tryCatchNearestThief()
@@ -67,41 +85,74 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	end
 
 	if input.KeyCode == Enum.KeyCode.LeftShift then
-		local now = os.clock()
-		if not sprinting and canStartSprint(now) then
-			sprinting = true
-			sprintEndsAt = now + Constants.GUARDIAN_SPRINT_DURATION_SECONDS
-			setMovementStateRemote:FireServer("Sprint", true)
-			task.spawn(function()
-				local activeUntil = sprintEndsAt
-				while sprinting and os.clock() < activeUntil do
-					task.wait(0.1)
-				end
-				if sprinting and sprintEndsAt == activeUntil then
-					sprinting = false
-					sprintCooldownUntil = os.clock() + Constants.GUARDIAN_SPRINT_COOLDOWN_SECONDS
-					setMovementStateRemote:FireServer("Sprint", false)
-				end
-			end)
+		if isGuardian() then
+			requestRushRemote:FireServer()
 		end
 	elseif input.KeyCode == Enum.KeyCode.E then
 		tryCatchNearestThief()
+	elseif input.KeyCode == Enum.KeyCode.Q then
+		if isGuardian() then
+			requestRevealRemote:FireServer()
+		end
+	elseif input.KeyCode == Enum.KeyCode.R then
+		if isGuardian() then
+			requestRoarRemote:FireServer()
+		end
 	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.LeftShift and sprinting then
-		sprinting = false
-		sprintCooldownUntil = os.clock() + Constants.GUARDIAN_SPRINT_COOLDOWN_SECONDS
-		if isGuardian() then
-			setMovementStateRemote:FireServer("Sprint", false)
-		end
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		-- Rush is server-managed. No client-side release action needed.
 	end
 end)
 
 localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
-	if not isGuardian() and sprinting then
-		sprinting = false
-		setMovementStateRemote:FireServer("Sprint", false)
+	if not isGuardian() then
+		clearRevealMarkers()
 	end
+end)
+
+guardianRevealRemote.OnClientEvent:Connect(function(revealed, duration)
+	clearRevealMarkers()
+	if type(revealed) ~= "table" then
+		return
+	end
+	for _, data in ipairs(revealed) do
+		local bb = Instance.new("BillboardGui")
+		bb.Size = UDim2.fromOffset(80, 24)
+		bb.StudsOffset = Vector3.new(0, 3, 0)
+		bb.AlwaysOnTop = true
+		bb.Name = "RevealMarker_" .. tostring(data.userId)
+		local adornee = getRevealAdorneeForUserId(tonumber(data.userId))
+		if adornee then
+			bb.Adornee = adornee
+		end
+		bb.Parent = workspace
+
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.fromScale(1, 1)
+		lbl.BackgroundTransparency = 1
+		lbl.Text = type(data.name) == "string" and data.name or "Thief"
+		lbl.TextColor3 = Color3.fromRGB(255, 200, 200)
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextScaled = true
+		lbl.Parent = bb
+
+		if not adornee and typeof(data.position) == "Vector3" then
+			local fallbackPart = Instance.new("Part")
+			fallbackPart.Name = "RevealMarkerPart_" .. tostring(data.userId)
+			fallbackPart.Size = Vector3.new(1, 1, 1)
+			fallbackPart.CanCollide = false
+			fallbackPart.Anchored = true
+			fallbackPart.Transparency = 1
+			fallbackPart.Position = data.position + Vector3.new(0, 4, 0)
+			fallbackPart.Parent = workspace
+			bb.Adornee = fallbackPart
+			table.insert(revealMarkers, fallbackPart)
+		end
+
+		table.insert(revealMarkers, bb)
+	end
+	task.delay(type(duration) == "number" and duration or 4, clearRevealMarkers)
 end)
