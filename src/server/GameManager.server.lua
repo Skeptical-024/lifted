@@ -13,6 +13,8 @@ local GuardianController = require(script.Parent:WaitForChild("GuardianControlle
 local ThiefController = require(script.Parent:WaitForChild("ThiefController"))
 local BrazierManager = require(script.Parent:WaitForChild("BrazierManager"))
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
+local ObjectiveService = require(script.Parent:WaitForChild("ObjectiveService"))
+local TestMapService = require(script.Parent:WaitForChild("TestMapService"))
 print("GameManager: all modules loaded")
 
 local function getOrCreateRemote(name)
@@ -42,6 +44,15 @@ local roundEndedRemote = getOrCreateRemote("RoundEnded")
 local thiefCountUpdateRemote = getOrCreateRemote("ThiefCountUpdate")
 local brazierProgressUpdateRemote = getOrCreateRemote("BrazierProgressUpdate")
 local lobbyUpdateRemote = getOrCreateRemote("LobbyUpdate")
+local requestObjectiveStartRemote = getOrCreateRemote("RequestObjectiveStart")
+local requestObjectiveStopRemote = getOrCreateRemote("RequestObjectiveStop")
+getOrCreateRemote("ObjectivePromptShown")
+getOrCreateRemote("ObjectivePromptHidden")
+getOrCreateRemote("ObjectiveInteractionStarted")
+getOrCreateRemote("ObjectiveProgress")
+getOrCreateRemote("ObjectiveCompleted")
+getOrCreateRemote("ObjectiveFailed")
+getOrCreateRemote("VaultOpened")
 
 local roundActive = false
 local roundId = 0
@@ -62,7 +73,7 @@ local function getTaggedParts(tag)
 end
 
 local function ensureBasicMap()
-    -- Map is built by BuildTemple.server.lua
+	-- Disabled: TestMapService handles all tagged gameplay parts.
 end
 
 local function createSpawnPart(name, position, color, tag)
@@ -79,44 +90,11 @@ local function createSpawnPart(name, position, color, tag)
 end
 
 local function ensureSpawnPoints()
-	local thiefSpawns = getTaggedParts("ThiefSpawn")
-	for index = #thiefSpawns + 1, #Constants.THIEF_SPAWN_POSITIONS do
-		createSpawnPart(
-			string.format("ThiefSpawn%d", index),
-			Constants.THIEF_SPAWN_POSITIONS[index],
-			Color3.fromRGB(0, 255, 0),
-			"ThiefSpawn"
-		)
-	end
-
-	local guardianSpawns = getTaggedParts("GuardianSpawn")
-	if #guardianSpawns == 0 then
-		createSpawnPart(
-			"GuardianSpawn",
-			Constants.GUARDIAN_SPAWN_POSITION,
-			Color3.fromRGB(255, 0, 0),
-			"GuardianSpawn"
-		)
-	end
+	-- Disabled: TestMapService handles all tagged gameplay parts.
 end
 
 local function ensureVaultPart()
-	local existingVaults = CollectionService:GetTagged("Vault")
-	for _, vault in existingVaults do
-		if vault:IsA("BasePart") and vault:IsDescendantOf(workspace) then
-			return
-		end
-	end
-
-	local vault = Instance.new("Part")
-	vault.Name = "Vault"
-	vault.Size = Vector3.new(6, 6, 6)
-	vault.Anchored = true
-	vault.Position = Vector3.new(0, 3, 0)
-	vault.Color = Color3.fromRGB(255, 221, 89)
-	vault.Material = Enum.Material.Metal
-	vault.Parent = workspace
-	CollectionService:AddTag(vault, "Vault")
+	-- Disabled: TestMapService handles all tagged gameplay parts.
 end
 
 local function resetPlayerMovement(player)
@@ -274,6 +252,7 @@ end
 
 local function clearRoundState()
 	PlayerStateService.ResetForNewRound(roundId)
+	ObjectiveService.StopRound()
 
 	for player in rolesByPlayer do
 		player:SetAttribute("Role", nil)
@@ -307,6 +286,7 @@ Players.PlayerRemoving:Connect(function(player)
 		guardianPlayer = nil
 	end
 	PlayerStateService.UnregisterPlayer(player)
+	ObjectiveService.StopAllInteractionsForPlayer(player)
 end)
 
 Players.PlayerAdded:Connect(function(player)
@@ -355,6 +335,9 @@ setMovementStateRemote.OnServerEvent:Connect(function(player, requestedState, is
 	end
 end)
 
+-- NOTE: BrazierManager drives placeholder visual feedback only.
+-- Objective win state is owned by ObjectiveService.
+-- BrazierManager.IsUnlocked() is no longer used as a gate.
 brazierInteractRemote.OnServerEvent:Connect(function(player, brazierName)
 	if not roundActive then
 		return
@@ -378,7 +361,7 @@ brazierInteractRemote.OnServerEvent:Connect(function(player, brazierName)
 end)
 
 thiefExtractedRemote.OnServerEvent:Connect(function(player)
-	if not BrazierManager.IsUnlocked() then
+	if not ObjectiveService.IsVaultOpen() then
 		return
 	end
 	local valid = ThiefController.ValidateExtract(player, rolesByPlayer, roundActive)
@@ -411,6 +394,23 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 	end
 end)
 
+requestObjectiveStartRemote.OnServerEvent:Connect(function(player, objectiveId)
+	if not roundActive then
+		return
+	end
+	if type(objectiveId) ~= "string" then
+		return
+	end
+	ObjectiveService.StartInteraction(player, objectiveId)
+end)
+
+requestObjectiveStopRemote.OnServerEvent:Connect(function(player, objectiveId)
+	if type(objectiveId) ~= "string" then
+		return
+	end
+	ObjectiveService.StopInteraction(player, objectiveId)
+end)
+
 local function getRoundPlayers()
 	local players = {}
 	for _, player in Players:GetPlayers() do
@@ -419,9 +419,9 @@ local function getRoundPlayers()
 	return players
 end
 
-ensureBasicMap()
-ensureVaultPart()
-ensureSpawnPoints()
+TestMapService.Init()
+-- ensureBasicMap, ensureVaultPart, ensureSpawnPoints disabled:
+-- TestMapService provides all tagged gameplay parts.
 print("GameManager: vault ensured")
 task.wait(5)
 
@@ -462,6 +462,8 @@ while true do
 	for player, role in rolesByPlayer do
 		PlayerStateService.RegisterPlayer(player, role, roundId)
 	end
+	ObjectiveService.ResetForRound(roundId)
+	ObjectiveService.AutoRegisterObjectiveParts()
 
 	for player, role in rolesByPlayer do
 		applyBaseMovementForRole(player, role)

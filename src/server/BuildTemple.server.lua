@@ -3,6 +3,19 @@
 
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local sharedFolder = ReplicatedStorage:FindFirstChild("Shared")
+local constantsModule = sharedFolder and sharedFolder:FindFirstChild("Constants")
+if not constantsModule then
+	constantsModule = ReplicatedStorage:WaitForChild("Constants")
+end
+local Constants = require(constantsModule)
+
+if Constants.TEST_MAP_ENABLED then
+	warn("BuildTemple disabled because TEST_MAP_ENABLED is true. TestMapService will create the gameplay test map.")
+	return
+end
 
 local existing = workspace:FindFirstChild("TempleMap")
 if existing then

@@ -1,4 +1,5 @@
 local Constants = {
+	TEST_MAP_ENABLED = true,
 	ROUND_MIN_PLAYERS = 2,
 	ROUND_DURATION_SECONDS = 8 * 60,
 
@@ -11,18 +12,29 @@ local Constants = {
 	THIEF_EXTRACT_DISTANCE = 10,
 	THIEF_EXTRACT_HOLD_SECONDS = 5,
 	THIEF_EXTRACT_MOVE_CANCEL_DISTANCE = 1,
+	OBJECTIVE_INTERACT_DISTANCE = 12,
+	EXTRACT_HOLD_DISTANCE = 10,
 
 	GUARDIAN_CATCH_DISTANCE = 5,
 
 	THIEF_FOOTSTEP_VOLUME_SCALE_CROUCH = 0.25,
 
 	GUARDIAN_SPAWN_POSITION = Vector3.new(0, 1, 0),
+	CAGE_SPAWN_POSITION = Vector3.new(-70, 2, 60),
 	THIEF_SPAWN_POSITIONS = {
 		Vector3.new(-20, 1, -60),
 		Vector3.new(-7, 1, -60),
 		Vector3.new(7, 1, -60),
 		Vector3.new(20, 1, -60),
 	},
+	-- Test map spawn positions (override for test map layout)
+	TEST_THIEF_SPAWN_POSITIONS = {
+		Vector3.new(-24, 1.5, -75),
+		Vector3.new(-8, 1.5, -75),
+		Vector3.new(8, 1.5, -75),
+		Vector3.new(24, 1.5, -75),
+	},
+	TEST_GUARDIAN_SPAWN_POSITION = Vector3.new(0, 1.5, 18),
 
 	BRAZIER_INTERACT_DISTANCE = 8,
 	BRAZIER_SEQUENCE_LENGTH = 4,
