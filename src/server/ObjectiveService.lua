@@ -99,6 +99,13 @@ local function setVaultPartsOpen(open)
 		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
 			pcall(function()
 				part:SetAttribute("VaultOpen", open)
+				if open then
+					part.CanCollide = false
+					part.Transparency = 0.75
+				else
+					part.CanCollide = true
+					part.Transparency = 0
+				end
 			end)
 		end
 	end
@@ -107,6 +114,13 @@ local function setVaultPartsOpen(open)
 		if part:IsA("BasePart") and part.Name == "Vault" then
 			pcall(function()
 				part:SetAttribute("VaultOpen", open)
+				if open then
+					part.CanCollide = false
+					part.Transparency = 0.75
+				else
+					part.CanCollide = true
+					part.Transparency = 0
+				end
 			end)
 		end
 	end

@@ -340,7 +340,13 @@ setMovementStateRemote.OnServerEvent:Connect(function(player, requestedState, is
 		if player.Character then
 			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
 			if humanoid then
-				humanoid.WalkSpeed = isActive and Constants.THIEF_CROUCH_SPEED or Constants.DEFAULT_WALK_SPEED
+				if isActive then
+					humanoid.WalkSpeed = Constants.THIEF_CROUCH_SPEED
+				else
+					-- Restore to carrier speed if carrying idol, otherwise default
+					local carrierSpeed = player:GetAttribute("IdolCarrierSpeed")
+					humanoid.WalkSpeed = (carrierSpeed and carrierSpeed > 0) and carrierSpeed or Constants.DEFAULT_WALK_SPEED
+				end
 				player:SetAttribute("IsCrouching", isActive)
 			end
 		end

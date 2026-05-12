@@ -94,9 +94,17 @@ local function restoreThiefSlow(player)
 	if not h then return end
 	local restoreValue = tonumber(entry.originalWalkSpeed)
 	if restoreValue == nil then
-		local crouchSpeed = Constants.THIEF_CROUCH_SPEED or 8
 		local isCrouching = player:GetAttribute("IsCrouching") or false
-		restoreValue = isCrouching and crouchSpeed or BASE_SPEED
+		local carrierSpeed = player:GetAttribute("IdolCarrierSpeed")
+		local crouchSpeed = Constants.THIEF_CROUCH_SPEED or 8
+		if isCrouching then
+			restoreValue = crouchSpeed
+		elseif carrierSpeed and carrierSpeed > 0 then
+			-- Carrier: restore to carrier speed, not full speed
+			restoreValue = carrierSpeed
+		else
+			restoreValue = BASE_SPEED
+		end
 	end
 	h.WalkSpeed = restoreValue
 end

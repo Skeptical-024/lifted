@@ -11,6 +11,7 @@ local requestRushRemote = ReplicatedStorage:WaitForChild("RequestGuardianRush")
 local requestRevealRemote = ReplicatedStorage:WaitForChild("RequestGuardianReveal")
 local requestRoarRemote = ReplicatedStorage:WaitForChild("RequestGuardianRoar")
 local guardianRevealRemote = ReplicatedStorage:WaitForChild("GuardianRevealStarted")
+local guardianCarrierPingRemote = ReplicatedStorage:WaitForChild("GuardianCarrierPing")
 
 local function isGuardian()
 	return localPlayer:GetAttribute("Role") == Types.PlayerRole.Guardian
@@ -25,6 +26,7 @@ local function getRootPart(player)
 end
 
 local revealMarkers = {}
+local carrierMarker = nil
 
 local function clearRevealMarkers()
 	for _, marker in ipairs(revealMarkers) do
@@ -33,6 +35,52 @@ local function clearRevealMarkers()
 		end
 	end
 	revealMarkers = {}
+end
+
+local function clearCarrierMarker()
+	if carrierMarker and carrierMarker.Parent then
+		carrierMarker:Destroy()
+	end
+	carrierMarker = nil
+end
+
+local function updateCarrierMarker(name, position, duration)
+	clearCarrierMarker()
+	local _ = name
+	local part = Instance.new("Part")
+	part.Name = "CarrierPingMarker"
+	part.Size = Vector3.new(2, 2, 2)
+	part.Shape = Enum.PartType.Ball
+	part.CanCollide = false
+	part.Anchored = true
+	part.CastShadow = false
+	part.Material = Enum.Material.Neon
+	part.Color = Color3.fromRGB(255, 200, 0)
+	part.Transparency = 0.2
+	if typeof(position) == "Vector3" then
+		part.Position = position + Vector3.new(0, 5, 0)
+	end
+	part.Parent = workspace
+	local bb = Instance.new("BillboardGui")
+	bb.Size = UDim2.fromOffset(60, 20)
+	bb.StudsOffset = Vector3.new(0, 3, 0)
+	bb.AlwaysOnTop = true
+	bb.Parent = part
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.fromScale(1, 1)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = "IDOL"
+	lbl.TextColor3 = Color3.fromRGB(255, 220, 80)
+	lbl.Font = Enum.Font.GothamBold
+	lbl.TextScaled = true
+	lbl.Parent = bb
+	carrierMarker = part
+	-- Auto-clear after duration (refreshed on next ping before expiry)
+	task.delay(type(duration) == "number" and duration + 0.2 or 2, function()
+		if carrierMarker == part then
+			clearCarrierMarker()
+		end
+	end)
 end
 
 local function getRevealAdorneeForUserId(userId)
@@ -110,6 +158,7 @@ end)
 localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 	if not isGuardian() then
 		clearRevealMarkers()
+		clearCarrierMarker()
 	end
 end)
 
@@ -155,4 +204,17 @@ guardianRevealRemote.OnClientEvent:Connect(function(revealed, duration)
 		table.insert(revealMarkers, bb)
 	end
 	task.delay(type(duration) == "number" and duration or 4, clearRevealMarkers)
+end)
+
+guardianCarrierPingRemote.OnClientEvent:Connect(function(carrierUserId, carrierName, position, duration)
+	local _ = carrierUserId
+	if not isGuardian() then
+		clearCarrierMarker()
+		return
+	end
+	updateCarrierMarker(
+		type(carrierName) == "string" and carrierName or "Carrier",
+		typeof(position) == "Vector3" and position or nil,
+		duration
+	)
 end)

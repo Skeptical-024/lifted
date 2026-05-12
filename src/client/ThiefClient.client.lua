@@ -12,12 +12,15 @@ local requestObjectiveStartRemote = ReplicatedStorage:WaitForChild("RequestObjec
 local requestObjectiveStopRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStop")
 local requestIdolPickupRemote = ReplicatedStorage:WaitForChild("RequestIdolPickup")
 local requestExtractRemote = ReplicatedStorage:WaitForChild("RequestExtractWithIdol")
+local requestExtractCancelRemote = ReplicatedStorage:WaitForChild("RequestExtractCancel")
 local requestCageRescueStartRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStart")
 local requestCageRescueStopRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStop")
 
 local crouching = false
 local rescuingActive = false
+local rescuingTargetId = nil
 local interactingObjectiveId = nil
+local extractingWithIdol = false
 
 local footstepSounds = {}
 local originalFootstepVolume = {}
@@ -138,27 +141,46 @@ local function getNearestExtractPoint()
 end
 
 local function isNearRescuePoint()
+	local _, targetId = getNearestCagedTeammate()
+	return targetId ~= nil
+end
+
+local function getNearestCagedTeammate()
 	local char = localPlayer.Character
-	if not char then return false end
+	if not char then return nil, nil end
 	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return false end
+	if not root then return nil, nil end
 	local maxDist = Constants.CAGE_RESCUE_DISTANCE or 12
-	for _, tagName in ipairs({"CageRescuePoint", "CageSpawn"}) do
-		for _, part in ipairs(CollectionService:GetTagged(tagName)) do
-			if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
-				if (part.Position - root.Position).Magnitude <= maxDist then
-					return true
+	local nearestPlayer = nil
+	local nearestUserId = nil
+	local nearestDist = maxDist + 0.001
+	-- Find nearest caged teammate
+	for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+		if p ~= localPlayer then
+			local isCaged = p:GetAttribute("IsCaged") or
+				p:GetAttribute("RoundState") == "Caged"
+			if isCaged then
+				local pChar = p.Character
+				local pRoot = pChar and pChar:FindFirstChild("HumanoidRootPart")
+				if pRoot then
+					local dist = (pRoot.Position - root.Position).Magnitude
+					if dist <= maxDist and dist < nearestDist then
+						nearestDist = dist
+						nearestPlayer = p
+						nearestUserId = p.UserId
+					end
 				end
 			end
 		end
 	end
-	return false
+	return nearestPlayer, nearestUserId
 end
 
 local function stopRescue()
 	if not rescuingActive then return end
 	rescuingActive = false
-	requestCageRescueStopRemote:FireServer()
+	requestCageRescueStopRemote:FireServer(rescuingTargetId)
+	rescuingTargetId = nil
 end
 
 localPlayer.CharacterAdded:Connect(function()
@@ -173,6 +195,10 @@ localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 		setMovementStateRemote:FireServer("Crouch", false)
 		stopSealInteraction()
 		stopRescue()
+		if extractingWithIdol then
+			extractingWithIdol = false
+			requestExtractCancelRemote:FireServer()
+		end
 	end
 	applyFootstepVolume()
 end)
@@ -193,16 +219,23 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 		end
 	elseif input.KeyCode == Enum.KeyCode.E then
 		if not isThief() then return end
-		local _, nearObjectiveId = getNearestObjectiveStation()
-		if nearObjectiveId then
-			task.spawn(beginSealInteraction, nearObjectiveId)
-		elseif localPlayer:GetAttribute("HasIdol") and getNearestExtractPoint() then
+		if localPlayer:GetAttribute("HasIdol") and getNearestExtractPoint() then
+			extractingWithIdol = true
 			requestExtractRemote:FireServer()
-		elseif not localPlayer:GetAttribute("HasIdol") and isNearRescuePoint() then
-			rescuingActive = true
-			requestCageRescueStartRemote:FireServer()
-		elseif not localPlayer:GetAttribute("HasIdol") and getNearestIdolPart() then
-			requestIdolPickupRemote:FireServer()
+		else
+			local _, nearObjectiveId = getNearestObjectiveStation()
+			if nearObjectiveId then
+				task.spawn(beginSealInteraction, nearObjectiveId)
+			elseif not localPlayer:GetAttribute("HasIdol") and isNearRescuePoint() then
+				local _, targetId = getNearestCagedTeammate()
+				if targetId then
+					rescuingActive = true
+					rescuingTargetId = targetId
+					requestCageRescueStartRemote:FireServer(targetId)
+				end
+			elseif not localPlayer:GetAttribute("HasIdol") and getNearestIdolPart() then
+				requestIdolPickupRemote:FireServer()
+			end
 		end
 	end
 end)
@@ -211,6 +244,10 @@ UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.E then
 		stopSealInteraction()
 		stopRescue()
+		if extractingWithIdol then
+			extractingWithIdol = false
+			requestExtractCancelRemote:FireServer()
+		end
 	end
 	if input.KeyCode == Enum.KeyCode.LeftShift and crouching then
 		crouching = false

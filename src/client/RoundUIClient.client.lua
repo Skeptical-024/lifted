@@ -1595,10 +1595,6 @@ connectOptional("ObjectiveStarted", function(objectiveId, objectiveName)
 	setGuardianAlert("A seal is being broken", 3)
 end)
 
-connectOptional("ObjectiveCompleted", function(objectiveId)
-	setGuardianAlert("A seal was broken", 3)
-end)
-
 connectOptional("RoundResults", function(resultData)
 	showRoundResults(resultData)
 end)
