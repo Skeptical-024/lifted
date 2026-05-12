@@ -119,7 +119,7 @@ if seqStroke then
 	seqStroke.Transparency = 0.4
 end
 
-local seqLabel = makeLabel("SABOTAGE SEQUENCE:", Enum.Font.GothamBold, COLORS.grey, sequencePanel)
+local seqLabel = makeLabel("SEAL ORDER:", Enum.Font.GothamBold, COLORS.grey, sequencePanel)
 seqLabel.Size = UDim2.new(0, 170, 1, 0)
 seqLabel.TextSize = 14
 seqLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -161,6 +161,7 @@ local currentNearbyObjectiveId
 local isHintVisible = false
 local knownSequence = {}
 local litSet = {}
+local showSealPromptInBrazierUI = false
 
 local function findBrazierByName(name)
 	return workspace:FindFirstChild(name, true)
@@ -380,7 +381,7 @@ end)
 RunService.RenderStepped:Connect(function(dt)
 	local role = localPlayer:GetAttribute("Role")
 	currentNearbyObjectivePart, currentNearbyObjectiveId = getNearbyObjective()
-	if role == "Thief" and currentNearbyObjectivePart and currentNearbyObjectiveId then
+	if showSealPromptInBrazierUI and role == "Thief" and currentNearbyObjectivePart and currentNearbyObjectiveId then
 		showInteract()
 		local s = 1 + (math.sin(os.clock() * math.pi * 2) * 0.05)
 		interactPanel.Size = UDim2.fromOffset(200 * s, 32 * s)

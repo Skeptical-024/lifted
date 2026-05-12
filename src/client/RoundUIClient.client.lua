@@ -108,6 +108,19 @@ objectiveDirectiveLabel.Text = ""
 objectiveDirectiveLabel.Visible = false
 objectiveDirectiveLabel.ZIndex = 5
 
+local phaseLabel = Instance.new("TextLabel")
+phaseLabel.Parent = gui
+phaseLabel.Size = UDim2.fromOffset(280, 18)
+phaseLabel.Position = UDim2.new(0.5, -140, 0, 98)
+phaseLabel.BackgroundTransparency = 1
+phaseLabel.Font = Enum.Font.GothamBold
+phaseLabel.TextSize = 12
+phaseLabel.TextColor3 = COLORS.teal
+phaseLabel.TextXAlignment = Enum.TextXAlignment.Center
+phaseLabel.Text = ""
+phaseLabel.Visible = false
+phaseLabel.ZIndex = 5
+
 local timerStroke = timerPanel:FindFirstChildOfClass("UIStroke")
 if timerStroke then
 	timerStroke.Color = COLORS.teal
@@ -219,7 +232,7 @@ local guardianTitleLabel = makeLabel("GUARDIAN", Enum.Font.GothamBold, COLORS.re
 guardianTitleLabel.Size = UDim2.new(1, 0, 0, 13)
 guardianTitleLabel.TextSize = 11
 
-local guardianDirectiveLabel = makeLabel("STOP THE THIEVES", Enum.Font.GothamBold, COLORS.white, guardianStatusPanel)
+local guardianDirectiveLabel = makeLabel("Stop the thieves before they extract the idol.", Enum.Font.GothamBold, COLORS.white, guardianStatusPanel)
 guardianDirectiveLabel.Size = UDim2.new(1, 0, 0, 18)
 guardianDirectiveLabel.Position = UDim2.fromOffset(0, 14)
 guardianDirectiveLabel.TextSize = 15
@@ -637,9 +650,9 @@ local function onIdolTaken()
 	local role = localPlayer:GetAttribute("Role")
 	if objectiveDirectiveLabel then
 		if role == "Thief" then
-			objectiveDirectiveLabel.Text = "ESCAPE WITH THE IDOL"
+			objectiveDirectiveLabel.Text = "You have the idol. Get to extraction."
 		elseif role == "Guardian" then
-			objectiveDirectiveLabel.Text = "CATCH THE IDOL CARRIER"
+			objectiveDirectiveLabel.Text = "Hunt the idol carrier."
 		end
 	end
 end
@@ -725,7 +738,7 @@ local function setRoleUI(role)
 		crouchShadow.Visible = false
 		guardianStatusPanel.Visible = true
 		guardianStatusShadow.Visible = true
-		guardianDirectiveLabel.Text = "STOP THE THIEVES"
+		guardianDirectiveLabel.Text = "Stop the thieves before they extract the idol."
 	elseif role == "Thief" then
 		roleText.Text = "THIEF"
 		roleText.TextColor3 = COLORS.teal
@@ -756,6 +769,14 @@ local function setRoleUI(role)
 	end
 end
 
+local function setRoundPhase(text)
+	if type(text) ~= "string" then
+		text = ""
+	end
+	phaseLabel.Text = text
+	phaseLabel.Visible = isRoundActive and (#text > 0)
+end
+
 local function showCoreHud()
 	roleBadge.Visible = true
 	roleShadow.Visible = true
@@ -766,6 +787,7 @@ local function showCoreHud()
 	timerShadow.Visible = true
 	timerPanel.Position = UDim2.new(0.5, -80, 0, -20)
 	tweenIn(timerPanel, "Position", UDim2.new(0.5, -80, 0, 16), 0.25)
+	phaseLabel.Visible = true
 end
 
 local function hideCoreHud()
@@ -782,6 +804,7 @@ local function hideCoreHud()
 	crouchPanel.Visible = false
 	crouchShadow.Visible = false
 	proximity.Visible = false
+	phaseLabel.Visible = false
 end
 
 local function isGuardianRole()
@@ -795,7 +818,7 @@ local function resetGuardianHUD()
 	guardianCurrentAlert = nil
 	guardianCarrierName = nil
 	guardianCarrierUserId = nil
-	guardianDirectiveLabel.Text = "STOP THE THIEVES"
+	guardianDirectiveLabel.Text = "Stop the thieves before they extract the idol."
 	guardianCatchPromptLabel.Text = ""
 	guardianSprintLabel.Text = "SPRINT READY"
 	guardianAlertLabel.Text = ""
@@ -865,10 +888,10 @@ local function setGuardianCarrier(carrierUserId, carrierName)
 	if not isGuardianRole() then return end
 	guardianCarrierUserId = carrierUserId
 	guardianCarrierName = carrierName
-	local displayName = (type(carrierName) == "string" and #carrierName > 0) and carrierName or "Unknown"
+	local displayName = (type(carrierName) == "string" and #carrierName > 0) and carrierName or "Carrier"
 	guardianCarrierLabel.Text = "Carrier: " .. displayName
-	setGuardianDirective("CATCH THE IDOL CARRIER")
-	setGuardianAlert("The idol has been taken", 4)
+	setGuardianDirective(displayName .. " has the idol. Hunt them.")
+	setGuardianAlert(displayName .. " has the idol.", 4)
 end
 
 local function clearGuardianCarrier()
@@ -949,11 +972,11 @@ end
 
 local function completeObjectiveInteraction()
 	objectiveInteractionActive = false
-	objectivePromptLabel.Text = "Seal broken"
+	objectivePromptLabel.Text = "Seal broken."
 	objectiveDangerLabel.Text = ""
 	hideSkillCheck()
 	if currentObjectiveId ~= nil then
-		addKillFeedEvent("A seal has been broken")
+		addKillFeedEvent("Seal broken.")
 	end
 	task.delay(1.5, function()
 		if not objectiveInteractionActive then
@@ -1022,13 +1045,14 @@ local function setVaultOpenUI()
 	idolStatusLabel.Text = "VAULT OPEN"
 	carrierLabel.Text = "Find the idol"
 	setIdolPanelVisible(true)
-	addKillFeedEvent("The vault is open")
+	addKillFeedEvent("Vault open. Steal the idol.")
+	setRoundPhase("Vault Open")
 	local role = localPlayer:GetAttribute("Role")
 	if objectiveDirectiveLabel then
 		if role == "Thief" then
-			objectiveDirectiveLabel.Text = "VAULT OPEN: FIND THE IDOL"
+			objectiveDirectiveLabel.Text = "Vault open. Steal the idol."
 		elseif role == "Guardian" then
-			objectiveDirectiveLabel.Text = "STOP THE ESCAPE"
+			objectiveDirectiveLabel.Text = "Vault open. Defend the idol."
 		end
 	end
 end
@@ -1037,24 +1061,26 @@ local function setIdolAvailableUI()
 	setIdolPanelVisible(true)
 	idolStatusLabel.Text = "IDOL AVAILABLE"
 	carrierLabel.Text = "Take the idol"
+	setRoundPhase("Idol Available")
 end
 
 local function setIdolCarrierUI(carrierUserId, carrierName)
 	idolTaken = true
 	idolCarrierUserId = carrierUserId
-	local displayName = (type(carrierName) == "string" and #carrierName > 0) and carrierName or "Unknown"
+	local displayName = (type(carrierName) == "string" and #carrierName > 0) and carrierName or "Carrier"
 	setIdolPanelVisible(true)
 	idolStatusLabel.Text = "IDOL TAKEN"
 	carrierLabel.Text = "Carrier: " .. displayName
-	addKillFeedEvent("The idol has been taken")
+	addKillFeedEvent(displayName .. " has the idol.")
+	setRoundPhase("Idol Taken")
 	local role = localPlayer:GetAttribute("Role")
 	if objectiveDirectiveLabel then
 		if carrierUserId == localPlayer.UserId then
-			objectiveDirectiveLabel.Text = "ESCAPE WITH THE IDOL"
+			objectiveDirectiveLabel.Text = "You have the idol. Get to extraction."
 		elseif role == "Guardian" then
-			objectiveDirectiveLabel.Text = "CATCH THE IDOL CARRIER"
+			objectiveDirectiveLabel.Text = displayName .. " has the idol. Hunt them."
 		elseif role == "Thief" then
-			objectiveDirectiveLabel.Text = "PROTECT THE CARRIER"
+			objectiveDirectiveLabel.Text = displayName .. " has the idol. Protect them."
 		end
 	end
 end
@@ -1065,6 +1091,7 @@ local function setIdolDroppedUI()
 	setIdolPanelVisible(true)
 	idolStatusLabel.Text = "IDOL DROPPED"
 	carrierLabel.Text = "Recover the idol"
+	setRoundPhase("Idol Dropped")
 	extractProgress = 0
 	extractProgressFill.Size = UDim2.fromScale(0, 1)
 	extractProgressBack.Visible = false
@@ -1079,6 +1106,7 @@ local function setExtractProgressUI(progress)
 	extractProgressFill.Size = UDim2.fromScale(progress, 1)
 	if progress > 0 then
 		extractProgressLabel.Text = "EXTRACTING " .. math.floor(progress * 100) .. "%"
+		setRoundPhase("Extracting")
 	else
 		extractProgressLabel.Text = ""
 	end
@@ -1235,7 +1263,7 @@ roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
 	isRoundActive = true
 	thievesCaughtByGuardian = 0
 	showCoreHud()
-	addKillFeedEvent("Break 3 seals to open the vault")
+	addKillFeedEvent("Break 3 seals to open the vault.")
 	setRoleUI(localPlayer:GetAttribute("Role"))
 	if localPlayer:GetAttribute("Role") == "Guardian" then
 		updateThiefIconCount(tonumber(totalThieves) or inferThiefCount())
@@ -1245,12 +1273,13 @@ roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
 	objectiveDirectiveLabel.Visible = true
 	local role = localPlayer:GetAttribute("Role")
 	if role == "Thief" then
-		objectiveDirectiveLabel.Text = "BREAK 3 SEALS"
+		objectiveDirectiveLabel.Text = "Break 3 seals to open the vault."
 	elseif role == "Guardian" then
-		objectiveDirectiveLabel.Text = "STOP THE THIEVES"
+		objectiveDirectiveLabel.Text = "Stop the thieves before they extract the idol."
 	else
 		objectiveDirectiveLabel.Text = ""
 	end
+	setRoundPhase("Break the Seals")
 	resetIdolExtractUI()
 	resetObjectiveInteractionUI()
 	resetGuardianHUD()
@@ -1281,6 +1310,13 @@ roundEndedRemote.OnClientEvent:Connect(function(result, winner)
 		end
 	end
 	addKillFeedEvent("Round over")
+	if winner == "Thieves" then
+		setRoundPhase("Heist Complete")
+	elseif winner == "Guardian" then
+		setRoundPhase("Guardian Victory")
+	else
+		setRoundPhase("Round Ended")
+	end
 	showRoundResults(result, winner)
 	objectiveDirectiveLabel.Visible = false
 	objectiveDirectiveLabel.Text = ""
@@ -1289,6 +1325,7 @@ roundEndedRemote.OnClientEvent:Connect(function(result, winner)
 	resetIdolExtractUI()
 	resetObjectiveInteractionUI()
 	resetGuardianHUD()
+	phaseLabel.Visible = false
 end)
 
 thiefCaughtRemote.OnClientEvent:Connect(function(_, caughtPlayer)
@@ -1497,11 +1534,23 @@ connectOptional("IdolDropped", function()
 	setIdolDroppedUI()
 	clearGuardianCarrier()
 	setGuardianDirective("RECOVER CONTROL")
-	setGuardianAlert("The idol was dropped", 3)
+	setGuardianAlert("Idol dropped. Recover it.", 3)
+	local role = localPlayer:GetAttribute("Role")
+	if role == "Thief" then
+		objectiveDirectiveLabel.Text = "Idol dropped. Recover it."
+	elseif role == "Guardian" then
+		objectiveDirectiveLabel.Text = "Idol dropped. Recover control."
+	end
 end)
 
 connectOptional("ExtractStarted", function()
 	setExtractProgressUI(0)
+	local role = localPlayer:GetAttribute("Role")
+	if role == "Thief" then
+		objectiveDirectiveLabel.Text = "Extracting..."
+	elseif role == "Guardian" then
+		objectiveDirectiveLabel.Text = "Stop the extraction."
+	end
 end)
 
 connectOptional("ExtractProgress", function(progress)
@@ -1510,12 +1559,14 @@ end)
 
 connectOptional("ExtractCanceled", function()
 	setExtractProgressUI(0)
+	addKillFeedEvent("Extraction canceled.")
 end)
 
 connectOptional("ExtractCompleted", function()
 	setExtractProgressUI(1)
 	idolStatusLabel.Text = "EXTRACTED"
 	carrierLabel.Text = "Escape complete"
+	setRoundPhase("Heist Complete")
 end)
 
 connectOptional("ObjectivePromptShown", function(objectiveId, objectiveName)
@@ -1606,6 +1657,9 @@ end)
 connectOptional("PlayerCaged", function(userId, playerName)
 	local name = type(playerName) == "string" and playerName or "A thief"
 	addKillFeedEvent(name .. " was caged")
+	if localPlayer.UserId == userId then
+		objectiveDirectiveLabel.Text = "You are caged. Wait for rescue."
+	end
 end)
 
 connectOptional("CageRescueProgress", function(userId, progress, rescuerCount)
@@ -1626,4 +1680,10 @@ connectOptional("CageRescueCompleted", function(userId, playerName)
 	lastCageRescueFeedAt = 0
 	lastCageRescuePercent = -1
 	addKillFeedEvent(name .. " was rescued")
+	if localPlayer.UserId == userId then
+		local role = localPlayer:GetAttribute("Role")
+		if role == "Thief" then
+			objectiveDirectiveLabel.Text = "Rescued. Get back in the heist."
+		end
+	end
 end)
