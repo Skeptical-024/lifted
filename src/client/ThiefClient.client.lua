@@ -8,6 +8,8 @@ local Types = require(ReplicatedStorage:WaitForChild("Types"))
 
 local localPlayer = Players.LocalPlayer
 local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState")
+local roundStartedRemote = ReplicatedStorage:WaitForChild("RoundStarted")
+local roundEndedRemote = ReplicatedStorage:WaitForChild("RoundEnded")
 local requestObjectiveStartRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStart")
 local requestObjectiveStopRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStop")
 local requestIdolPickupRemote = ReplicatedStorage:WaitForChild("RequestIdolPickup")
@@ -140,11 +142,6 @@ local function getNearestExtractPoint()
 	return nil
 end
 
-local function isNearRescuePoint()
-	local _, targetId = getNearestCagedTeammate()
-	return targetId ~= nil
-end
-
 local function getNearestCagedTeammate()
 	local char = localPlayer.Character
 	if not char then return nil, nil end
@@ -176,11 +173,32 @@ local function getNearestCagedTeammate()
 	return nearestPlayer, nearestUserId
 end
 
+local function isNearRescuePoint()
+	local _, targetId = getNearestCagedTeammate()
+	return targetId ~= nil
+end
+
 local function stopRescue()
 	if not rescuingActive then return end
 	rescuingActive = false
 	requestCageRescueStopRemote:FireServer(rescuingTargetId)
 	rescuingTargetId = nil
+end
+
+local function clearInteractionState(sendServerStops)
+	if sendServerStops then
+		stopSealInteraction()
+		stopRescue()
+		if extractingWithIdol then
+			extractingWithIdol = false
+			requestExtractCancelRemote:FireServer()
+		end
+	else
+		interactingObjectiveId = nil
+		rescuingActive = false
+		rescuingTargetId = nil
+		extractingWithIdol = false
+	end
 end
 
 localPlayer.CharacterAdded:Connect(function()
@@ -193,14 +211,24 @@ localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 	if not isThief() then
 		crouching = false
 		setMovementStateRemote:FireServer("Crouch", false)
-		stopSealInteraction()
-		stopRescue()
-		if extractingWithIdol then
-			extractingWithIdol = false
-			requestExtractCancelRemote:FireServer()
-		end
+		clearInteractionState(true)
 	end
 	applyFootstepVolume()
+end)
+
+localPlayer:GetAttributeChangedSignal("RoundState"):Connect(function()
+	local state = localPlayer:GetAttribute("RoundState")
+	if state == "Caught" or state == "Caged" or state == "Eliminated" or state == "Escaped" then
+		clearInteractionState(true)
+	end
+end)
+
+roundStartedRemote.OnClientEvent:Connect(function()
+	clearInteractionState(false)
+end)
+
+roundEndedRemote.OnClientEvent:Connect(function()
+	clearInteractionState(true)
 end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
@@ -220,21 +248,25 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	elseif input.KeyCode == Enum.KeyCode.E then
 		if not isThief() then return end
 		if localPlayer:GetAttribute("HasIdol") and getNearestExtractPoint() then
+			-- Priority 1: extract with idol
 			extractingWithIdol = true
 			requestExtractRemote:FireServer()
+		elseif not localPlayer:GetAttribute("HasIdol") and isNearRescuePoint() then
+			-- Priority 2: rescue caged teammate
+			local _, targetId = getNearestCagedTeammate()
+			if targetId then
+				rescuingActive = true
+				rescuingTargetId = targetId
+				requestCageRescueStartRemote:FireServer(targetId)
+			end
+		elseif not localPlayer:GetAttribute("HasIdol") and getNearestIdolPart() then
+			-- Priority 3: pick up idol
+			requestIdolPickupRemote:FireServer()
 		else
+			-- Priority 4: objective interaction (fallback)
 			local _, nearObjectiveId = getNearestObjectiveStation()
 			if nearObjectiveId then
 				task.spawn(beginSealInteraction, nearObjectiveId)
-			elseif not localPlayer:GetAttribute("HasIdol") and isNearRescuePoint() then
-				local _, targetId = getNearestCagedTeammate()
-				if targetId then
-					rescuingActive = true
-					rescuingTargetId = targetId
-					requestCageRescueStartRemote:FireServer(targetId)
-				end
-			elseif not localPlayer:GetAttribute("HasIdol") and getNearestIdolPart() then
-				requestIdolPickupRemote:FireServer()
 			end
 		end
 	end
@@ -242,12 +274,7 @@ end)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.E then
-		stopSealInteraction()
-		stopRescue()
-		if extractingWithIdol then
-			extractingWithIdol = false
-			requestExtractCancelRemote:FireServer()
-		end
+		clearInteractionState(true)
 	end
 	if input.KeyCode == Enum.KeyCode.LeftShift and crouching then
 		crouching = false

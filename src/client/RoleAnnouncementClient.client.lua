@@ -130,7 +130,7 @@ local function show(role)
 	icon.BackgroundColor3 = isGuardian and COLORS.guardian or COLORS.thief
 	main.TextColor3 = isGuardian and COLORS.guardian or COLORS.thief
 	main.Text = isGuardian and "GUARDIAN" or "THIEF"
-	flavor.Text = isGuardian and "Hunt them down. Let none escape." or "Light the braziers. Steal the idol."
+	flavor.Text = isGuardian and "Stop the thieves before they extract the idol." or "Break 3 seals to open the vault."
 
 	overlay.Visible = true
 	panel.Visible = true

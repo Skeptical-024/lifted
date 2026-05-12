@@ -11,7 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
-local INTERACT_DISTANCE = Constants.OBJECTIVE_INTERACTION_DISTANCE or 12
+local INTERACT_DISTANCE = Constants.OBJECTIVE_INTERACT_DISTANCE or 12
 local SOLO_COMPLETION_TIME = Constants.OBJECTIVE_SOLO_SECONDS or 18
 local PROGRESS_PER_SECOND = 1 / SOLO_COMPLETION_TIME
 

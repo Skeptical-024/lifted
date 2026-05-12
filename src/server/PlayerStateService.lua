@@ -254,19 +254,19 @@ function PlayerStateService.CountAliveThieves()
 end
 
 function PlayerStateService.AreAllThievesOut()
-	-- Returns true when every registered thief is Escaped, Eliminated, or OutOfRound.
-	-- Returns false if any thief is Alive, Caught, or Caged.
+	-- Guardian wins when no thieves are Alive.
+	-- Caught and Caged no longer keep the round alive.
+	-- sawThief prevents false positive before any RegisterPlayer call at round start.
+	local sawThief = false
 	for _, rec in pairs(records) do
 		if rec.role == PlayerStateService.Role.Thief then
-			local s = rec.state
-			if s == PlayerStateService.State.Alive
-				or s == PlayerStateService.State.Caught
-				or s == PlayerStateService.State.Caged then
+			sawThief = true
+			if rec.state == PlayerStateService.State.Alive then
 				return false
 			end
 		end
 	end
-	return true
+	return sawThief
 end
 
 function PlayerStateService.GetSnapshot()

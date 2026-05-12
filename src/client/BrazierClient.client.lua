@@ -3,7 +3,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
@@ -21,8 +20,6 @@ do
 	end
 end
 
-local requestObjectiveStartRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStart")
-local requestObjectiveStopRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStop")
 local guardianSequenceRemote = ReplicatedStorage:WaitForChild("GuardianBrazierSequence")
 local brazierStateChangedRemote = ReplicatedStorage:WaitForChild("BrazierStateChanged")
 local objectiveCompletedRemote = ReplicatedStorage:WaitForChild("ObjectiveCompleted")
@@ -164,8 +161,6 @@ local currentNearbyObjectiveId
 local isHintVisible = false
 local knownSequence = {}
 local litSet = {}
-local isHoldingInteract = false
-local heldObjectiveId = nil
 
 local function findBrazierByName(name)
 	return workspace:FindFirstChild(name, true)
@@ -305,35 +300,7 @@ local function getNearbyObjective()
 	return nearestPart, nearestId
 end
 
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then
-		return
-	end
-	if input.KeyCode == Enum.KeyCode.E then
-		if localPlayer:GetAttribute("Role") ~= "Thief" then
-			return
-		end
-		local nearbyPart, objectiveId = getNearbyObjective()
-		if nearbyPart and objectiveId then
-			isHoldingInteract = true
-			heldObjectiveId = objectiveId
-			requestObjectiveStartRemote:FireServer(objectiveId)
-		end
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input, processed)
-	if processed then
-		return
-	end
-	if input.KeyCode == Enum.KeyCode.E then
-		isHoldingInteract = false
-		if heldObjectiveId then
-			requestObjectiveStopRemote:FireServer(heldObjectiveId)
-			heldObjectiveId = nil
-		end
-	end
-end)
+-- E input removed from BrazierClient. ThiefClient owns objective interaction requests.
 
 guardianSequenceRemote.OnClientEvent:Connect(function(sequence)
 	if type(sequence) ~= "table" then
@@ -408,10 +375,6 @@ objectiveCompletedRemote.OnClientEvent:Connect(function(objectiveId)
 		litSet["Brazier" .. tostring(slot)] = true
 		updateThiefHints()
 	end
-	if heldObjectiveId == objectiveId then
-		heldObjectiveId = nil
-		isHoldingInteract = false
-	end
 end)
 
 RunService.RenderStepped:Connect(function(dt)
@@ -426,21 +389,7 @@ RunService.RenderStepped:Connect(function(dt)
 		interactPanel.Size = UDim2.fromOffset(200, 32)
 	end
 
-	if isHoldingInteract then
-		local shouldStop = false
-		if role ~= "Thief" then
-			shouldStop = true
-		elseif not currentNearbyObjectivePart or not currentNearbyObjectiveId then
-			shouldStop = true
-		elseif heldObjectiveId ~= currentNearbyObjectiveId then
-			shouldStop = true
-		end
-		if shouldStop and heldObjectiveId then
-			requestObjectiveStopRemote:FireServer(heldObjectiveId)
-			heldObjectiveId = nil
-			isHoldingInteract = false
-		end
-	end
+	-- isHoldingInteract block removed. ThiefClient owns objective interaction requests.
 end)
 
 localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
@@ -449,10 +398,6 @@ localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 		sequencePanel.Visible = false
 		sequenceShadow.Visible = false
 	end
-	if role ~= "Thief" and heldObjectiveId then
-		requestObjectiveStopRemote:FireServer(heldObjectiveId)
-		heldObjectiveId = nil
-		isHoldingInteract = false
-	end
+	-- Objective stop on role change removed. ThiefClient owns this.
 	updateThiefHints()
 end)

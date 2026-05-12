@@ -1485,8 +1485,12 @@ connectOptional("IdolPickedUp", function(carrierUserId, carrierName)
 end)
 
 connectOptional("IdolCarrierChanged", function(carrierUserId, carrierName)
-	setIdolCarrierUI(carrierUserId, carrierName)
-	setGuardianCarrier(carrierUserId, carrierName)
+	if carrierUserId ~= nil then
+		setIdolCarrierUI(carrierUserId, carrierName)
+		setGuardianCarrier(carrierUserId, carrierName)
+	else
+		clearGuardianCarrier()
+	end
 end)
 
 connectOptional("IdolDropped", function()

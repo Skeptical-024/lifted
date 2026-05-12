@@ -64,6 +64,8 @@ local activeThieves = {}
 local guardianPlayer = nil
 local thievesExtracted = false
 local thiefSpawnCursor = 0
+local vaultWatcherToken = 0
+local endingRound = false
 
 local function getTaggedParts(tag)
 	local parts = {}
@@ -113,6 +115,7 @@ local function resetPlayerMovement(player)
 		end
 	end
 	player:SetAttribute("IsCaught", false)
+	player:SetAttribute("IsCrouching", false)
 end
 
 local function getOrCreateCaughtHoldingSpawn()
@@ -232,13 +235,7 @@ local function fireLobbyUpdate(status, playerCount, requiredCount, countdown)
 end
 
 local function getRemainingThiefCount()
-	local remaining = 0
-	for thiefPlayer in activeThieves do
-		if Players:FindFirstChild(thiefPlayer.Name) then
-			remaining += 1
-		end
-	end
-	return remaining
+	return PlayerStateService.CountAliveThieves()
 end
 
 local function fireThiefCountToGuardian()
@@ -271,6 +268,7 @@ local function clearRoundState()
 	BrazierManager.Reset()
 
 	roundActive = false
+	endingRound = false
 	rolesByPlayer = {}
 	activeThieves = {}
 	guardianPlayer = nil
@@ -284,9 +282,25 @@ local function clearRoundState()
 			end
 		end
 	end
+
+	print(string.format("[RoundLifecycle] Cleanup complete roundId=%d", roundId))
 end
 
 Players.PlayerRemoving:Connect(function(player)
+	local role = rolesByPlayer[player]
+	local state = PlayerStateService.GetState(player)
+	local hadIdol = IdolService.PlayerHasIdol(player)
+	local caged = CageService.IsCaged(player)
+	print(string.format(
+		"[PlayerLeave] %s role=%s state=%s hadIdol=%s extracting=%s caged=%s",
+		player.Name,
+		tostring(role),
+		tostring(state),
+		tostring(hadIdol),
+		"unknown",
+		tostring(caged)
+	))
+
 	rolesByPlayer[player] = nil
 	activeThieves[player] = nil
 	GuardianController.ResetPlayer(player)
@@ -298,6 +312,7 @@ Players.PlayerRemoving:Connect(function(player)
 	IdolService.DropFromPlayer(player, "left")
 	CageService.StopAllForPlayer(player)
 	GuardianAbilityService.StopAllForPlayer(player)
+	fireThiefCountToGuardian()
 end)
 
 Players.PlayerAdded:Connect(function(player)
@@ -462,8 +477,10 @@ while true do
 
 	clearRoundState()
 	roundActive = true
+	endingRound = false
 	rolesByPlayer, guardianPlayer = RoleManager.AssignRoles(roundPlayers)
 	roundId += 1
+	print(string.format("[RoundLifecycle] Start roundId=%d", roundId))
 	PlayerStateService.ResetForNewRound(roundId)
 	for player, role in rolesByPlayer do
 		PlayerStateService.RegisterPlayer(player, role, roundId)
@@ -474,9 +491,11 @@ while true do
 	CageService.ResetForRound(roundId)
 	GuardianAbilityService.ResetForRound(roundId)
 
+	vaultWatcherToken += 1
+	local watcherToken = vaultWatcherToken
 	task.spawn(function()
 		local notified = false
-		while roundActive do
+		while roundActive and watcherToken == vaultWatcherToken do
 			if not notified and ObjectiveService.IsVaultOpen() then
 				notified = true
 				IdolService.OnVaultOpened()
@@ -520,6 +539,7 @@ while true do
 		GuardianController.StepSprintTimers(rolesByPlayer)
 
 		if thievesExtracted then
+			endingRound = true
 			result = "Thieves extracted loot"
 			winner = "Thieves"
 			roundActive = false
@@ -528,6 +548,7 @@ while true do
 
 		-- PlayerStateService is source of truth for alive thief count
 		if PlayerStateService.AreAllThievesOut() then
+			endingRound = true
 			result = "Guardian caught all thieves"
 			winner = "Guardian"
 			roundActive = false
@@ -545,6 +566,7 @@ while true do
 		end
 
 		if os.clock() >= roundEndsAt then
+			endingRound = true
 			result = "Time expired"
 			winner = "Time"
 			roundActive = false
@@ -552,6 +574,7 @@ while true do
 		end
 
 		if #Players:GetPlayers() < Constants.ROUND_MIN_PLAYERS then
+			endingRound = true
 			result = "Round canceled: not enough players"
 			winner = "Time"
 			roundActive = false
@@ -562,6 +585,7 @@ while true do
 	end
 
 	fireRoundEnded(result, winner)
+	print(string.format("[RoundLifecycle] End roundId=%d winner=%s reason=%s", roundId, tostring(winner), tostring(result)))
 	print(string.format("[RoundResult] %s", result))
 	for _, player in ipairs(Players:GetPlayers()) do
 		ObjectiveService.StopAllForPlayer(player)

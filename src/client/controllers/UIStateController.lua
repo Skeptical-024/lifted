@@ -81,22 +81,34 @@ function UIStateController.OnAnyChanged(callback)
 	table.insert(anyCallbacks, callback)
 end
 
-local function updateObjective(id, completed)
+local function updateObjective(id, completed, progress)
 	if id == nil then
 		return
 	end
 	local objectiveId = tostring(id)
 	local objectives = state.objectives
+	local normalizedProgress = tonumber(progress)
+	if normalizedProgress then
+		normalizedProgress = math.clamp(normalizedProgress, 0, 1)
+	end
 	for i, objective in ipairs(objectives) do
 		if objective.id == objectiveId then
 			local newObjectives = shallowCopy(objectives)
-			newObjectives[i] = { id = objectiveId, completed = completed == true }
+			newObjectives[i] = {
+				id = objectiveId,
+				completed = completed == true,
+				progress = normalizedProgress ~= nil and normalizedProgress or objective.progress or ((completed == true) and 1 or 0),
+			}
 			UIStateController.Set("objectives", newObjectives)
 			return
 		end
 	end
 	local newObjectives = shallowCopy(objectives)
-	table.insert(newObjectives, { id = objectiveId, completed = completed == true })
+	table.insert(newObjectives, {
+		id = objectiveId,
+		completed = completed == true,
+		progress = normalizedProgress ~= nil and normalizedProgress or ((completed == true) and 1 or 0),
+	})
 	UIStateController.Set("objectives", newObjectives)
 end
 
@@ -144,6 +156,14 @@ end)
 
 connectRemote("RoundStarted", function(...)
 	UIStateController.Set("roundState", "active")
+	UIStateController.Set("objectives", {})
+	UIStateController.Set("vaultState", "locked")
+	UIStateController.Set("idolState", "vault")
+	UIStateController.Set("idolCarrierUserId", nil)
+	UIStateController.Set("extractState", nil)
+	UIStateController.Set("cageState", nil)
+	UIStateController.Set("guardianAbilityState", nil)
+	UIStateController.Set("lastAlert", nil)
 end)
 
 connectRemote("RoundEnded", function(...)
@@ -154,12 +174,13 @@ connectRemote("TimerUpdated", function(timeRemaining)
 	UIStateController.Set("timeRemaining", tonumber(timeRemaining) or 0)
 end)
 
-connectRemote("ObjectiveProgress", function(id, completed)
-	updateObjective(id, completed == true)
+connectRemote("ObjectiveProgress", function(id, progress)
+	local p = tonumber(progress) or 0
+	updateObjective(id, p >= 1, p)
 end)
 
 connectRemote("ObjectiveCompleted", function(id)
-	updateObjective(id, true)
+	updateObjective(id, true, 1)
 end)
 
 connectRemote("VaultOpened", function(...)
