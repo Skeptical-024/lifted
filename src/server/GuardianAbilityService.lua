@@ -1,7 +1,7 @@
 -- GuardianAbilityService
 -- Server-authoritative guardian ability kit: Rush, Reveal, Roar.
 -- Client only requests. Server validates, applies, and restores all effects.
--- Rush bypasses GuardianController.SetSprinting to avoid WalkSpeed conflicts.
+-- Rush directly owns movement changes to avoid conflicts with legacy systems.
 
 local GuardianAbilityService = {}
 
@@ -27,6 +27,7 @@ local BASE_SPEED = Constants.DEFAULT_WALK_SPEED or 16
 local abilityState = {}
 local roundIsActive = false
 local slowedThieves = {} -- [userId] = {player, originalWalkSpeed, token}
+local scoreCallbacks = nil
 
 local function getOrCreateRemote(name)
 	local r = ReplicatedStorage:FindFirstChild(name)
@@ -136,6 +137,9 @@ function GuardianAbilityService.RequestRush(player)
 	hum.WalkSpeed = BASE_SPEED * RUSH_MULTIPLIER
 	fireOne(player, "GuardianRushStarted", RUSH_DURATION, RUSH_COOLDOWN)
 	fireOne(player, "GuardianAbilityCooldown", "Rush", RUSH_COOLDOWN)
+	if scoreCallbacks and scoreCallbacks.onRush then
+		scoreCallbacks.onRush(player)
+	end
 	local uid = player.UserId
 	task.delay(RUSH_DURATION, function()
 		if not abilityState[uid] then return end
@@ -178,6 +182,9 @@ function GuardianAbilityService.RequestReveal(player)
 	end
 	fireOne(player, "GuardianRevealStarted", revealed, REVEAL_DURATION)
 	fireOne(player, "GuardianAbilityCooldown", "Reveal", REVEAL_COOLDOWN)
+	if scoreCallbacks and scoreCallbacks.onReveal then
+		scoreCallbacks.onReveal(player, #revealed)
+	end
 end
 
 function GuardianAbilityService.RequestRoar(player)
@@ -238,6 +245,9 @@ function GuardianAbilityService.RequestRoar(player)
 	end
 	fireAll("GuardianRoarActivated", guardianRoot.Position, ROAR_RADIUS, #affected)
 	fireOne(player, "GuardianAbilityCooldown", "Roar", ROAR_COOLDOWN)
+	if scoreCallbacks and scoreCallbacks.onRoar then
+		scoreCallbacks.onRoar(player, #affected)
+	end
 end
 
 function GuardianAbilityService.StopAllForPlayer(player)
@@ -289,6 +299,10 @@ end
 
 function GuardianAbilityService.SetRoundActive(isActive)
 	roundIsActive = isActive
+end
+
+function GuardianAbilityService.SetScoreCallbacks(callbacks)
+	scoreCallbacks = callbacks
 end
 
 return GuardianAbilityService

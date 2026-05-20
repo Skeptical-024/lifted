@@ -8,6 +8,7 @@ local TestMapService = {}
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
 local MAP_FOLDER_NAME = "LIFTED_TestMap"
 local REAL_MAP_TAG = "RealMapLoaded"
@@ -245,12 +246,20 @@ end
 -- Public API
 
 function TestMapService.Init()
+	if Constants.TEST_MAP_ENABLED ~= true then
+		return
+	end
+
 	-- Check if real map is loaded (BuildTemple tags its output)
 	-- If RealMapLoaded exists, skip test map creation for gameplay tags
 	-- NOTE: We still run because BuildTemple has NO gameplay tags.
 	-- TestMapService adds ONLY gameplay-tagged parts alongside aesthetic geometry.
 	local realMapFolder = workspace:FindFirstChild("LIFTED_RealMap")
 	if realMapFolder then
+		return
+	end
+	local productionMapFolder = workspace:FindFirstChild("LIFTED_Map")
+	if productionMapFolder then
 		return
 	end
 

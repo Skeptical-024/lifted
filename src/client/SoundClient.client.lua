@@ -10,9 +10,14 @@ local localPlayer = Players.LocalPlayer
 
 local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
 local thiefCaughtRemote = ReplicatedStorage:WaitForChild("ThiefCaught")
-local brazierStateChangedRemote = ReplicatedStorage:WaitForChild("BrazierStateChanged")
 local roundEndedRemote = ReplicatedStorage:WaitForChild("RoundEnded")
 local lobbyUpdateRemote = ReplicatedStorage:WaitForChild("LobbyUpdate")
+local objectiveCompletedRemote = ReplicatedStorage:WaitForChild("ObjectiveCompleted")
+local vaultOpenedRemote = ReplicatedStorage:WaitForChild("VaultOpened")
+local idolPickedUpRemote = ReplicatedStorage:WaitForChild("IdolPickedUp")
+local idolDroppedRemote = ReplicatedStorage:WaitForChild("IdolDropped")
+local extractCompletedRemote = ReplicatedStorage:WaitForChild("ExtractCompleted")
+local guardianRoarActivatedRemote = ReplicatedStorage:WaitForChild("GuardianRoarActivated")
 
 local soundGroup = SoundService:FindFirstChild("GameSounds")
 if not soundGroup then
@@ -27,17 +32,16 @@ local SOUND_IDS = {
 	RoundEndLose = "rbxassetid://4612263052",
 	ThiefCaught = "rbxassetid://4612263052",
 	GuardianCatch = "rbxassetid://6042053626",
-	BrazierLit = "rbxassetid://6042053626",
-	BrazierExtinguish = "rbxassetid://4612263052",
+	SealCompleted = "rbxassetid://6042053626",
 	ExtractSuccess = "rbxassetid://1837853335",
 	CountdownBeep = "rbxassetid://6042053626",
 	FinalCountdownBeep = "rbxassetid://4612263052",
-	Footstep = "rbxassetid://1763718928",
+	VaultOpened = "rbxassetid://6042053626",
+	IdolPickedUp = "rbxassetid://6042053626",
+	IdolDropped = "rbxassetid://4612263052",
 }
 
-local lastLitCount = 0
 local lastCountdown = nil
-local footstepTimer = 0
 
 local function getRole()
 	return localPlayer:GetAttribute("Role")
@@ -69,14 +73,6 @@ local function getRootPart(player)
 	return character:FindFirstChild("HumanoidRootPart")
 end
 
-local function isGrounded(root)
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	raycastParams.FilterDescendantsInstances = {localPlayer.Character}
-	local result = workspace:Raycast(root.Position, Vector3.new(0, -4, 0), raycastParams)
-	return result ~= nil
-end
-
 roleAssignedRemote.OnClientEvent:Connect(function()
 	playOneShot(SOUND_IDS.RoundStart, 0.8, SoundService, 80)
 end)
@@ -93,19 +89,28 @@ thiefCaughtRemote.OnClientEvent:Connect(function(guardianPlayer, caughtPlayer)
 	end
 end)
 
-brazierStateChangedRemote.OnClientEvent:Connect(function(litNames)
-	if type(litNames) ~= "table" then
-		return
-	end
-	local count = #litNames
-	if count > lastLitCount then
-		local name = litNames[count]
-		local part = workspace:FindFirstChild(name, true)
-		playOneShot(SOUND_IDS.BrazierLit, 0.8, part or SoundService, 80)
-	elseif count < lastLitCount then
-		playOneShot(SOUND_IDS.BrazierExtinguish, 0.8, SoundService, 80)
-	end
-	lastLitCount = count
+objectiveCompletedRemote.OnClientEvent:Connect(function()
+	playOneShot(SOUND_IDS.SealCompleted, 0.8, SoundService, 80)
+end)
+
+vaultOpenedRemote.OnClientEvent:Connect(function()
+	playOneShot(SOUND_IDS.VaultOpened, 0.8, SoundService, 80)
+end)
+
+idolPickedUpRemote.OnClientEvent:Connect(function()
+	playOneShot(SOUND_IDS.IdolPickedUp, 0.75, SoundService, 80)
+end)
+
+idolDroppedRemote.OnClientEvent:Connect(function()
+	playOneShot(SOUND_IDS.IdolDropped, 0.7, SoundService, 80)
+end)
+
+extractCompletedRemote.OnClientEvent:Connect(function()
+	playOneShot(SOUND_IDS.ExtractSuccess, 0.9, SoundService, 80)
+end)
+
+guardianRoarActivatedRemote.OnClientEvent:Connect(function()
+	playOneShot(SOUND_IDS.GuardianCatch, 0.8, SoundService, 80)
 end)
 
 roundEndedRemote.OnClientEvent:Connect(function(_, winner)
@@ -153,30 +158,4 @@ lobbyUpdateRemote.OnClientEvent:Connect(function(payload)
 	end
 end)
 
-RunService.Heartbeat:Connect(function(dt)
-	footstepTimer += dt
-	local root = getRootPart(localPlayer)
-	if not root then
-		return
-	end
-	if root.AssemblyLinearVelocity.Magnitude <= 2 then
-		return
-	end
-	if not isGrounded(root) then
-		return
-	end
-
-	local interval = 0.4
-	if getRole() == Types.PlayerRole.Thief and root.Parent then
-		local humanoid = root.Parent:FindFirstChildOfClass("Humanoid")
-		if humanoid and humanoid.WalkSpeed <= Constants.THIEF_CROUCH_SPEED + 0.1 then
-			interval = 0.7
-		end
-	end
-
-	if footstepTimer >= interval then
-		footstepTimer = 0
-		local volume = interval == 0.7 and 0.3 or 0.5
-		playOneShot(SOUND_IDS.Footstep, volume, root, 40)
-	end
-end)
+-- Footstep one-shot playback intentionally disabled to avoid asset mismatch spam.

@@ -4,14 +4,15 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
+local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
 local roundStartedRemote = ReplicatedStorage:WaitForChild("RoundStarted")
 local roundEndedRemote = ReplicatedStorage:WaitForChild("RoundEnded")
 local thiefCountUpdateRemote = ReplicatedStorage:WaitForChild("ThiefCountUpdate")
-local brazierProgressUpdateRemote = ReplicatedStorage:WaitForChild("BrazierProgressUpdate")
 local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState")
 local thiefCaughtRemote = ReplicatedStorage:WaitForChild("ThiefCaught")
 
@@ -121,6 +122,39 @@ phaseLabel.Text = ""
 phaseLabel.Visible = false
 phaseLabel.ZIndex = 5
 
+local interactionHintLabel = Instance.new("TextLabel")
+interactionHintLabel.Parent = gui
+interactionHintLabel.Size = UDim2.fromOffset(320, 22)
+interactionHintLabel.Position = UDim2.new(0.5, -160, 1, -84)
+interactionHintLabel.BackgroundTransparency = 1
+interactionHintLabel.Font = Enum.Font.GothamBold
+interactionHintLabel.TextSize = 14
+interactionHintLabel.TextColor3 = COLORS.teal
+interactionHintLabel.TextXAlignment = Enum.TextXAlignment.Center
+interactionHintLabel.Text = ""
+interactionHintLabel.Visible = false
+interactionHintLabel.ZIndex = 6
+
+local roleIntroFrame = makePanel(UDim2.fromOffset(420, 116), UDim2.new(0.5, -210, 0.5, -58), gui, 0.12)
+local roleIntroShadow = makeShadow(roleIntroFrame)
+roleIntroFrame.Visible = false
+roleIntroShadow.Visible = false
+roleIntroFrame.ZIndex = 20
+local roleIntroTitle = makeLabel("", Enum.Font.GothamBlack, COLORS.white, roleIntroFrame)
+roleIntroTitle.Size = UDim2.new(1, 0, 0, 36)
+roleIntroTitle.TextSize = 34
+roleIntroTitle.ZIndex = 21
+local roleIntroSubtitle = makeLabel("", Enum.Font.GothamBold, COLORS.grey, roleIntroFrame)
+roleIntroSubtitle.Size = UDim2.new(1, 0, 0, 22)
+roleIntroSubtitle.Position = UDim2.fromOffset(0, 38)
+roleIntroSubtitle.TextSize = 16
+roleIntroSubtitle.ZIndex = 21
+local roleIntroControls = makeLabel("", Enum.Font.Gotham, COLORS.white, roleIntroFrame)
+roleIntroControls.Size = UDim2.new(1, 0, 0, 42)
+roleIntroControls.Position = UDim2.fromOffset(0, 64)
+roleIntroControls.TextSize = 13
+roleIntroControls.ZIndex = 21
+
 local timerStroke = timerPanel:FindFirstChildOfClass("UIStroke")
 if timerStroke then
 	timerStroke.Color = COLORS.teal
@@ -155,24 +189,24 @@ roleText.Position = UDim2.fromOffset(24, 0)
 roleText.TextSize = 18
 roleText.TextXAlignment = Enum.TextXAlignment.Left
 
-local brazierPanel = makePanel(UDim2.fromOffset(220, 88), UDim2.new(0, 16, 1, -96), gui, 0.2)
-local brazierShadow = makeShadow(brazierPanel)
-brazierShadow.Size = brazierPanel.Size
-brazierShadow.Position = brazierPanel.Position + UDim2.fromOffset(2, 2)
-brazierPanel.Visible = false
-brazierShadow.Visible = false
-local bs = brazierPanel:FindFirstChildOfClass("UIStroke")
+local sealPanel = makePanel(UDim2.fromOffset(220, 88), UDim2.new(0, 16, 1, -96), gui, 0.2)
+local sealShadow = makeShadow(sealPanel)
+sealShadow.Size = sealPanel.Size
+sealShadow.Position = sealPanel.Position + UDim2.fromOffset(2, 2)
+sealPanel.Visible = false
+sealShadow.Visible = false
+local bs = sealPanel:FindFirstChildOfClass("UIStroke")
 if bs then
 	bs.Color = COLORS.teal
 	bs.Transparency = 0.35
 end
 
-local brazierTitle = makeLabel("SEALS", Enum.Font.GothamBold, COLORS.grey, brazierPanel)
-brazierTitle.Size = UDim2.new(1, 0, 0, 14)
-brazierTitle.Position = UDim2.fromOffset(0, 2)
-brazierTitle.TextSize = 12
+local sealTitle = makeLabel("SEALS", Enum.Font.GothamBold, COLORS.grey, sealPanel)
+sealTitle.Size = UDim2.new(1, 0, 0, 14)
+sealTitle.Position = UDim2.fromOffset(0, 2)
+sealTitle.TextSize = 12
 
-local brazierIcons = {}
+local sealIcons = {}
 local sealNames = {
 	[1] = "FLAME",
 	[2] = "MOON",
@@ -183,7 +217,7 @@ for i = 1, 3 do
 	sq.Size = UDim2.fromOffset(20, 20)
 	sq.Position = UDim2.fromOffset(10 + (i - 1) * 28, 26)
 	sq.BackgroundColor3 = COLORS.panelSoft
-	sq.Parent = brazierPanel
+	sq.Parent = sealPanel
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, 5)
 	c.Parent = sq
@@ -202,11 +236,11 @@ for i = 1, 3 do
 	nameLabel.TextTransparency = 0.5
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
 	nameLabel.TextYAlignment = Enum.TextYAlignment.Center
-	nameLabel.Parent = brazierPanel
-	brazierIcons[i] = {frame = sq, stroke = s, label = nameLabel}
+	nameLabel.Parent = sealPanel
+	sealIcons[i] = {frame = sq, stroke = s, label = nameLabel}
 end
 
-local vaultStatusLabel = makeLabel("VAULT SEALED", Enum.Font.GothamBold, COLORS.grey, brazierPanel)
+local vaultStatusLabel = makeLabel("VAULT SEALED", Enum.Font.GothamBold, COLORS.grey, sealPanel)
 vaultStatusLabel.Name = "VaultStatusLabel"
 vaultStatusLabel.Position = UDim2.fromOffset(0, 66)
 vaultStatusLabel.Size = UDim2.new(1, 0, 0, 14)
@@ -242,10 +276,10 @@ guardianCatchPromptLabel.Size = UDim2.new(1, 0, 0, 14)
 guardianCatchPromptLabel.Position = UDim2.fromOffset(0, 34)
 guardianCatchPromptLabel.TextSize = 12
 
-local guardianSprintLabel = makeLabel("SPRINT READY", Enum.Font.GothamBold, COLORS.grey, guardianStatusPanel)
-guardianSprintLabel.Size = UDim2.new(1, 0, 0, 13)
-guardianSprintLabel.Position = UDim2.fromOffset(0, 50)
-guardianSprintLabel.TextSize = 11
+local guardianRushLabel = makeLabel("RUSH READY", Enum.Font.GothamBold, COLORS.grey, guardianStatusPanel)
+guardianRushLabel.Size = UDim2.new(1, 0, 0, 13)
+guardianRushLabel.Position = UDim2.fromOffset(0, 50)
+guardianRushLabel.TextSize = 11
 
 local guardianCarrierLabel = makeLabel("", Enum.Font.Gotham, COLORS.red, guardianStatusPanel)
 guardianCarrierLabel.Size = UDim2.new(1, 0, 0, 14)
@@ -286,20 +320,20 @@ for i = 1, 4 do
 	thiefIconFrames[i] = {frame = sq, label = t}
 end
 
-local sprintPanel = makePanel(UDim2.fromOffset(220, 36), UDim2.new(1, -236, 1, -112), gui, 0.2)
-local sprintShadow = makeShadow(sprintPanel)
-sprintPanel.Visible = false
-sprintShadow.Visible = false
-local sprintLabel = makeLabel("SPRINT", Enum.Font.GothamBold, COLORS.white, sprintPanel)
-sprintLabel.Size = UDim2.fromOffset(64, 20)
-sprintLabel.Position = UDim2.fromOffset(8, 8)
-sprintLabel.TextSize = 14
+local rushPanel = makePanel(UDim2.fromOffset(220, 36), UDim2.new(1, -236, 1, -112), gui, 0.2)
+local rushShadow = makeShadow(rushPanel)
+rushPanel.Visible = false
+rushShadow.Visible = false
+local rushLabel = makeLabel("RUSH", Enum.Font.GothamBold, COLORS.white, rushPanel)
+rushLabel.Size = UDim2.fromOffset(64, 20)
+rushLabel.Position = UDim2.fromOffset(8, 8)
+rushLabel.TextSize = 14
 local barBg = Instance.new("Frame")
 barBg.Size = UDim2.fromOffset(136, 12)
 barBg.Position = UDim2.fromOffset(74, 12)
 barBg.BackgroundColor3 = COLORS.panelSoft
 barBg.BorderSizePixel = 0
-barBg.Parent = sprintPanel
+barBg.Parent = rushPanel
 local barBgCorner = Instance.new("UICorner")
 barBgCorner.CornerRadius = UDim.new(0, 6)
 barBgCorner.Parent = barBg
@@ -597,17 +631,31 @@ resultRewardLabel.Position = UDim2.fromOffset(10, 224)
 resultRewardLabel.TextSize = 14
 resultRewardLabel.ZIndex = 12
 
+local resultMvpLabel = makeLabel("", Enum.Font.GothamBold, COLORS.gold, resultPanel)
+resultMvpLabel.Size = UDim2.new(1, -20, 0, 16)
+resultMvpLabel.Position = UDim2.fromOffset(10, 244)
+resultMvpLabel.TextSize = 12
+resultMvpLabel.ZIndex = 12
+
+local resultBoardLabel = makeLabel("", Enum.Font.Gotham, COLORS.grey, resultPanel)
+resultBoardLabel.Size = UDim2.new(1, -20, 0, 42)
+resultBoardLabel.Position = UDim2.fromOffset(10, 262)
+resultBoardLabel.TextSize = 11
+resultBoardLabel.TextYAlignment = Enum.TextYAlignment.Top
+resultBoardLabel.TextXAlignment = Enum.TextXAlignment.Left
+resultBoardLabel.ZIndex = 12
+
 -- Next round label
 local resultNextLabel = makeLabel("Next round starting soon", Enum.Font.Gotham, COLORS.grey, resultPanel)
 resultNextLabel.Size = UDim2.new(1, -20, 0, 18)
-resultNextLabel.Position = UDim2.fromOffset(10, 248)
+resultNextLabel.Position = UDim2.fromOffset(10, 306)
 resultNextLabel.TextSize = 13
 resultNextLabel.ZIndex = 12
 
 -- Divider above next round label
 local resultDivider = Instance.new("Frame")
 resultDivider.Size = UDim2.new(1, -20, 0, 1)
-resultDivider.Position = UDim2.fromOffset(10, 242)
+resultDivider.Position = UDim2.fromOffset(10, 300)
 resultDivider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 resultDivider.BackgroundTransparency = 0.88
 resultDivider.BorderSizePixel = 0
@@ -617,8 +665,8 @@ resultDivider.Parent = resultPanel
 local roundEndTime = 0
 local duration = 0
 local isRoundActive = false
-local sprintState = "Ready"
-local sprintStateChangedAt = os.clock()
+local rushState = "Ready"
+local rushStateChangedAt = os.clock()
 local thievesRemaining = 0
 local thievesCaughtByGuardian = 0
 local totalThiefIcons = 0
@@ -635,12 +683,17 @@ local objectiveInteractionActive = false
 local objectiveProgress = 0
 local skillCheckActive = false
 local lastObjectiveAlertTime = 0
-local guardianSprintReady = true
+local guardianRushReady = true
 local guardianCanCatch = false
 local guardianTargetName = nil
 local guardianCurrentAlert = nil
 local guardianCarrierName = nil
 local guardianCarrierUserId = nil
+local guardianAbilityCooldownEnds = {
+	Rush = 0,
+	Reveal = 0,
+	Roar = 0,
+}
 local roundResultVisible = false
 local lastCageRescueFeedAt = 0
 local lastCageRescuePercent = -1
@@ -700,6 +753,94 @@ local function addKillFeedEvent(text)
 	end)
 end
 
+local function showRoleIntro(role)
+	roleIntroFrame.Visible = true
+	roleIntroShadow.Visible = true
+	if role == "Thief" then
+		roleIntroTitle.Text = "THIEF"
+		roleIntroTitle.TextColor3 = COLORS.teal
+		roleIntroSubtitle.Text = "Break seals. Steal the idol. Extract."
+		roleIntroControls.Text = "E: Interact   Shift: Crouch\nRescue teammates and stay alive."
+	elseif role == "Guardian" then
+		roleIntroTitle.Text = "GUARDIAN"
+		roleIntroTitle.TextColor3 = COLORS.red
+		roleIntroSubtitle.Text = "Catch thieves. Guard cages. Stop extraction."
+		roleIntroControls.Text = "E: Catch   Shift: Rush   Q: Reveal   R: Roar"
+	else
+		roleIntroTitle.Text = "WAITING"
+		roleIntroTitle.TextColor3 = COLORS.grey
+		roleIntroSubtitle.Text = "Waiting for next round."
+		roleIntroControls.Text = ""
+	end
+	task.delay(4, function()
+		if roleIntroFrame.Parent then
+			roleIntroFrame.Visible = false
+			roleIntroShadow.Visible = false
+		end
+	end)
+end
+
+local function getRootPart(player)
+	local c = player and player.Character
+	return c and c:FindFirstChild("HumanoidRootPart")
+end
+
+local function isIdolAvailableNear(root)
+	if not root then return false end
+	local maxDist = Constants.IDOL_INTERACT_DISTANCE or 10
+	for _, part in ipairs(CollectionService:GetTagged("Idol")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			local state = part:GetAttribute("IdolState")
+			if state ~= "Locked" and state ~= "Carried" then
+				if (part.Position - root.Position).Magnitude <= maxDist then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function isNearExtract(root)
+	if not root then return false end
+	local maxDist = Constants.EXTRACT_INTERACT_DISTANCE or 14
+	for _, part in ipairs(CollectionService:GetTagged("ExtractPoint")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+			if (part.Position - root.Position).Magnitude <= maxDist then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function isNearIncompleteObjective(root)
+	if not root then return false end
+	local maxDist = Constants.OBJECTIVE_INTERACT_DISTANCE or 12
+	for _, part in ipairs(CollectionService:GetTagged("ObjectiveStation")) do
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) and part:GetAttribute("ObjectiveCompleted") ~= true then
+			if (part.Position - root.Position).Magnitude <= maxDist then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function isNearCagedTeammate(root)
+	if not root then return false end
+	local maxDist = Constants.CAGE_RESCUE_DISTANCE or 12
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= localPlayer and (p:GetAttribute("IsCaged") == true or p:GetAttribute("RoundState") == "Caged") then
+			local pRoot = getRootPart(p)
+			if pRoot and (pRoot.Position - root.Position).Magnitude <= maxDist then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function updateThiefIconCount(total)
 	totalThiefIcons = math.clamp(total or 0, 0, 4)
 	for i, slot in ipairs(thiefIconFrames) do
@@ -728,40 +869,40 @@ local function setRoleUI(role)
 		roleDot.BackgroundColor3 = COLORS.red
 		local st = roleBadge:FindFirstChildOfClass("UIStroke")
 		if st then st.Color = COLORS.red st.Transparency = 0.35 end
-		brazierPanel.Visible = false
-		brazierShadow.Visible = false
+		sealPanel.Visible = false
+		sealShadow.Visible = false
 		thiefPanel.Visible = true
 		thiefShadow.Visible = true
-		sprintPanel.Visible = true
-		sprintShadow.Visible = true
+		rushPanel.Visible = true
+		rushShadow.Visible = true
 		crouchPanel.Visible = false
 		crouchShadow.Visible = false
 		guardianStatusPanel.Visible = true
 		guardianStatusShadow.Visible = true
-		guardianDirectiveLabel.Text = "Stop the thieves before they extract the idol."
+		guardianDirectiveLabel.Text = "Stop the thieves. Shift Rush | Q Reveal | R Roar | E Catch"
 	elseif role == "Thief" then
 		roleText.Text = "THIEF"
 		roleText.TextColor3 = COLORS.teal
 		roleDot.BackgroundColor3 = COLORS.teal
 		local st = roleBadge:FindFirstChildOfClass("UIStroke")
 		if st then st.Color = COLORS.teal st.Transparency = 0.35 end
-		brazierPanel.Visible = true
-		brazierShadow.Visible = true
+		sealPanel.Visible = true
+		sealShadow.Visible = true
 		thiefPanel.Visible = false
 		thiefShadow.Visible = false
-		sprintPanel.Visible = false
-		sprintShadow.Visible = false
+		rushPanel.Visible = false
+		rushShadow.Visible = false
 		crouchPanel.Visible = false
 		crouchShadow.Visible = false
 		guardianStatusPanel.Visible = false
 		guardianStatusShadow.Visible = false
 	else
-		brazierPanel.Visible = false
-		brazierShadow.Visible = false
+		sealPanel.Visible = false
+		sealShadow.Visible = false
 		thiefPanel.Visible = false
 		thiefShadow.Visible = false
-		sprintPanel.Visible = false
-		sprintShadow.Visible = false
+		rushPanel.Visible = false
+		rushShadow.Visible = false
 		crouchPanel.Visible = false
 		crouchShadow.Visible = false
 		guardianStatusPanel.Visible = false
@@ -795,12 +936,12 @@ local function hideCoreHud()
 	roleShadow.Visible = false
 	timerPanel.Visible = false
 	timerShadow.Visible = false
-	brazierPanel.Visible = false
-	brazierShadow.Visible = false
+	sealPanel.Visible = false
+	sealShadow.Visible = false
 	thiefPanel.Visible = false
 	thiefShadow.Visible = false
-	sprintPanel.Visible = false
-	sprintShadow.Visible = false
+	rushPanel.Visible = false
+	rushShadow.Visible = false
 	crouchPanel.Visible = false
 	crouchShadow.Visible = false
 	proximity.Visible = false
@@ -812,7 +953,7 @@ local function isGuardianRole()
 end
 
 local function resetGuardianHUD()
-	guardianSprintReady = true
+	guardianRushReady = true
 	guardianCanCatch = false
 	guardianTargetName = nil
 	guardianCurrentAlert = nil
@@ -820,7 +961,10 @@ local function resetGuardianHUD()
 	guardianCarrierUserId = nil
 	guardianDirectiveLabel.Text = "Stop the thieves before they extract the idol."
 	guardianCatchPromptLabel.Text = ""
-	guardianSprintLabel.Text = "SPRINT READY"
+	guardianAbilityCooldownEnds.Rush = 0
+	guardianAbilityCooldownEnds.Reveal = 0
+	guardianAbilityCooldownEnds.Roar = 0
+	guardianRushLabel.Text = "Rush READY | Reveal READY | Roar READY"
 	guardianAlertLabel.Text = ""
 	guardianCarrierLabel.Text = ""
 	guardianStatusPanel.Visible = false
@@ -838,6 +982,21 @@ local function setGuardianDirective(text)
 	if type(text) == "string" and #text > 0 then
 		guardianDirectiveLabel.Text = text
 	end
+end
+
+local function updateGuardianAbilityLine()
+	if not isGuardianRole() then return end
+	local now = os.clock()
+	local parts = {}
+	for _, ability in ipairs({"Rush", "Reveal", "Roar"}) do
+		local remaining = math.max(0, (guardianAbilityCooldownEnds[ability] or 0) - now)
+		if remaining > 0 then
+			table.insert(parts, string.format("%s %.0fs", ability, remaining))
+		else
+			table.insert(parts, ability .. " READY")
+		end
+	end
+	guardianRushLabel.Text = table.concat(parts, " | ")
 end
 
 local function setGuardianAlert(text, duration)
@@ -866,21 +1025,6 @@ local function setGuardianCatchPrompt(canCatch, targetName)
 	else
 		guardianCatchPromptLabel.Text = ""
 		guardianTargetName = nil
-	end
-end
-
-local function setGuardianSprintState(ready, cooldownRemaining, cooldownTotal)
-	if not isGuardianRole() then return end
-	-- Updates text label only. Visual bar is owned by existing sprintPanel.
-	guardianSprintReady = ready == true
-	if guardianSprintReady then
-		guardianSprintLabel.Text = "SPRINT READY"
-	else
-		local remaining = math.clamp(tonumber(cooldownRemaining) or 0, 0, 999)
-		local total = math.clamp(tonumber(cooldownTotal) or 0, 0, 999)
-		local _ = total
-		local __ = remaining
-		guardianSprintLabel.Text = "SPRINT COOLDOWN"
 	end
 end
 
@@ -1183,6 +1327,8 @@ local function resetRoundResultsUI()
 	resultSubtitleLabel.Text = ""
 	resultRoleNote.Text = ""
 	resultRewardLabel.Text = ""
+	resultMvpLabel.Text = ""
+	resultBoardLabel.Text = ""
 	statSealLabel.Text = "0"
 	statCaughtLabel.Text = "0"
 	statTimeLabel.Text = "0s"
@@ -1195,7 +1341,7 @@ local function showRoundResults(...)
 	roundResultVisible = true
 
 	local data = normalizeRoundResult(...)
-	local winningTeam = data.winningTeam or ""
+	local winningTeam = data.winner or data.winningTeam or ""
 
 	local accentColor = COLORS.white
 	if winningTeam == "Thieves" then
@@ -1231,6 +1377,38 @@ local function showRoundResults(...)
 	statXPLabel.Text = "+" .. tostring(tonumber(data.xpEarned) or 0)
 
 	resultRewardLabel.Text = ""
+	if type(data.mvp) == "table" then
+		local mvpName = type(data.mvp.name) == "string" and data.mvp.name or "Unknown"
+		local mvpRole = type(data.mvp.role) == "string" and data.mvp.role or "None"
+		local mvpScore = tonumber(data.mvp.totalScore) or 0
+		resultMvpLabel.Text = string.format("MVP: %s (%s)  %d", mvpName, mvpRole, mvpScore)
+	end
+	if type(data.players) == "table" then
+		local lines = {}
+		for i = 1, math.min(3, #data.players) do
+			local row = data.players[i]
+			local name = type(row.name) == "string" and row.name or "Player"
+			local score = tonumber(row.totalScore) or 0
+			table.insert(lines, string.format("%d. %s - %d", i, name, score))
+		end
+		local personal = nil
+		for _, row in ipairs(data.players) do
+			if tonumber(row.userId) == localPlayer.UserId then
+				personal = row
+				break
+			end
+		end
+		if personal and type(personal.stats) == "table" then
+			table.insert(lines, string.format(
+				"You: %d | Seals %d | Rescues %d | Catches %d",
+				tonumber(personal.totalScore) or 0,
+				tonumber(personal.stats.sealsCompleted) or 0,
+				tonumber(personal.stats.rescuesCompleted) or 0,
+				tonumber(personal.stats.catches) or 0
+			))
+		end
+		resultBoardLabel.Text = table.concat(lines, "\n")
+	end
 
 	accentLine.BackgroundColor3 = accentColor
 	if resultStroke then
@@ -1275,7 +1453,7 @@ roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
 	if role == "Thief" then
 		objectiveDirectiveLabel.Text = "Break 3 seals to open the vault."
 	elseif role == "Guardian" then
-		objectiveDirectiveLabel.Text = "Stop the thieves before they extract the idol."
+		objectiveDirectiveLabel.Text = "Stop the thieves. Shift Rush | Q Reveal | R Roar | E Catch"
 	else
 		objectiveDirectiveLabel.Text = ""
 	end
@@ -1283,11 +1461,13 @@ roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
 	resetIdolExtractUI()
 	resetObjectiveInteractionUI()
 	resetGuardianHUD()
+	showRoleIntro(role)
 	if isGuardianRole() then
 		guardianStatusPanel.Visible = true
 		guardianStatusShadow.Visible = true
 	end
 	resetRoundResultsUI()
+	interactionHintLabel.Visible = false
 end)
 
 roundEndedRemote.OnClientEvent:Connect(function(result, winner)
@@ -1317,7 +1497,6 @@ roundEndedRemote.OnClientEvent:Connect(function(result, winner)
 	else
 		setRoundPhase("Round Ended")
 	end
-	showRoundResults(result, winner)
 	objectiveDirectiveLabel.Visible = false
 	objectiveDirectiveLabel.Text = ""
 	sealsBroken = 0
@@ -1326,6 +1505,9 @@ roundEndedRemote.OnClientEvent:Connect(function(result, winner)
 	resetObjectiveInteractionUI()
 	resetGuardianHUD()
 	phaseLabel.Visible = false
+	roleIntroFrame.Visible = false
+	roleIntroShadow.Visible = false
+	interactionHintLabel.Visible = false
 end)
 
 thiefCaughtRemote.OnClientEvent:Connect(function(_, caughtPlayer)
@@ -1353,43 +1535,9 @@ thiefCountUpdateRemote.OnClientEvent:Connect(function(count)
 	end
 end)
 
-brazierProgressUpdateRemote.OnClientEvent:Connect(function(litCount)
-	litCount = math.clamp(tonumber(litCount) or 0, 0, 3)
-	for i, icon in ipairs(brazierIcons) do
-		if i > #brazierIcons then
-			break
-		end
-		if i <= litCount then
-			icon.frame.BackgroundColor3 = COLORS.teal
-			icon.stroke.Color = COLORS.teal
-			icon.stroke.Transparency = 0.15
-			icon.frame.Size = UDim2.fromOffset(20, 20)
-			tweenIn(icon.frame, "Size", UDim2.fromOffset(24, 24), 0.1)
-			task.delay(0.1, function()
-				if icon.frame.Parent then
-					tweenIn(icon.frame, "Size", UDim2.fromOffset(20, 20), 0.1)
-				end
-			end)
-		else
-			icon.frame.BackgroundColor3 = COLORS.panelSoft
-			icon.stroke.Color = COLORS.white
-			icon.stroke.Transparency = 0.85
-		end
-	end
-	lastSealLitCount = litCount
-end)
-
 setMovementStateRemote.OnClientEvent:Connect(function(state, active)
 	local role = localPlayer:GetAttribute("Role")
-	if role == "Guardian" and state == "Sprint" then
-		if active then
-			sprintState = "Sprinting"
-			sprintStateChangedAt = os.clock()
-		else
-			sprintState = "Cooldown"
-			sprintStateChangedAt = os.clock()
-		end
-	elseif role == "Thief" and state == "Crouch" then
+	if role == "Thief" and state == "Crouch" then
 		if active then
 			crouchPanel.Visible = true
 			crouchShadow.Visible = true
@@ -1404,10 +1552,23 @@ end)
 
 localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 	setRoleUI(localPlayer:GetAttribute("Role"))
+	if not isRoundActive then
+		showRoleIntro(localPlayer:GetAttribute("Role"))
+	end
+end)
+
+localPlayer:GetAttributeChangedSignal("RoundState"):Connect(function()
+	local state = localPlayer:GetAttribute("RoundState")
+	if state == "OutOfRound" and isRoundActive then
+		objectiveDirectiveLabel.Text = "Waiting for next round"
+		interactionHintLabel.Visible = false
+	end
 end)
 
 RunService.Heartbeat:Connect(function()
 	if isRoundActive then
+		local role = localPlayer:GetAttribute("Role")
+		local state = localPlayer:GetAttribute("RoundState")
 		local remain = math.max(0, roundEndTime - os.clock())
 		timerText.Text = formatTime(remain)
 
@@ -1432,31 +1593,7 @@ RunService.Heartbeat:Connect(function()
 				end
 			end
 
-		if localPlayer:GetAttribute("Role") == "Guardian" and sprintPanel.Visible then
-			local elapsed = os.clock() - sprintStateChangedAt
-				if sprintState == "Sprinting" then
-					local ratio = math.clamp(1 - (elapsed / 6), 0, 1)
-					barFill.Size = UDim2.fromScale(ratio, 1)
-					barFill.BackgroundColor3 = COLORS.teal
-				if ratio <= 0 then
-					sprintState = "Cooldown"
-					sprintStateChangedAt = os.clock()
-				end
-			elseif sprintState == "Cooldown" then
-				local ratio = math.clamp(elapsed / 10, 0, 1)
-				barFill.Size = UDim2.fromScale(ratio, 1)
-				barFill.BackgroundColor3 = COLORS.red
-				if ratio >= 1 then
-					sprintState = "Ready"
-					sprintStateChangedAt = os.clock()
-				end
-				else
-					barFill.Size = UDim2.fromScale(1, 1)
-					barFill.BackgroundColor3 = COLORS.teal
-				end
-		end
-
-		if localPlayer:GetAttribute("Role") == "Thief" then
+		if role == "Thief" then
 			local myChar = localPlayer.Character
 			local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
 			local guardian
@@ -1492,6 +1629,45 @@ RunService.Heartbeat:Connect(function()
 			end
 		else
 			proximity.Visible = false
+		end
+		if role == "Guardian" then
+			updateGuardianAbilityLine()
+		end
+
+		if state == "OutOfRound" or state == "Escaped" or state == "Eliminated" then
+			interactionHintLabel.Visible = false
+		else
+			local root = getRootPart(localPlayer)
+			local hint = nil
+			if role == "Thief" then
+				local hasIdol = localPlayer:GetAttribute("HasIdol") == true
+				if hasIdol and isNearExtract(root) then
+					hint = "Hold E: Extract idol"
+				elseif not hasIdol and isNearCagedTeammate(root) then
+					hint = "Hold E: Rescue teammate"
+				elseif isNearIncompleteObjective(root) then
+					hint = "Hold E: Break seal"
+				elseif not hasIdol and isIdolAvailableNear(root) then
+					hint = "Press E: Pick up idol"
+				end
+			elseif role == "Guardian" then
+				local catchHint = guardianCatchPromptLabel.Text
+				if type(catchHint) == "string" and #catchHint > 0 then
+					hint = catchHint
+				elseif isNearCagedTeammate(root) then
+					hint = "Guard the cage"
+				elseif isNearIncompleteObjective(root) then
+					hint = "Pressure the seals"
+				else
+					hint = "Shift Rush | Q Reveal | R Roar"
+				end
+			end
+			if hint and #hint > 0 then
+				interactionHintLabel.Text = hint
+				interactionHintLabel.Visible = true
+			else
+				interactionHintLabel.Visible = false
+			end
 		end
 	end
 end)
@@ -1596,8 +1772,8 @@ connectOptional("ObjectiveCompleted", function(objectiveId)
 		StoneSigil = 3,
 	}
 	local idx = indexByObjectiveId[objectiveId]
-	if idx and brazierIcons[idx] then
-		local icon = brazierIcons[idx]
+	if idx and sealIcons[idx] then
+		local icon = sealIcons[idx]
 		icon.frame.BackgroundColor3 = COLORS.teal
 		icon.stroke.Color = COLORS.teal
 		icon.stroke.Transparency = 0.15
@@ -1609,7 +1785,7 @@ connectOptional("ObjectiveCompleted", function(objectiveId)
 			end
 		end)
 		sealsBroken = math.clamp(sealsBroken + 1, 0, 3)
-		local status = brazierPanel:FindFirstChild("VaultStatusLabel")
+		local status = sealPanel:FindFirstChild("VaultStatusLabel")
 		if status and status:IsA("TextLabel") then
 			status.Text = "VAULT SEALED"
 			status.TextColor3 = COLORS.grey
@@ -1638,12 +1814,40 @@ connectOptional("GuardianCatchPrompt", function(canCatch, targetName)
 	setGuardianCatchPrompt(canCatch, targetName)
 end)
 
-connectOptional("GuardianSprintState", function(ready, cooldownRemaining, cooldownTotal)
-	setGuardianSprintState(ready, cooldownRemaining, cooldownTotal)
-end)
-
 connectOptional("GuardianAlert", function(text, duration)
 	setGuardianAlert(text, duration)
+end)
+
+connectOptional("GuardianAbilityCooldown", function(abilityName, seconds)
+	if type(abilityName) ~= "string" then return end
+	local secs = math.max(0, tonumber(seconds) or 0)
+	guardianAbilityCooldownEnds[abilityName] = os.clock() + secs
+	updateGuardianAbilityLine()
+end)
+
+connectOptional("GuardianRushStarted", function()
+	setGuardianAlert("Rush", 1.5)
+end)
+
+connectOptional("GuardianRushFailed", function(reason)
+	setGuardianAlert("Rush failed: " .. tostring(reason), 2)
+end)
+
+connectOptional("GuardianRevealStarted", function(revealed)
+	local count = type(revealed) == "table" and #revealed or 0
+	setGuardianAlert("Reveal: " .. tostring(count) .. " thieves", 2)
+end)
+
+connectOptional("GuardianRevealFailed", function(reason)
+	setGuardianAlert("Reveal failed: " .. tostring(reason), 2)
+end)
+
+connectOptional("GuardianRoarActivated", function(_, _, affectedCount)
+	setGuardianAlert("Roar hit " .. tostring(tonumber(affectedCount) or 0), 2)
+end)
+
+connectOptional("GuardianRoarFailed", function(reason)
+	setGuardianAlert("Roar failed: " .. tostring(reason), 2)
 end)
 
 connectOptional("ObjectiveStarted", function(objectiveId, objectiveName)
@@ -1651,6 +1855,9 @@ connectOptional("ObjectiveStarted", function(objectiveId, objectiveName)
 end)
 
 connectOptional("RoundResults", function(resultData)
+	-- Authoritative result payload with scores/MVP/summary.
+	-- RoundEnded may arrive before this; keep results UI for this payload.
+	roundResultVisible = false
 	showRoundResults(resultData)
 end)
 

@@ -34,6 +34,7 @@ local currentRoundId = 0
 local heartbeatConn = nil
 local initialized = false
 local remotes = {}
+local scoreCallbacks = nil
 
 local function getOrCreateRemote(name)
 	local remote = ReplicatedStorage:FindFirstChild(name)
@@ -166,6 +167,12 @@ local function startHeartbeat()
 
 			local gain = PROGRESS_PER_SECOND * getMultiplier(activeCount) * dt
 			obj.progress = math.clamp(obj.progress + gain, 0, 1)
+			if scoreCallbacks and scoreCallbacks.onSealProgress and gain > 0 then
+				local share = gain / activeCount
+				for _, p in ipairs(valid) do
+					scoreCallbacks.onSealProgress(p, obj.id, share)
+				end
+			end
 			updatePartAttribs(obj)
 
 			local now = os.clock()
@@ -181,6 +188,11 @@ local function startHeartbeat()
 				updatePartAttribs(obj)
 
 				local completedCount = ObjectiveService.GetCompletedCount()
+				if scoreCallbacks and scoreCallbacks.onSealCompleted then
+					for _, p in ipairs(valid) do
+						scoreCallbacks.onSealCompleted(p, obj.id)
+					end
+				end
 				fireAll("ObjectiveCompleted", obj.id, obj.displayName, completedCount)
 
 				if completedCount >= 3 and not vaultOpen then
@@ -191,6 +203,10 @@ local function startHeartbeat()
 			end
 		end
 	end)
+end
+
+function ObjectiveService.SetScoreCallbacks(callbacks)
+	scoreCallbacks = callbacks
 end
 
 function ObjectiveService.Init()
@@ -412,6 +428,29 @@ function ObjectiveService.GetObjectivesSnapshot()
 		}
 	end
 	return snap
+end
+
+function ObjectiveService.DebugCompleteAll()
+	for _, obj in pairs(objectives) do
+		obj.progress = 1
+		obj.completed = true
+		obj.activePlayers = {}
+		updatePartAttribs(obj)
+		fireAll("ObjectiveCompleted", obj.id, obj.displayName, ObjectiveService.GetCompletedCount())
+	end
+	if not vaultOpen then
+		vaultOpen = true
+		setVaultPartsOpen(true)
+		fireAll("VaultOpened")
+	end
+end
+
+function ObjectiveService.DebugOpenVault()
+	if not vaultOpen then
+		vaultOpen = true
+		setVaultPartsOpen(true)
+		fireAll("VaultOpened")
+	end
 end
 
 return ObjectiveService

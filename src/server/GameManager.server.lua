@@ -10,14 +10,15 @@ local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
 local RoleManager = require(script.Parent:WaitForChild("RoleManager"))
 local GuardianController = require(script.Parent:WaitForChild("GuardianController"))
-local ThiefController = require(script.Parent:WaitForChild("ThiefController"))
-local BrazierManager = require(script.Parent:WaitForChild("BrazierManager"))
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local ObjectiveService = require(script.Parent:WaitForChild("ObjectiveService"))
 local IdolService = require(script.Parent:WaitForChild("IdolService"))
 local CageService = require(script.Parent:WaitForChild("CageService"))
 local GuardianAbilityService = require(script.Parent:WaitForChild("GuardianAbilityService"))
 local TestMapService = require(script.Parent:WaitForChild("TestMapService"))
+local RoundScoreService = require(script.Parent:WaitForChild("RoundScoreService"))
+local MapValidationService = require(script.Parent:WaitForChild("MapValidationService"))
+local DebugCommandService = require(script.Parent:WaitForChild("DebugCommandService"))
 print("GameManager: all modules loaded")
 
 local function getOrCreateRemote(name)
@@ -39,13 +40,9 @@ local catchThiefRemote = getOrCreateRemote("CatchThief")
 local setMovementStateRemote = getOrCreateRemote("SetMovementState")
 getOrCreateRemote("ThiefCaught")
 local roleAssignedRemote = getOrCreateRemote("RoleAssigned")
-local brazierInteractRemote = getOrCreateRemote("BrazierInteract")
-getOrCreateRemote("GuardianBrazierSequence")
-getOrCreateRemote("BrazierStateChanged")
 local roundStartedRemote = getOrCreateRemote("RoundStarted")
 local roundEndedRemote = getOrCreateRemote("RoundEnded")
 local thiefCountUpdateRemote = getOrCreateRemote("ThiefCountUpdate")
-local brazierProgressUpdateRemote = getOrCreateRemote("BrazierProgressUpdate")
 local lobbyUpdateRemote = getOrCreateRemote("LobbyUpdate")
 local requestObjectiveStartRemote = getOrCreateRemote("RequestObjectiveStart")
 local requestObjectiveStopRemote = getOrCreateRemote("RequestObjectiveStop")
@@ -66,6 +63,8 @@ local thievesExtracted = false
 local thiefSpawnCursor = 0
 local vaultWatcherToken = 0
 local endingRound = false
+local forcedWinner = nil
+local forcedReason = nil
 
 local function getTaggedParts(tag)
 	local parts = {}
@@ -217,6 +216,38 @@ local function applyBaseMovementForRole(player, role)
 	teleportToSpawn(player, role)
 end
 
+local function teleportPlayerForSafety(player)
+	if not player or not player.Parent then return end
+	local character = player.Character
+	if not character then return end
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return end
+
+	local state = PlayerStateService.GetState(player)
+	if state == PlayerStateService.State.Caged or state == PlayerStateService.State.Caught then
+		local cage = getOrCreateCaughtHoldingSpawn()
+		if cage then
+			rootPart.CFrame = CFrame.new(cage.Position + Vector3.new(0, 5, 0))
+		end
+		return
+	end
+
+	local role = rolesByPlayer[player]
+	if role == Types.PlayerRole.Guardian then
+		local guardianSpawns = getTaggedParts("GuardianSpawn")
+		local spawnPart = guardianSpawns[1]
+		if spawnPart then
+			rootPart.CFrame = CFrame.new(spawnPart.Position + Vector3.new(0, 5, 0))
+		end
+	else
+		local thiefSpawns = getTaggedParts("ThiefSpawn")
+		local spawnPart = thiefSpawns[1]
+		if spawnPart then
+			rootPart.CFrame = CFrame.new(spawnPart.Position + Vector3.new(0, 5, 0))
+		end
+	end
+end
+
 local function fireRoundEnded(result, winner)
 	for _, player in Players:GetPlayers() do
 		roundEndedRemote:FireClient(player, result, winner)
@@ -244,20 +275,13 @@ local function fireThiefCountToGuardian()
 	end
 end
 
-local function fireBrazierProgressToThieves(count)
-	for player, role in rolesByPlayer do
-		if role == Types.PlayerRole.Thief and Players:FindFirstChild(player.Name) then
-			brazierProgressUpdateRemote:FireClient(player, count)
-		end
-	end
-end
-
 local function clearRoundState()
 	PlayerStateService.ResetForNewRound(roundId)
 	ObjectiveService.StopRound()
 	IdolService.StopRound()
 	CageService.StopRound()
 	GuardianAbilityService.StopRound()
+	RoundScoreService.StopRound()
 
 	for player in rolesByPlayer do
 		player:SetAttribute("Role", nil)
@@ -265,10 +289,10 @@ local function clearRoundState()
 		GuardianController.ResetPlayer(player)
 	end
 
-	BrazierManager.Reset()
-
 	roundActive = false
 	endingRound = false
+	forcedWinner = nil
+	forcedReason = nil
 	rolesByPlayer = {}
 	activeThieves = {}
 	guardianPlayer = nil
@@ -286,6 +310,11 @@ local function clearRoundState()
 	print(string.format("[RoundLifecycle] Cleanup complete roundId=%d", roundId))
 end
 
+local function setForcedRoundResult(winner, reason)
+	forcedWinner = winner
+	forcedReason = reason
+end
+
 Players.PlayerRemoving:Connect(function(player)
 	local role = rolesByPlayer[player]
 	local state = PlayerStateService.GetState(player)
@@ -301,21 +330,31 @@ Players.PlayerRemoving:Connect(function(player)
 		tostring(caged)
 	))
 
+	ObjectiveService.StopAllForPlayer(player)
+	IdolService.DropFromPlayer(player, "left")
+	CageService.StopAllForPlayer(player)
+	GuardianAbilityService.StopAllForPlayer(player)
+	PlayerStateService.UnregisterPlayer(player)
 	rolesByPlayer[player] = nil
 	activeThieves[player] = nil
 	GuardianController.ResetPlayer(player)
 	if player == guardianPlayer then
 		guardianPlayer = nil
+		if roundActive then
+			setForcedRoundResult("Thieves", "Guardian left")
+		end
 	end
-	PlayerStateService.UnregisterPlayer(player)
-	ObjectiveService.StopAllForPlayer(player)
-	IdolService.DropFromPlayer(player, "left")
-	CageService.StopAllForPlayer(player)
-	GuardianAbilityService.StopAllForPlayer(player)
 	fireThiefCountToGuardian()
 end)
 
 Players.PlayerAdded:Connect(function(player)
+	if roundActive then
+		player:SetAttribute("Role", nil)
+		player:SetAttribute("RoundState", PlayerStateService.State.OutOfRound)
+	else
+		player:SetAttribute("Role", nil)
+		player:SetAttribute("RoundState", PlayerStateService.State.Lobby)
+	end
 	player.CharacterAdded:Connect(function(character)
 		local humanoid = character:WaitForChild("Humanoid", 5)
 		if humanoid then
@@ -365,38 +404,11 @@ setMovementStateRemote.OnServerEvent:Connect(function(player, requestedState, is
 				player:SetAttribute("IsCrouching", isActive)
 			end
 		end
-	elseif role == Types.PlayerRole.Guardian and requestedState == "Sprint" then
-		GuardianController.SetSprinting(player, isActive, rolesByPlayer)
-	end
-end)
-
--- NOTE: BrazierManager drives placeholder visual feedback only.
--- Objective win state is owned by ObjectiveService.
--- BrazierManager.IsUnlocked() is no longer used as a gate.
-brazierInteractRemote.OnServerEvent:Connect(function(player, brazierName)
-	if not roundActive then
-		return
-	end
-	if type(brazierName) ~= "string" then
-		return
-	end
-
-	local role = rolesByPlayer[player]
-	if role == Types.PlayerRole.Thief and PlayerStateService.CanInteractObjective(player) then
-		local success = BrazierManager.TryLightBrazier(player, brazierName, rolesByPlayer, roundActive)
-		if success then
-			fireBrazierProgressToThieves(BrazierManager.GetLitCount())
-		end
-	elseif role == Types.PlayerRole.Guardian then
-		local success = BrazierManager.TryExtinguishBrazier(player, brazierName, rolesByPlayer, roundActive)
-		if success then
-			fireBrazierProgressToThieves(BrazierManager.GetLitCount())
-		end
 	end
 end)
 
 thiefExtractedRemote.OnServerEvent:Connect(function(player)
-	-- Old extraction path disabled. IdolService owns extraction.
+	-- Legacy extraction remote. IdolService owns extraction. This remote intentionally does nothing.
 end)
 
 catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
@@ -412,8 +424,10 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 	end
 	local success = GuardianController.TryCatch(player, targetPlayer, rolesByPlayer, roundActive)
 	if success then
+		local wasIdolCarrier = IdolService.PlayerHasIdol(targetPlayer)
 		local caught, newState = PlayerStateService.MarkCaught(targetPlayer)
 		if caught then
+			RoundScoreService.RecordCaughtByGuardian(player, targetPlayer, wasIdolCarrier)
 			handleCaughtThief(targetPlayer, newState)
 			ObjectiveService.StopAllForPlayer(targetPlayer)
 			IdolService.DropFromPlayer(targetPlayer, "caught")
@@ -434,13 +448,71 @@ local function getRoundPlayers()
 end
 
 TestMapService.Init()
+local mapReport = MapValidationService.ValidateCurrentMap()
+MapValidationService.PrintReport()
+if Constants.STRICT_MAP_VALIDATION == true and not mapReport.ok then
+	warn("[MapValidation] STRICT_MAP_VALIDATION enabled and map report has errors.")
+end
 ObjectiveService.Init()
 IdolService.Init()
 CageService.Init()
 GuardianAbilityService.Init()
+RoundScoreService.Init()
+ObjectiveService.SetScoreCallbacks({
+	onSealProgress = function(player, objectiveId, delta)
+		RoundScoreService.RecordSealProgress(player, objectiveId, delta)
+	end,
+	onSealCompleted = function(player, objectiveId)
+		RoundScoreService.RecordSealCompleted(player, objectiveId)
+	end,
+})
+IdolService.SetScoreCallbacks({
+	onIdolPickedUp = function(player)
+		RoundScoreService.RecordIdolPickedUp(player)
+	end,
+	onIdolExtracted = function(player)
+		RoundScoreService.RecordIdolExtracted(player)
+	end,
+})
+CageService.SetScoreCallbacks({
+	onCaged = function(player)
+		RoundScoreService.RecordCaged(player)
+	end,
+	onRescueProgress = function(player, delta)
+		RoundScoreService.RecordRescueProgress(player, delta)
+	end,
+	onRescueCompleted = function(rescuer, rescued)
+		RoundScoreService.RecordRescueCompleted(rescuer, rescued)
+	end,
+})
+GuardianAbilityService.SetScoreCallbacks({
+	onRush = function(player)
+		RoundScoreService.RecordGuardianRush(player)
+	end,
+	onReveal = function(player, revealedCount)
+		RoundScoreService.RecordGuardianReveal(player, revealedCount)
+	end,
+	onRoar = function(player, affectedCount)
+		RoundScoreService.RecordGuardianRoar(player, affectedCount)
+	end,
+})
 IdolService.SetRoundEndCallback(function(extractingPlayer)
 	thievesExtracted = true
 end)
+CageService.SetRescueCompletedCallback(function(rescuedPlayer, reason)
+	local _ = rescuedPlayer
+local _reason = reason
+	fireThiefCountToGuardian()
+end)
+DebugCommandService.Init({
+	Constants = Constants,
+	ObjectiveService = ObjectiveService,
+	IdolService = IdolService,
+	CageService = CageService,
+	PlayerStateService = PlayerStateService,
+	MapValidationService = MapValidationService,
+	SetForcedRoundResult = setForcedRoundResult,
+})
 -- ensureBasicMap, ensureVaultPart, ensureSpawnPoints disabled:
 -- TestMapService provides all tagged gameplay parts.
 print("GameManager: vault ensured")
@@ -482,8 +554,10 @@ while true do
 	roundId += 1
 	print(string.format("[RoundLifecycle] Start roundId=%d", roundId))
 	PlayerStateService.ResetForNewRound(roundId)
+	RoundScoreService.ResetForRound(roundId, rolesByPlayer)
 	for player, role in rolesByPlayer do
 		PlayerStateService.RegisterPlayer(player, role, roundId)
+		RoundScoreService.RegisterPlayer(player, role)
 	end
 	ObjectiveService.ResetForRound(roundId)
 	ObjectiveService.AutoRegisterObjectiveParts()
@@ -515,12 +589,10 @@ while true do
 		roleAssignedRemote:FireClient(player, role)
 	end
 
-	BrazierManager.InitRound(rolesByPlayer)
-	fireBrazierProgressToThieves(0)
 	fireThiefCountToGuardian()
 
 	for _, player in Players:GetPlayers() do
-		roundStartedRemote:FireClient(player, Constants.ROUND_DURATION_SECONDS)
+		roundStartedRemote:FireClient(player, Constants.ROUND_DURATION_SECONDS, PlayerStateService.CountAliveThieves())
 	end
 
 	for _, tag in ipairs({"ThiefSpawn", "GuardianSpawn"}) do
@@ -534,10 +606,16 @@ while true do
 	local roundEndsAt = os.clock() + Constants.ROUND_DURATION_SECONDS
 	local result = "Time expired"
 	local winner = "Time"
+	local lastFallSafetyAt = 0
 
 	while roundActive do
-		GuardianController.StepSprintTimers(rolesByPlayer)
-
+		if forcedWinner ~= nil then
+			endingRound = true
+			result = forcedReason or "Round ended by debug command"
+			winner = forcedWinner
+			roundActive = false
+			break
+		end
 		if thievesExtracted then
 			endingRound = true
 			result = "Thieves extracted loot"
@@ -581,15 +659,28 @@ while true do
 			break
 		end
 
+		local now = os.clock()
+		if now - lastFallSafetyAt >= 0.5 then
+			lastFallSafetyAt = now
+			for player in pairs(rolesByPlayer) do
+				local character = player.Character
+				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+				if rootPart and rootPart.Position.Y <= (Constants.FALL_RESET_Y or -100) then
+					teleportPlayerForSafety(player)
+				end
+			end
+		end
+
 		RunService.Heartbeat:Wait()
 	end
 
 	fireRoundEnded(result, winner)
+	RoundScoreService.FireResults(winner, result)
 	print(string.format("[RoundLifecycle] End roundId=%d winner=%s reason=%s", roundId, tostring(winner), tostring(result)))
 	print(string.format("[RoundResult] %s", result))
 	for _, player in ipairs(Players:GetPlayers()) do
 		ObjectiveService.StopAllForPlayer(player)
 	end
 	clearRoundState()
-	task.wait(3)
+	task.wait(Constants.RESULTS_DISPLAY_SECONDS or 3)
 end

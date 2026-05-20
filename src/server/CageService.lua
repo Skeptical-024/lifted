@@ -14,17 +14,20 @@ local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateServic
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
 local RESCUE_DIST = Constants.CAGE_RESCUE_DISTANCE or 12
-local RESCUE_TIME = Constants.CAGE_RESCUE_SECONDS or Constants.CAGE_RESCUE_TIME or 4
+local RESCUE_TIME = Constants.CAGE_RESCUE_SECONDS or 8
 local BASE_RATE = 1 / RESCUE_TIME
 
 local MULTIPLIERS = { [1] = 1.0, [2] = 1.5, [3] = 2.0, [4] = 2.25 }
 
 local cagedPlayers = {}
 local rescueRecords = {}
+local rescuerTargets = {}
 local rescuePoint = nil
 local cageSpawn = nil
 local heartbeatConn = nil
 local roundIsActive = false
+local rescueCompletedCallback = nil
+local scoreCallbacks = nil
 
 local function getOrCreateRemote(name)
 	local r = ReplicatedStorage:FindFirstChild(name)
@@ -114,11 +117,18 @@ local function startHeartbeat()
 							table.insert(valid, rescuer)
 						end
 					end
+				else
+					if rescuer then
+						rescuerTargets[rescuer.UserId] = nil
+					end
 				end
 			end
 			local prevCount = #rec.activeRescuers  -- capture before reassigning
 			rec.activeRescuers = valid
 			local count = #valid
+			for _, rescuer in ipairs(valid) do
+				rescuerTargets[rescuer.UserId] = cageUserId
+			end
 
 			-- If we had rescuers but now have none, the rescue was canceled
 			if prevCount > 0 and count == 0 then
@@ -132,14 +142,27 @@ local function startHeartbeat()
 			if count == 0 then continue end
 
 			rec.progress = math.clamp(rec.progress + BASE_RATE * getMultiplier(count) * dt, 0, 1)
-			fireAll("CageRescueProgress", cageUserId, rec.progress, count)
+			if scoreCallbacks and scoreCallbacks.onRescueProgress then
+				local gain = BASE_RATE * getMultiplier(count) * dt
+				local share = gain / count
+				for _, rescuer in ipairs(valid) do
+					scoreCallbacks.onRescueProgress(rescuer, share)
+				end
+			end
+			local now = os.clock()
+			if now - (rec.lastProgressEmit or 0) >= 0.12 then
+				rec.lastProgressEmit = now
+				fireAll("CageRescueProgress", cageUserId, rec.progress, count)
+			end
 
 			if rec.progress >= 1 then
 				local rescuedPlayer = caged
-				cagedPlayers[cageUserId] = nil
-				rescueRecords[cageUserId] = nil
-
 				CageService.ReleasePlayer(rescuedPlayer, "rescued")
+				if scoreCallbacks and scoreCallbacks.onRescueCompleted and #valid > 0 then
+					for _, rescuer in ipairs(valid) do
+						scoreCallbacks.onRescueCompleted(rescuer, rescuedPlayer)
+					end
+				end
 				-- Fire CageRescueCompleted to all (UI uses this)
 				fireAll("CageRescueCompleted", rescuedPlayer.UserId, rescuedPlayer.Name)
 				print("[CageService] Rescued:", rescuedPlayer.Name)
@@ -204,6 +227,7 @@ function CageService.ResetForRound(roundId)
 	roundIsActive = true
 	cagedPlayers = {}
 	rescueRecords = {}
+	rescuerTargets = {}
 	CageService.AutoRegisterParts()
 	stopHeartbeat()
 	startHeartbeat()
@@ -216,6 +240,7 @@ function CageService.StopRound()
 	for uid, p in pairs(cagedPlayers) do snapshot[uid] = p end
 	cagedPlayers = {}
 	rescueRecords = {}
+	rescuerTargets = {}
 	for _, p in pairs(snapshot) do
 		if p and p.Parent then
 			pcall(function()
@@ -250,9 +275,13 @@ function CageService.CagePlayer(player)
 		player = player,
 		progress = 0,
 		activeRescuers = {},
+		lastProgressEmit = 0,
 	}
 
 	fireAll("PlayerCaged", player.UserId, player.Name)
+	if scoreCallbacks and scoreCallbacks.onCaged then
+		scoreCallbacks.onCaged(player)
+	end
 	pcall(function() player:SetAttribute("IsCaged", true) end)
 	fireAll("CageStateChanged", player.UserId, player.Name, "Caged", "caught")
 	print("[CageService] Caged:", player.Name)
@@ -281,16 +310,6 @@ function CageService.StartRescue(rescuer, targetUserId)
 		return
 	end
 
-	-- Single rescuer per target: reject if someone else is already rescuing
-	if #targetRec.activeRescuers > 0 then
-		if targetRec.activeRescuers[1] ~= rescuer then
-			fireOne(rescuer, "CageRescueFailed", "already_being_rescued")
-			return
-		end
-		-- Same rescuer calling start again: no-op
-		return
-	end
-
 	local root = getRootPart(rescuer)
 	if not root then
 		fireOne(rescuer, "CageRescueFailed", "no_character")
@@ -306,7 +325,18 @@ function CageService.StartRescue(rescuer, targetUserId)
 		return
 	end
 
+	local existingTarget = rescuerTargets[rescuer.UserId]
+	if existingTarget ~= nil and existingTarget ~= targetUserId then
+		fireOne(rescuer, "CageRescueFailed", "already_rescuing_other_target")
+		return
+	end
+	for _, r in ipairs(targetRec.activeRescuers) do
+		if r == rescuer then
+			return
+		end
+	end
 	table.insert(targetRec.activeRescuers, rescuer)
+	rescuerTargets[rescuer.UserId] = targetUserId
 
 	local caged = cagedPlayers[targetUserId]
 	local targetName = caged and caged.Name or "teammate"
@@ -315,6 +345,7 @@ end
 
 function CageService.StopRescue(rescuer, targetUserId)
 	if not rescuer then return end
+	rescuerTargets[rescuer.UserId] = nil
 	if targetUserId and rescueRecords[targetUserId] then
 		local rec = rescueRecords[targetUserId]
 		for i, r in ipairs(rec.activeRescuers) do
@@ -340,6 +371,9 @@ function CageService.StopAllForPlayer(player)
 		cagedPlayers[player.UserId] = nil
 		rescueRecords[player.UserId] = nil
 	end
+	if player then
+		rescuerTargets[player.UserId] = nil
+	end
 	CageService.StopRescue(player)
 end
 
@@ -347,6 +381,11 @@ function CageService.ReleasePlayer(player, reason)
 	if not player or not player.Parent then return end
 	cagedPlayers[player.UserId] = nil
 	rescueRecords[player.UserId] = nil
+	for rescuerUserId, targetUserId in pairs(rescuerTargets) do
+		if targetUserId == player.UserId then
+			rescuerTargets[rescuerUserId] = nil
+		end
+	end
 	local ok = PlayerStateService.MarkRescued(player)
 	if not ok then
 		local currentState = PlayerStateService.GetState(player)
@@ -385,7 +424,18 @@ function CageService.ReleasePlayer(player, reason)
 		player:SetAttribute("IsCaught", false)
 	end)
 	fireAll("CageStateChanged", player.UserId, player.Name, "Alive", reason or "rescued")
+	if rescueCompletedCallback then
+		rescueCompletedCallback(player, reason or "rescued")
+	end
 	print("[CageService] Released:", player.Name, "reason:", reason or "rescued")
+end
+
+function CageService.SetRescueCompletedCallback(callback)
+	rescueCompletedCallback = callback
+end
+
+function CageService.SetScoreCallbacks(callbacks)
+	scoreCallbacks = callbacks
 end
 
 function CageService.IsCaged(player)

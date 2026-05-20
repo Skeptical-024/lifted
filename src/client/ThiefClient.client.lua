@@ -17,12 +17,17 @@ local requestExtractRemote = ReplicatedStorage:WaitForChild("RequestExtractWithI
 local requestExtractCancelRemote = ReplicatedStorage:WaitForChild("RequestExtractCancel")
 local requestCageRescueStartRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStart")
 local requestCageRescueStopRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStop")
+local RequestObjectiveStart = requestObjectiveStartRemote
+local RequestObjectiveStop = requestObjectiveStopRemote
+local RequestIdolPickup = requestIdolPickupRemote
+local RequestExtractWithIdol = requestExtractRemote
+local RequestCageRescueStart = requestCageRescueStartRemote
 
 local crouching = false
 local rescuingActive = false
-local rescuingTargetId = nil
-local interactingObjectiveId = nil
-local extractingWithIdol = false
+local activeRescueTargetUserId = nil
+local activeObjectiveId = nil
+local extractionHeld = false
 
 local footstepSounds = {}
 local originalFootstepVolume = {}
@@ -96,14 +101,14 @@ local function beginSealInteraction(objectiveId)
 	if type(objectiveId) ~= "string" then
 		return
 	end
-	interactingObjectiveId = objectiveId
-	requestObjectiveStartRemote:FireServer(objectiveId)
+	activeObjectiveId = objectiveId
+	RequestObjectiveStart:FireServer(objectiveId)
 end
 
 local function stopSealInteraction()
-	if interactingObjectiveId then
-		requestObjectiveStopRemote:FireServer(interactingObjectiveId)
-		interactingObjectiveId = nil
+	if activeObjectiveId then
+		RequestObjectiveStop:FireServer(activeObjectiveId)
+		activeObjectiveId = nil
 	end
 end
 
@@ -181,23 +186,23 @@ end
 local function stopRescue()
 	if not rescuingActive then return end
 	rescuingActive = false
-	requestCageRescueStopRemote:FireServer(rescuingTargetId)
-	rescuingTargetId = nil
+	requestCageRescueStopRemote:FireServer(activeRescueTargetUserId)
+	activeRescueTargetUserId = nil
 end
 
 local function clearInteractionState(sendServerStops)
 	if sendServerStops then
 		stopSealInteraction()
 		stopRescue()
-		if extractingWithIdol then
-			extractingWithIdol = false
+		if extractionHeld then
+			extractionHeld = false
 			requestExtractCancelRemote:FireServer()
 		end
 	else
-		interactingObjectiveId = nil
+		activeObjectiveId = nil
 		rescuingActive = false
-		rescuingTargetId = nil
-		extractingWithIdol = false
+		activeRescueTargetUserId = nil
+		extractionHeld = false
 	end
 end
 
@@ -247,26 +252,23 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 		end
 	elseif input.KeyCode == Enum.KeyCode.E then
 		if not isThief() then return end
-		if localPlayer:GetAttribute("HasIdol") and getNearestExtractPoint() then
-			-- Priority 1: extract with idol
-			extractingWithIdol = true
-			requestExtractRemote:FireServer()
-		elseif not localPlayer:GetAttribute("HasIdol") and isNearRescuePoint() then
-			-- Priority 2: rescue caged teammate
+		local hasIdol = localPlayer:GetAttribute("HasIdol") == true
+		if hasIdol and getNearestExtractPoint() then
+			extractionHeld = true
+			RequestExtractWithIdol:FireServer()
+		elseif not hasIdol and isNearRescuePoint() then
 			local _, targetId = getNearestCagedTeammate()
 			if targetId then
 				rescuingActive = true
-				rescuingTargetId = targetId
-				requestCageRescueStartRemote:FireServer(targetId)
+				activeRescueTargetUserId = targetId
+				RequestCageRescueStart:FireServer(targetId)
 			end
-		elseif not localPlayer:GetAttribute("HasIdol") and getNearestIdolPart() then
-			-- Priority 3: pick up idol
-			requestIdolPickupRemote:FireServer()
 		else
-			-- Priority 4: objective interaction (fallback)
 			local _, nearObjectiveId = getNearestObjectiveStation()
 			if nearObjectiveId then
 				task.spawn(beginSealInteraction, nearObjectiveId)
+			elseif not hasIdol and getNearestIdolPart() then
+				RequestIdolPickup:FireServer()
 			end
 		end
 	end

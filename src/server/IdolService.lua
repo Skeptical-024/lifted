@@ -29,6 +29,7 @@ local idolSpawnCFrame = nil
 local roundIsActive = false
 local currentRoundId = 0
 local roundEndCallback = nil
+local scoreCallbacks = nil
 
 -- Extraction state
 local isExtracting = false
@@ -79,11 +80,14 @@ local function applyCarrierSlow(player)
 end
 
 local function restoreCarrierSpeed(player)
+	pcall(function() player:SetAttribute("IdolCarrierSpeed", nil) end)
 	-- Only restore if player is still alive — do not unfreeze caught/caged players
 	if not PlayerStateService.IsAlive(player) then return end
 	local hum = getHumanoid(player)
-	if hum then hum.WalkSpeed = BASE_SPEED end
-	pcall(function() player:SetAttribute("IdolCarrierSpeed", nil) end)
+	if hum then
+		local isCrouching = player:GetAttribute("IsCrouching") == true
+		hum.WalkSpeed = isCrouching and (Constants.THIEF_CROUCH_SPEED or 8) or BASE_SPEED
+	end
 end
 
 local function cancelExtraction(reason)
@@ -193,11 +197,12 @@ local function startHeartbeat()
 			extractToken += 1
 			local carrier = idolCarrier
 			idolCarrier = nil
-			pcall(function()
-				carrier:SetAttribute("HasIdol", false)
-				carrier:SetAttribute("IdolCarrierSpeed", nil)
-			end)
+			restoreCarrierSpeed(carrier)
+			pcall(function() carrier:SetAttribute("HasIdol", false) end)
 			PlayerStateService.MarkEscaped(carrier)
+			if scoreCallbacks and scoreCallbacks.onIdolExtracted then
+				scoreCallbacks.onIdolExtracted(carrier)
+			end
 			if idolPart then
 				pcall(function()
 					idolPart.Transparency = 1
@@ -285,8 +290,8 @@ function IdolService.ResetForRound(roundId)
 	if idolCarrier then
 		pcall(function()
 			idolCarrier:SetAttribute("HasIdol", false)
-			idolCarrier:SetAttribute("IdolCarrierSpeed", nil)
 		end)
+		restoreCarrierSpeed(idolCarrier)
 		idolCarrier = nil
 	end
 	for _, p in ipairs(Players:GetPlayers()) do
@@ -319,8 +324,8 @@ function IdolService.StopRound()
 	if idolCarrier then
 		pcall(function()
 			idolCarrier:SetAttribute("HasIdol", false)
-			idolCarrier:SetAttribute("IdolCarrierSpeed", nil)
 		end)
+		restoreCarrierSpeed(idolCarrier)
 		idolCarrier = nil
 	end
 	if idolPart and idolSpawnCFrame then
@@ -379,6 +384,9 @@ function IdolService.RequestPickup(player)
 	end)
 	applyCarrierSlow(player)
 	lastPingAt = 0 -- fire first ping immediately next heartbeat
+	if scoreCallbacks and scoreCallbacks.onIdolPickedUp then
+		scoreCallbacks.onIdolPickedUp(player)
+	end
 
 	fireAll("IdolPickedUp", player.UserId, player.Name)
 	fireAll("IdolCarrierChanged", player.UserId, player.Name)
@@ -463,6 +471,33 @@ end
 
 function IdolService.PlayerHasIdol(player)
 	return idolCarrier == player
+end
+
+function IdolService.SetScoreCallbacks(callbacks)
+	scoreCallbacks = callbacks
+end
+
+function IdolService.DebugForceGive(player)
+	if not roundIsActive then return false, "round_inactive" end
+	if idolCarrier then return false, "already_carried" end
+	if not player or not player.Parent then return false, "player_missing" end
+	if not PlayerStateService.IsAliveThief(player) then return false, "not_alive_thief" end
+	if not idolPart then return false, "idol_unbound" end
+	idolCarrier = player
+	pcall(function()
+		player:SetAttribute("HasIdol", true)
+		idolPart:SetAttribute("IdolState", "Carried")
+		idolPart.Transparency = 1
+		idolPart.Anchored = true
+	end)
+	applyCarrierSlow(player)
+	lastPingAt = 0
+	if scoreCallbacks and scoreCallbacks.onIdolPickedUp then
+		scoreCallbacks.onIdolPickedUp(player)
+	end
+	fireAll("IdolPickedUp", player.UserId, player.Name)
+	fireAll("IdolCarrierChanged", player.UserId, player.Name)
+	return true, "ok"
 end
 
 return IdolService

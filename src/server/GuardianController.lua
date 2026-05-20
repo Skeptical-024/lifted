@@ -2,12 +2,9 @@ local GuardianController = {}
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ReplicatedStorage_local = game:GetService("ReplicatedStorage")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
-
-local sprintStateByPlayer = {}
 
 local function getHumanoid(player)
 	local character = player.Character
@@ -25,74 +22,8 @@ local function getRootPart(player)
 	return character:FindFirstChild("HumanoidRootPart")
 end
 
-local function ensureSprintState(player)
-	local state = sprintStateByPlayer[player]
-	if state then
-		return state
-	end
-
-	state = {
-		isSprinting = false,
-		sprintEndsAt = 0,
-		cooldownEndsAt = 0,
-	}
-	sprintStateByPlayer[player] = state
-	return state
-end
-
 function GuardianController.ResetPlayer(player)
-	sprintStateByPlayer[player] = nil
-end
-
-function GuardianController.SetSprinting(player, shouldSprint, rolesByPlayer)
-	if rolesByPlayer[player] ~= "Guardian" then
-		return
-	end
-
-	local humanoid = getHumanoid(player)
-	if not humanoid then
-		return
-	end
-
-	local now = os.clock()
-	local state = ensureSprintState(player)
-
-	if state.isSprinting and now >= state.sprintEndsAt then
-		state.isSprinting = false
-		state.cooldownEndsAt = now + Constants.GUARDIAN_SPRINT_COOLDOWN_SECONDS
-	end
-
-	if shouldSprint then
-		if state.isSprinting then
-			return
-		end
-		if now < state.cooldownEndsAt then
-			return
-		end
-		state.isSprinting = true
-		state.sprintEndsAt = now + Constants.GUARDIAN_SPRINT_DURATION_SECONDS
-		humanoid.WalkSpeed = Constants.GUARDIAN_SPRINT_SPEED
-	else
-		if state.isSprinting then
-			state.isSprinting = false
-			state.cooldownEndsAt = now + Constants.GUARDIAN_SPRINT_COOLDOWN_SECONDS
-		end
-		humanoid.WalkSpeed = Constants.DEFAULT_WALK_SPEED
-	end
-end
-
-function GuardianController.StepSprintTimers(rolesByPlayer)
-	local now = os.clock()
-	for player, state in sprintStateByPlayer do
-		if rolesByPlayer[player] == "Guardian" and state.isSprinting and now >= state.sprintEndsAt then
-			state.isSprinting = false
-			state.cooldownEndsAt = now + Constants.GUARDIAN_SPRINT_COOLDOWN_SECONDS
-			local humanoid = getHumanoid(player)
-			if humanoid then
-				humanoid.WalkSpeed = Constants.DEFAULT_WALK_SPEED
-			end
-		end
-	end
+	local _ = player
 end
 
 function GuardianController.TryCatch(guardianPlayer, targetPlayer, rolesByPlayer, roundActive)

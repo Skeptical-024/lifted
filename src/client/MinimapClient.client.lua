@@ -2,6 +2,7 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
@@ -66,6 +67,9 @@ vaultDot.Rotation = 45
 vaultDot.Parent = dotsFolder
 
 local otherDots = {}
+local revealVisibleUntil = 0
+local revealedUserIds = {}
+local guardianRevealRemote = ReplicatedStorage:FindFirstChild("GuardianRevealStarted")
 
 local function worldToMap(worldPos)
 	local x = (worldPos.X + 150) / 300 * 140
@@ -124,8 +128,16 @@ RunService.Heartbeat:Connect(function(dt)
 					dot = makeDot("Thief_" .. p.Name, 6, Color3.fromRGB(40, 220, 200))
 					otherDots[p] = dot
 				end
-				dot.Visible = true
-				setDotPos(dot, root.Position)
+				local showThief = false
+				if role == "Thief" then
+					showThief = true
+				elseif role == "Guardian" then
+					showThief = os.clock() <= revealVisibleUntil and revealedUserIds[p.UserId] == true
+				end
+				dot.Visible = showThief
+				if showThief then
+					setDotPos(dot, root.Position)
+				end
 			end
 		end
 	end
@@ -137,6 +149,22 @@ RunService.Heartbeat:Connect(function(dt)
 		guardianDot.Visible = false
 	end
 end)
+
+if guardianRevealRemote and guardianRevealRemote:IsA("RemoteEvent") then
+	guardianRevealRemote.OnClientEvent:Connect(function(revealed, duration)
+		revealedUserIds = {}
+		if type(revealed) == "table" then
+			for _, entry in ipairs(revealed) do
+				local userId = tonumber(entry and entry.userId)
+				if userId then
+					revealedUserIds[userId] = true
+				end
+			end
+		end
+		local revealDuration = tonumber(duration) or 4
+		revealVisibleUntil = os.clock() + math.max(revealDuration, 0)
+	end)
+end
 
 Players.PlayerRemoving:Connect(function(player)
 	local dot = otherDots[player]

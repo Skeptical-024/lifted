@@ -1051,7 +1051,7 @@ local howCard1 = makeHowCard(1, "01", "THIEVES", {
 	"Break 3 cursed seals, open the vault, steal the idol, and escape through an extraction point before the timer runs out.",
 }, nil)
 local howCard2 = makeHowCard(2, "02", "GUARDIAN", {
-	"Hunt the thieves, stop the seals from being broken, protect the idol, and prevent extraction. Sprint with Shift - 10 second cooldown.",
+	"Hunt the thieves, stop the seals from being broken, protect the idol, and prevent extraction. Rush with Shift - 10 second cooldown.",
 }, nil)
 local howCard3 = makeHowCard(3, "03", "SEALS", {
 	"Each seal takes time to break. Failed timing checks can attract danger. All 3 seals must be broken to unlock the vault.",
