@@ -272,6 +272,20 @@ local function setCountdown(seconds)
 	if seconds <= 3 then startCriticalPulse() else stopCriticalPulse() end
 end
 
+local function setIntermission(seconds, playerCount, required)
+	mode = "intermission"
+	statusLabel.Text = "NEXT ROUND SOON"
+	countPill.Visible = true
+	countLabel.Text = string.format("%d / %d PLAYERS", playerCount or 0, required or 0)
+	countdownLabel.Visible = true
+	countdownLabel.Text = tostring(seconds or "")
+	countdownLabel.TextColor3 = WAITING_ACCENT
+	subtext.Text = "Resetting the heist..."
+	applyWaitingLobbyTheme()
+	stopCriticalPulse()
+	showPanel()
+end
+
 local function processLobbyPayload(payload)
 	if not menuActive or not playClicked then return end
 	if type(payload) ~= "table" then return end
@@ -279,6 +293,12 @@ local function processLobbyPayload(payload)
 		setWaiting(tonumber(payload.playerCount) or 0, tonumber(payload.required) or 0)
 	elseif payload.status == "countdown" then
 		setCountdown(tonumber(payload.countdown) or 0)
+	elseif payload.status == "intermission" then
+		setIntermission(tonumber(payload.countdown) or 0, tonumber(payload.playerCount) or 0, tonumber(payload.required) or 0)
+	elseif payload.status == "in_progress" then
+		setWaiting(tonumber(payload.playerCount) or 0, tonumber(payload.required) or 0)
+		statusLabel.Text = "ROUND IN PROGRESS"
+		subtext.Text = "Waiting for next round"
 	end
 end
 

@@ -9,6 +9,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
+local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
 local INTERACT_DISTANCE = Constants.OBJECTIVE_INTERACT_DISTANCE or 12
@@ -35,6 +36,13 @@ local heartbeatConn = nil
 local initialized = false
 local remotes = {}
 local scoreCallbacks = nil
+local warned = {}
+
+local function warnOnce(key, ...)
+	if warned[key] then return end
+	warned[key] = true
+	warn(...)
+end
 
 local function getOrCreateRemote(name)
 	local remote = ReplicatedStorage:FindFirstChild(name)
@@ -227,6 +235,9 @@ function ObjectiveService.Init()
 	ObjectiveService.AutoRegisterObjectiveParts()
 
 	remotes.RequestObjectiveStart.OnServerEvent:Connect(function(player, objectiveId)
+		if not RemoteGuardService.Allow(player, "RequestObjectiveStart", 0.1) then
+			return
+		end
 		if type(objectiveId) ~= "string" then
 			return
 		end
@@ -234,6 +245,9 @@ function ObjectiveService.Init()
 	end)
 
 	remotes.RequestObjectiveStop.OnServerEvent:Connect(function(player, objectiveId)
+		if not RemoteGuardService.Allow(player, "RequestObjectiveStop", 0.1) then
+			return
+		end
 		if type(objectiveId) ~= "string" then
 			return
 		end
@@ -359,8 +373,15 @@ function ObjectiveService.CanPlayerInteract(player, objectiveId)
 end
 
 function ObjectiveService.StartInteraction(player, objectiveId)
+	if currentRoundId == nil then
+		warnOnce("start_before_reset", "[ObjectiveService] StartInteraction called before ResetForRound")
+	end
 	local ok, reason = ObjectiveService.CanPlayerInteract(player, objectiveId)
 	if not ok then
+		if reason == "invalid_objective" or reason == "objective_unbound" then
+			warnOnce("objective_fail_" .. tostring(objectiveId) .. "_" .. reason,
+				"[ObjectiveService] StartInteraction failed", tostring(objectiveId), reason)
+		end
 		fireOne(player, "ObjectiveFailed", objectiveId, reason)
 		return false, reason
 	end
@@ -428,6 +449,28 @@ function ObjectiveService.GetObjectivesSnapshot()
 		}
 	end
 	return snap
+end
+
+function ObjectiveService.GetActivePlayersSnapshot()
+	local snap = {}
+	for id, obj in pairs(objectives) do
+		snap[id] = table.clone(obj.activePlayers)
+	end
+	return snap
+end
+
+function ObjectiveService.GetSnapshot()
+	return ObjectiveService.GetObjectivesSnapshot()
+end
+
+function ObjectiveService.IsObjectiveComplete(objectiveId)
+	local obj = objectives[objectiveId]
+	return obj and obj.completed == true or false
+end
+
+function ObjectiveService.GetObjectivePart(objectiveId)
+	local obj = objectives[objectiveId]
+	return obj and obj.part or nil
 end
 
 function ObjectiveService.DebugCompleteAll()

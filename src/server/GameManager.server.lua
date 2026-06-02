@@ -19,6 +19,9 @@ local TestMapService = require(script.Parent:WaitForChild("TestMapService"))
 local RoundScoreService = require(script.Parent:WaitForChild("RoundScoreService"))
 local MapValidationService = require(script.Parent:WaitForChild("MapValidationService"))
 local DebugCommandService = require(script.Parent:WaitForChild("DebugCommandService"))
+local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
+local SnapshotService = require(script.Parent:WaitForChild("SnapshotService"))
+local RuntimeAuditService = require(script.Parent:WaitForChild("RuntimeAuditService"))
 print("GameManager: all modules loaded")
 
 local function getOrCreateRemote(name)
@@ -59,12 +62,72 @@ local roundId = 0
 local rolesByPlayer = {}
 local activeThieves = {}
 local guardianPlayer = nil
-local thievesExtracted = false
 local thiefSpawnCursor = 0
 local vaultWatcherToken = 0
 local endingRound = false
 local forcedWinner = nil
 local forcedReason = nil
+local resultsFired = false
+local lastGuardianUserId = nil
+local roundEndsAt = 0
+local totalThiefCount = 0
+
+local RoundStates = {
+	Lobby = "Lobby",
+	Intermission = "Intermission",
+	Countdown = "Countdown",
+	AssigningRoles = "AssigningRoles",
+	Starting = "Starting",
+	Active = "Active",
+	Ending = "Ending",
+	Results = "Results",
+	Cleanup = "Cleanup",
+}
+
+local roundState = RoundStates.Lobby
+
+local function setRoundState(state, reason)
+	if roundState == state then
+		if reason then
+			print(string.format("[RoundState] duplicate %s ignored (%s)", tostring(state), tostring(reason)))
+		end
+		return
+	end
+	local previous = roundState
+	roundState = state
+	print(string.format(
+		"[RoundTransition] %s -> %s roundId=%d reason=%s players=%d winner=%s",
+		tostring(previous),
+		tostring(state),
+		roundId,
+		tostring(reason or ""),
+		#Players:GetPlayers(),
+		tostring(forcedWinner or "")
+	))
+end
+
+local function getRoundState()
+	return roundState
+end
+
+local function isRoundActive()
+	return roundState == RoundStates.Active and roundActive
+end
+
+local function canAcceptGameplayRequest()
+	return isRoundActive() and not endingRound
+end
+
+local function requestEndRound(winner, reason)
+	if endingRound or forcedWinner ~= nil then
+		return false
+	end
+	endingRound = true
+	forcedWinner = winner or "Time"
+	forcedReason = reason or "Round ended"
+	setRoundState(RoundStates.Ending, forcedReason)
+	return true
+end
 
 local function getTaggedParts(tag)
 	local parts = {}
@@ -114,7 +177,11 @@ local function resetPlayerMovement(player)
 		end
 	end
 	player:SetAttribute("IsCaught", false)
+	player:SetAttribute("IsCaged", false)
 	player:SetAttribute("IsCrouching", false)
+	player:SetAttribute("IsExtracting", false)
+	player:SetAttribute("HasIdol", false)
+	player:SetAttribute("IdolCarrierSpeed", nil)
 end
 
 local function getOrCreateCaughtHoldingSpawn()
@@ -265,6 +332,10 @@ local function fireLobbyUpdate(status, playerCount, requiredCount, countdown)
 	end
 end
 
+local function getRequiredPlayerCount()
+	return Constants.MIN_PLAYERS_TO_START or Constants.ROUND_MIN_PLAYERS or 2
+end
+
 local function getRemainingThiefCount()
 	return PlayerStateService.CountAliveThieves()
 end
@@ -276,28 +347,35 @@ local function fireThiefCountToGuardian()
 end
 
 local function clearRoundState()
-	PlayerStateService.ResetForNewRound(roundId)
+	setRoundState(RoundStates.Cleanup, "clearRoundState")
 	ObjectiveService.StopRound()
 	IdolService.StopRound()
 	CageService.StopRound()
 	GuardianAbilityService.StopRound()
 	RoundScoreService.StopRound()
+	RemoteGuardService.Reset()
 
 	for player in rolesByPlayer do
 		player:SetAttribute("Role", nil)
 		resetPlayerMovement(player)
 		GuardianController.ResetPlayer(player)
 	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		PlayerStateService.ClearRoundAttributes(player)
+	end
+	PlayerStateService.ResetForNewRound(roundId)
 
 	roundActive = false
 	endingRound = false
 	forcedWinner = nil
 	forcedReason = nil
+	resultsFired = false
 	rolesByPlayer = {}
 	activeThieves = {}
 	guardianPlayer = nil
-	thievesExtracted = false
 	thiefSpawnCursor = 0
+	totalThiefCount = 0
+	roundEndsAt = 0
 
 	for _, tag in ipairs({"ThiefSpawn", "GuardianSpawn"}) do
 		for _, part in CollectionService:GetTagged(tag) do
@@ -311,8 +389,7 @@ local function clearRoundState()
 end
 
 local function setForcedRoundResult(winner, reason)
-	forcedWinner = winner
-	forcedReason = reason
+	requestEndRound(winner, reason)
 end
 
 Players.PlayerRemoving:Connect(function(player)
@@ -334,6 +411,7 @@ Players.PlayerRemoving:Connect(function(player)
 	IdolService.DropFromPlayer(player, "left")
 	CageService.StopAllForPlayer(player)
 	GuardianAbilityService.StopAllForPlayer(player)
+	RemoteGuardService.ClearPlayer(player)
 	PlayerStateService.UnregisterPlayer(player)
 	rolesByPlayer[player] = nil
 	activeThieves[player] = nil
@@ -341,8 +419,10 @@ Players.PlayerRemoving:Connect(function(player)
 	if player == guardianPlayer then
 		guardianPlayer = nil
 		if roundActive then
-			setForcedRoundResult("Thieves", "Guardian left")
+			requestEndRound("Thieves", "Guardian left")
 		end
+	elseif role == Types.PlayerRole.Thief and roundActive and PlayerStateService.CountAliveThieves() <= 0 then
+		requestEndRound("Guardian", "All thieves left")
 	end
 	fireThiefCountToGuardian()
 end)
@@ -351,6 +431,12 @@ Players.PlayerAdded:Connect(function(player)
 	if roundActive then
 		player:SetAttribute("Role", nil)
 		player:SetAttribute("RoundState", PlayerStateService.State.OutOfRound)
+		lobbyUpdateRemote:FireClient(player, {
+			status = "in_progress",
+			playerCount = #Players:GetPlayers(),
+			required = getRequiredPlayerCount(),
+			countdown = nil,
+		})
 	else
 		player:SetAttribute("Role", nil)
 		player:SetAttribute("RoundState", PlayerStateService.State.Lobby)
@@ -379,10 +465,18 @@ Players.PlayerAdded:Connect(function(player)
 			player:SetAttribute("IsCaught", false)
 		end
 	end)
+	task.defer(function()
+		if player.Parent then
+			SnapshotService.SendSnapshot(player)
+		end
+	end)
 end)
 
 setMovementStateRemote.OnServerEvent:Connect(function(player, requestedState, isActive)
-	if not roundActive then
+	if not canAcceptGameplayRequest() then
+		return
+	end
+	if not RemoteGuardService.Allow(player, "SetMovementState", 0.05) then
 		return
 	end
 	if type(requestedState) ~= "string" or type(isActive) ~= "boolean" then
@@ -412,6 +506,12 @@ thiefExtractedRemote.OnServerEvent:Connect(function(player)
 end)
 
 catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
+	if not canAcceptGameplayRequest() then
+		return
+	end
+	if not RemoteGuardService.Allow(player, "CatchThief", 0.2) then
+		return
+	end
 	if typeof(targetPlayer) ~= "Instance" or not targetPlayer:IsA("Player") then
 		return
 	end
@@ -458,6 +558,52 @@ IdolService.Init()
 CageService.Init()
 GuardianAbilityService.Init()
 RoundScoreService.Init()
+SnapshotService.Configure({
+	PlayerStateService = PlayerStateService,
+	ObjectiveService = ObjectiveService,
+	IdolService = IdolService,
+	CageService = CageService,
+	GuardianAbilityService = GuardianAbilityService,
+	RoundScoreService = RoundScoreService,
+	GetRoundSnapshot = function()
+		return {
+			roundId = roundId,
+			roundState = getRoundState(),
+			roundActive = roundActive,
+			timeRemaining = math.max(0, roundEndsAt - os.clock()),
+			totalThiefCount = totalThiefCount,
+			activePlayersCount = #Players:GetPlayers(),
+			guardianName = guardianPlayer and guardianPlayer.Name or nil,
+			winner = forcedWinner,
+			reason = forcedReason,
+			resultsFired = resultsFired,
+		}
+	end,
+})
+SnapshotService.Init()
+RuntimeAuditService.Init({
+	Constants = Constants,
+	PlayerStateService = PlayerStateService,
+	ObjectiveService = ObjectiveService,
+	IdolService = IdolService,
+	CageService = CageService,
+	RoundScoreService = RoundScoreService,
+	GetRoundSnapshot = function()
+		return {
+			roundId = roundId,
+			roundState = getRoundState(),
+			roundActive = roundActive,
+			timeRemaining = math.max(0, roundEndsAt - os.clock()),
+			totalThiefCount = totalThiefCount,
+			activePlayersCount = #Players:GetPlayers(),
+			guardianName = guardianPlayer and guardianPlayer.Name or nil,
+			winner = forcedWinner,
+			reason = forcedReason,
+			resultsFired = resultsFired,
+		}
+	end,
+})
+RuntimeAuditService.Start()
 ObjectiveService.SetScoreCallbacks({
 	onSealProgress = function(player, objectiveId, delta)
 		RoundScoreService.RecordSealProgress(player, objectiveId, delta)
@@ -497,11 +643,12 @@ GuardianAbilityService.SetScoreCallbacks({
 	end,
 })
 IdolService.SetRoundEndCallback(function(extractingPlayer)
-	thievesExtracted = true
+	local name = extractingPlayer and extractingPlayer.Name or "A thief"
+	requestEndRound("Thieves", name .. " extracted the idol")
 end)
 CageService.SetRescueCompletedCallback(function(rescuedPlayer, reason)
 	local _ = rescuedPlayer
-local _reason = reason
+	local _reason = reason
 	fireThiefCountToGuardian()
 end)
 DebugCommandService.Init({
@@ -511,6 +658,22 @@ DebugCommandService.Init({
 	CageService = CageService,
 	PlayerStateService = PlayerStateService,
 	MapValidationService = MapValidationService,
+	SnapshotService = SnapshotService,
+	RuntimeAuditService = RuntimeAuditService,
+	GetRoundSnapshot = function()
+		return {
+			roundId = roundId,
+			roundState = getRoundState(),
+			roundActive = roundActive,
+			timeRemaining = math.max(0, roundEndsAt - os.clock()),
+			totalThiefCount = totalThiefCount,
+			activePlayersCount = #Players:GetPlayers(),
+			guardianName = guardianPlayer and guardianPlayer.Name or nil,
+			winner = forcedWinner,
+			reason = forcedReason,
+			resultsFired = resultsFired,
+		}
+	end,
 	SetForcedRoundResult = setForcedRoundResult,
 })
 -- ensureBasicMap, ensureVaultPart, ensureSpawnPoints disabled:
@@ -520,37 +683,43 @@ task.wait(5)
 
 while true do
 	print("GameManager: waiting for players")
+	setRoundState(RoundStates.Lobby, "waiting_for_players")
 
-	while #Players:GetPlayers() < Constants.ROUND_MIN_PLAYERS do
-		fireLobbyUpdate("waiting", #Players:GetPlayers(), Constants.ROUND_MIN_PLAYERS, nil)
+	while #Players:GetPlayers() < getRequiredPlayerCount() do
+		fireLobbyUpdate("waiting", #Players:GetPlayers(), getRequiredPlayerCount(), nil)
 		print("GameManager: player count = " .. #Players:GetPlayers())
 		task.wait(1)
 	end
 
+	setRoundState(RoundStates.Countdown, "min_players_ready")
 	local countdown = Constants.LOBBY_COUNTDOWN_SECONDS
 	local countdownFinished = true
 	while countdown > 0 do
-		if #Players:GetPlayers() < Constants.ROUND_MIN_PLAYERS then
+		if #Players:GetPlayers() < getRequiredPlayerCount() then
 			countdownFinished = false
 			break
 		end
-		fireLobbyUpdate("countdown", #Players:GetPlayers(), Constants.ROUND_MIN_PLAYERS, countdown)
+		fireLobbyUpdate("countdown", #Players:GetPlayers(), getRequiredPlayerCount(), countdown)
 		task.wait(1)
 		countdown -= 1
 	end
 	if not countdownFinished then
+		setRoundState(RoundStates.Lobby, "countdown_canceled")
 		continue
 	end
 
 	local roundPlayers = getRoundPlayers()
-	if #roundPlayers < Constants.ROUND_MIN_PLAYERS then
+	if #roundPlayers < getRequiredPlayerCount() then
 		continue
 	end
 
+	setRoundState(RoundStates.Cleanup, "pre_round_cleanup")
 	clearRoundState()
-	roundActive = true
-	endingRound = false
-	rolesByPlayer, guardianPlayer = RoleManager.AssignRoles(roundPlayers)
+	setRoundState(RoundStates.AssigningRoles, "assign_roles")
+	rolesByPlayer, guardianPlayer = RoleManager.AssignRoles(roundPlayers, lastGuardianUserId)
+	if guardianPlayer then
+		lastGuardianUserId = guardianPlayer.UserId
+	end
 	roundId += 1
 	print(string.format("[RoundLifecycle] Start roundId=%d", roundId))
 	PlayerStateService.ResetForNewRound(roundId)
@@ -564,6 +733,11 @@ while true do
 	IdolService.ResetForRound(roundId)
 	CageService.ResetForRound(roundId)
 	GuardianAbilityService.ResetForRound(roundId)
+	roundActive = true
+	endingRound = false
+	forcedWinner = nil
+	forcedReason = nil
+	setRoundState(RoundStates.Starting, "services_ready")
 
 	vaultWatcherToken += 1
 	local watcherToken = vaultWatcherToken
@@ -584,6 +758,7 @@ while true do
 			activeThieves[player] = true
 		end
 	end
+	totalThiefCount = PlayerStateService.CountAliveThieves()
 
 	for player, role in rolesByPlayer do
 		roleAssignedRemote:FireClient(player, role)
@@ -603,33 +778,22 @@ while true do
 		end
 	end
 
-	local roundEndsAt = os.clock() + Constants.ROUND_DURATION_SECONDS
+	roundEndsAt = os.clock() + Constants.ROUND_DURATION_SECONDS
 	local result = "Time expired"
 	local winner = "Time"
 	local lastFallSafetyAt = 0
+	setRoundState(RoundStates.Active, "round_started")
 
 	while roundActive do
 		if forcedWinner ~= nil then
-			endingRound = true
 			result = forcedReason or "Round ended by debug command"
 			winner = forcedWinner
 			roundActive = false
 			break
 		end
-		if thievesExtracted then
-			endingRound = true
-			result = "Thieves extracted loot"
-			winner = "Thieves"
-			roundActive = false
-			break
-		end
-
 		-- PlayerStateService is source of truth for alive thief count
 		if PlayerStateService.AreAllThievesOut() then
-			endingRound = true
-			result = "Guardian caught all thieves"
-			winner = "Guardian"
-			roundActive = false
+			requestEndRound("Guardian", "All thieves captured")
 			break
 		end
 		-- Keep activeThieves pruned for any legacy references
@@ -644,18 +808,12 @@ while true do
 		end
 
 		if os.clock() >= roundEndsAt then
-			endingRound = true
-			result = "Time expired"
-			winner = "Time"
-			roundActive = false
+			requestEndRound("Guardian", "Time expired")
 			break
 		end
 
-		if #Players:GetPlayers() < Constants.ROUND_MIN_PLAYERS then
-			endingRound = true
-			result = "Round canceled: not enough players"
-			winner = "Time"
-			roundActive = false
+		if #Players:GetPlayers() < getRequiredPlayerCount() then
+			requestEndRound("Guardian", "Not enough players")
 			break
 		end
 
@@ -674,13 +832,22 @@ while true do
 		RunService.Heartbeat:Wait()
 	end
 
+	if forcedWinner ~= nil then
+		result = forcedReason or result
+		winner = forcedWinner
+	end
+	roundActive = false
+	setRoundState(RoundStates.Results, result)
 	fireRoundEnded(result, winner)
 	RoundScoreService.FireResults(winner, result)
+	resultsFired = true
 	print(string.format("[RoundLifecycle] End roundId=%d winner=%s reason=%s", roundId, tostring(winner), tostring(result)))
 	print(string.format("[RoundResult] %s", result))
 	for _, player in ipairs(Players:GetPlayers()) do
 		ObjectiveService.StopAllForPlayer(player)
 	end
 	clearRoundState()
-	task.wait(Constants.RESULTS_DISPLAY_SECONDS or 3)
+	setRoundState(RoundStates.Intermission, "results_complete")
+	fireLobbyUpdate("intermission", #Players:GetPlayers(), getRequiredPlayerCount(), Constants.INTERMISSION_SECONDS or 10)
+	task.wait(Constants.RESULTS_DISPLAY_SECONDS or 8)
 end

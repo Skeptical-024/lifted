@@ -10,6 +10,13 @@ local rolesByUserId = {}
 local roundId = 0
 local roundActive = false
 local sealCompletionAwards = {} -- [objectiveId] = { [userId] = true }
+local warned = {}
+
+local function warnOnce(key, ...)
+	if warned[key] then return end
+	warned[key] = true
+	warn(...)
+end
 
 local WEIGHTS = {
 	sealProgress = 100,
@@ -53,6 +60,9 @@ local function ensureEntry(player, role)
 		end
 		return entry
 	end
+	if roundActive then
+		warnOnce("unregistered_score_" .. tostring(uid), "[RoundScoreService] Recording event for unregistered player:", player.Name)
+	end
 	entry = {
 		userId = uid,
 		name = player.Name,
@@ -90,13 +100,14 @@ end
 
 function RoundScoreService.ResetForRound(newRoundId, rolesByPlayer)
 	roundId = newRoundId or 0
-	roundActive = true
+	roundActive = false
 	scoresByUserId = {}
 	rolesByUserId = {}
 	sealCompletionAwards = {}
 	for player, role in pairs(rolesByPlayer or {}) do
 		RoundScoreService.RegisterPlayer(player, role)
 	end
+	roundActive = true
 end
 
 function RoundScoreService.StopRound()
@@ -122,6 +133,8 @@ function RoundScoreService.RecordSealCompleted(player, objectiveId)
 	if not uid then return end
 	sealCompletionAwards[objectiveId] = sealCompletionAwards[objectiveId] or {}
 	if sealCompletionAwards[objectiveId][uid] then
+		warnOnce("duplicate_seal_award_" .. objectiveId .. "_" .. tostring(uid),
+			"[RoundScoreService] Duplicate seal completion scoring ignored:", objectiveId, player.Name)
 		return
 	end
 	sealCompletionAwards[objectiveId][uid] = true
@@ -236,6 +249,9 @@ function RoundScoreService.BuildResultsPayload(winner, reason)
 			mvp = { userId = row.userId, name = row.name, role = row.role, totalScore = row.totalScore }
 		end
 	end
+	if #players == 0 then
+		warnOnce("results_no_players", "[RoundScoreService] BuildResultsPayload has no players.")
+	end
 
 	table.sort(players, function(a, b)
 		if a.totalScore == b.totalScore then
@@ -265,6 +281,10 @@ function RoundScoreService.FireResults(winner, reason)
 	if remote and remote:IsA("RemoteEvent") then
 		remote:FireAllClients(payload)
 	end
+end
+
+function RoundScoreService.GetSnapshot()
+	return RoundScoreService.BuildResultsPayload(nil, nil)
 end
 
 return RoundScoreService

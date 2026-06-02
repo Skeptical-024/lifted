@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ObjectiveService = require(script.Parent:WaitForChild("ObjectiveService"))
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
+local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
 local IDOL_DIST = Constants.IDOL_INTERACT_DISTANCE or 10
@@ -42,6 +43,13 @@ local lastPingAt = 0
 
 -- Heartbeat
 local heartbeatConn = nil
+local warned = {}
+
+local function warnOnce(key, ...)
+	if warned[key] then return end
+	warned[key] = true
+	warn(...)
+end
 
 local function getOrCreateRemote(name)
 	local r = ReplicatedStorage:FindFirstChild(name)
@@ -164,6 +172,7 @@ local function startHeartbeat()
 		end
 		local root = getRootPart(idolCarrier)
 		if not root then
+			warnOnce("extract_missing_character", "[IdolService] Carrier missing character during extraction:", idolCarrier.Name)
 			cancelExtraction("no_character")
 			return
 		end
@@ -216,7 +225,7 @@ local function startHeartbeat()
 			if roundEndCallback then
 				roundEndCallback(carrier)
 			else
-				warn("[IdolService] No round-end callback set.")
+				warnOnce("missing_round_end_callback", "[IdolService] No round-end callback set.")
 			end
 		end
 	end)
@@ -243,18 +252,31 @@ function IdolService.Init()
 	getOrCreateRemote("ExtractProgress")
 	getOrCreateRemote("ExtractCanceled")
 	getOrCreateRemote("ExtractCompleted")
+	getOrCreateRemote("ExtractFailed")
 	getOrCreateRemote("GuardianCarrierPing")
 
 	requestPickupRemote.OnServerEvent:Connect(function(player)
+		if not RemoteGuardService.Allow(player, "RequestIdolPickup", 0.25) then
+			return
+		end
 		IdolService.RequestPickup(player)
 	end)
 	requestDropRemote.OnServerEvent:Connect(function(player)
+		if not RemoteGuardService.Allow(player, "RequestIdolDrop", 0.25) then
+			return
+		end
 		IdolService.RequestDrop(player)
 	end)
 	requestExtractRemote.OnServerEvent:Connect(function(player)
+		if not RemoteGuardService.Allow(player, "RequestExtractWithIdol", 0.25) then
+			return
+		end
 		IdolService.RequestExtract(player)
 	end)
 	requestCancelRemote.OnServerEvent:Connect(function(player)
+		if not RemoteGuardService.Allow(player, "RequestExtractCancel", 0.1) then
+			return
+		end
 		IdolService.RequestExtractCancel(player)
 	end)
 
@@ -355,12 +377,14 @@ end
 function IdolService.RequestPickup(player)
 	if not roundIsActive then return end
 	if not ObjectiveService.IsVaultOpen() then
+		warnOnce("pickup_before_vault_" .. tostring(player and player.UserId), "[IdolService] RequestPickup before vault open:", player and player.Name)
 		fireOne(player, "IdolFailed", "vault_not_open") return
 	end
 	if not PlayerStateService.CanInteractObjective(player) then
 		fireOne(player, "IdolFailed", "not_eligible") return
 	end
 	if idolCarrier then
+		warnOnce("multiple_carrier_attempt", "[IdolService] Multiple carrier attempt:", player.Name, "existing:", idolCarrier.Name)
 		fireOne(player, "IdolFailed", "already_carried") return
 	end
 	if not idolPart then
@@ -401,7 +425,12 @@ function IdolService.RequestDrop(player)
 end
 
 function IdolService.DropFromPlayer(player, reason, dropPosition)
-	if idolCarrier ~= player then return end
+	if idolCarrier ~= player then
+		if reason == "debug" then
+			warn("[IdolService] DropFromPlayer ignored for non-carrier:", player and player.Name)
+		end
+		return
+	end
 	cancelExtraction("idol_dropped")
 	idolCarrier = nil
 	restoreCarrierSpeed(player)
@@ -424,21 +453,21 @@ end
 function IdolService.RequestExtract(player)
 	if not roundIsActive then return end
 	if not ObjectiveService.IsVaultOpen() then
-		fireOne(player, "IdolFailed", "vault_not_open") return
+		fireOne(player, "ExtractFailed", "vault_not_open") return
 	end
 	if idolCarrier ~= player then
-		fireOne(player, "IdolFailed", "not_carrier") return
+		fireOne(player, "ExtractFailed", "not_carrier") return
 	end
 	if not PlayerStateService.CanInteractObjective(player) then
-		fireOne(player, "IdolFailed", "not_eligible") return
+		fireOne(player, "ExtractFailed", "not_eligible") return
 	end
 	if isExtracting then return end -- already in progress
 	if #extractPoints == 0 then
-		fireOne(player, "IdolFailed", "no_extract_points") return
+		fireOne(player, "ExtractFailed", "no_extract_points") return
 	end
 	local root = getRootPart(player)
 	if not root then
-		fireOne(player, "IdolFailed", "no_character") return
+		fireOne(player, "ExtractFailed", "no_character") return
 	end
 	local nearEP = nil
 	for _, ep in ipairs(extractPoints) do
@@ -448,7 +477,7 @@ function IdolService.RequestExtract(player)
 		end
 	end
 	if not nearEP then
-		fireOne(player, "IdolFailed", "too_far_from_extract") return
+		fireOne(player, "ExtractFailed", "too_far_from_extract") return
 	end
 
 	isExtracting = true
@@ -465,12 +494,29 @@ function IdolService.RequestExtractCancel(player)
 	cancelExtraction("player_canceled")
 end
 
+function IdolService.CancelExtractionForPlayer(player, reason)
+	if idolCarrier ~= player then return end
+	if not isExtracting then return end
+	cancelExtraction(reason or "canceled")
+end
+
 function IdolService.GetCarrier()
 	return idolCarrier
 end
 
 function IdolService.PlayerHasIdol(player)
 	return idolCarrier == player
+end
+
+function IdolService.GetSnapshot()
+	return {
+		state = idolPart and idolPart:GetAttribute("IdolState") or "Unknown",
+		carrierUserId = idolCarrier and idolCarrier.UserId or nil,
+		carrierName = idolCarrier and idolCarrier.Name or nil,
+		isExtracting = isExtracting,
+		extractProgress = extractProgress,
+		roundIsActive = roundIsActive,
+	}
 end
 
 function IdolService.SetScoreCallbacks(callbacks)

@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
 
-function RoleManager.AssignRoles(players)
+function RoleManager.AssignRoles(players, lastGuardianUserId)
 	local shuffled = table.clone(players)
 	for i = #shuffled, 2, -1 do
 		local j = math.random(1, i)
@@ -13,6 +13,14 @@ function RoleManager.AssignRoles(players)
 
 	local rolesByPlayer = {}
 	local guardian = shuffled[1]
+	if #shuffled > 1 and lastGuardianUserId then
+		for _, candidate in ipairs(shuffled) do
+			if candidate.UserId ~= lastGuardianUserId then
+				guardian = candidate
+				break
+			end
+		end
+	end
 	rolesByPlayer[guardian] = Types.PlayerRole.Guardian
 
 	for i = 2, #shuffled do

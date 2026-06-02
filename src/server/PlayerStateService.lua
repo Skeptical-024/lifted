@@ -77,6 +77,47 @@ function PlayerStateService.UnregisterPlayer(player)
 	records[player.UserId] = nil
 end
 
+function PlayerStateService.ClearRoundAttributes(player)
+	if not player then return end
+	pcall(function()
+		player:SetAttribute("Role", nil)
+		player:SetAttribute("RoundState", PlayerStateService.State.Lobby)
+		player:SetAttribute("HasIdol", false)
+		player:SetAttribute("IdolCarrierSpeed", nil)
+		player:SetAttribute("IsCrouching", false)
+		player:SetAttribute("IsExtracting", false)
+		player:SetAttribute("IsCaged", false)
+		player:SetAttribute("IsCaught", false)
+	end)
+end
+
+function PlayerStateService.ApplyStateToCharacter(player)
+	if not player or not player.Parent then return end
+	local character = player.Character
+	if not character then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local state = PlayerStateService.GetState(player)
+	if state == PlayerStateService.State.Caught
+		or state == PlayerStateService.State.Caged
+		or state == PlayerStateService.State.Eliminated then
+		humanoid.WalkSpeed = 0
+		if humanoid.UseJumpPower then
+			humanoid.JumpPower = 0
+		else
+			humanoid.JumpHeight = 0
+		end
+	else
+		humanoid.WalkSpeed = 16
+		if humanoid.UseJumpPower then
+			humanoid.JumpPower = 50
+		else
+			humanoid.JumpHeight = 7.2
+		end
+	end
+end
+
 -- Role API
 function PlayerStateService.SetRole(player, role)
 	local rec = records[player and player.UserId]

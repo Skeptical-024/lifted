@@ -61,6 +61,54 @@ function DebugCommandService.Init(deps)
 		deps.MapValidationService.PrintReport()
 	end
 
+	handlers.state = function(player)
+		local round = deps.GetRoundSnapshot and deps.GetRoundSnapshot() or {}
+		print(string.format(
+			"[DebugState] player=%s roundState=%s roundId=%s timeRemaining=%s aliveThieves=%s",
+			player.Name,
+			tostring(round.roundState),
+			tostring(round.roundId),
+			tostring(round.timeRemaining),
+			tostring(deps.PlayerStateService.CountAliveThieves())
+		))
+	end
+
+	-- /debug snapshot
+	handlers.snapshot = function(player)
+		if deps.SnapshotService then
+			deps.SnapshotService.PrintSnapshot(player)
+			deps.SnapshotService.SendSnapshot(player)
+		end
+	end
+
+	-- /debug audit
+	handlers.audit = function()
+		if deps.RuntimeAuditService then
+			deps.RuntimeAuditService.RunOnce()
+		end
+	end
+
+	handlers.checklist = function()
+		print("[DebugChecklist] 1 lobby countdown")
+		print("[DebugChecklist] 2 role assignment")
+		print("[DebugChecklist] 3 thief objective")
+		print("[DebugChecklist] 4 vault open")
+		print("[DebugChecklist] 5 idol pickup")
+		print("[DebugChecklist] 6 guardian reveal/rush/roar")
+		print("[DebugChecklist] 7 catch/cage")
+		print("[DebugChecklist] 8 rescue")
+		print("[DebugChecklist] 9 extract win")
+		print("[DebugChecklist] 10 guardian win")
+		print("[DebugChecklist] 11 results")
+		print("[DebugChecklist] 12 second round cleanup")
+	end
+
+	local normalized = {}
+	for name, fn in pairs(handlers) do
+		normalized[string.lower(name)] = fn
+	end
+	handlers = normalized
+
 	Players.PlayerAdded:Connect(function(player)
 		player.Chatted:Connect(function(message)
 			if not canUse() then return end

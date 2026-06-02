@@ -15,6 +15,8 @@ local roundEndedRemote = ReplicatedStorage:WaitForChild("RoundEnded")
 local thiefCountUpdateRemote = ReplicatedStorage:WaitForChild("ThiefCountUpdate")
 local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState")
 local thiefCaughtRemote = ReplicatedStorage:WaitForChild("ThiefCaught")
+local requestGameSnapshotRemote = ReplicatedStorage:WaitForChild("RequestGameSnapshot")
+local gameSnapshotRemote = ReplicatedStorage:WaitForChild("GameSnapshot")
 
 local COLORS = {
 	bg = Color3.fromRGB(8, 10, 16),
@@ -841,6 +843,9 @@ local function isNearCagedTeammate(root)
 	return false
 end
 
+local lastPromptScanAt = 0
+local cachedInteractionHint = nil
+
 local function updateThiefIconCount(total)
 	totalThiefIcons = math.clamp(total or 0, 0, 4)
 	for i, slot in ipairs(thiefIconFrames) do
@@ -1134,10 +1139,41 @@ local function completeObjectiveInteraction()
 	end)
 end
 
+local FAILURE_TEXT = {
+	too_far = "Too far",
+	not_eligible = "Not available",
+	already_completed = "Already complete",
+	objective_unbound = "Seal is not ready",
+	vault_not_open = "Vault is still locked",
+	not_carrier = "You need the idol",
+	already_carried = "Idol already taken",
+	idol_unbound = "Idol is not ready",
+	too_far_from_extract = "Too far from extraction",
+	no_extract_points = "No extraction point",
+	no_character = "Not available",
+	missing_target = "No teammate to rescue",
+	no_target = "No teammate to rescue",
+	target_not_caged = "No teammate to rescue",
+	cannot_rescue_self = "Cannot rescue yourself",
+	round_inactive = "Round inactive",
+	not_guardian = "Not available",
+	on_cooldown = "Ability cooling down",
+	already_rushing = "Already rushing",
+	no_humanoid = "Not available",
+}
+
+local function readableFailure(reason)
+	if type(reason) ~= "string" or reason == "" then
+		return "Not available"
+	end
+	return FAILURE_TEXT[reason] or reason:gsub("_", " ")
+end
+
 local function failObjectiveInteraction(reason)
-	local msg = (type(reason) == "string" and #reason > 0) and reason or "Noise made"
+	local msg = readableFailure(reason)
 	objectiveDangerLabel.Text = msg
 	objectiveDangerLabel.TextColor3 = COLORS.red
+	addKillFeedEvent(msg)
 	hideSkillCheck()
 	task.delay(2, function()
 		if objectiveDangerLabel.Parent then
@@ -1435,6 +1471,99 @@ local function showRoundResults(...)
 	end)
 end
 
+local function requestGameSnapshot()
+	if requestGameSnapshotRemote and requestGameSnapshotRemote:IsA("RemoteEvent") then
+		requestGameSnapshotRemote:FireServer()
+	end
+end
+
+local function applyGameSnapshot(snapshot)
+	if type(snapshot) ~= "table" then return end
+
+	local state = snapshot.roundState
+	local role = snapshot.playerRole or localPlayer:GetAttribute("Role")
+	local playerState = snapshot.playerState or localPlayer:GetAttribute("RoundState")
+
+	if state == "Active" or state == "Starting" then
+		isRoundActive = true
+		showCoreHud()
+		setRoleUI(role)
+		objectiveDirectiveLabel.Visible = true
+	elseif state == "Lobby" or state == "Intermission" or state == "Cleanup" then
+		isRoundActive = false
+		hideCoreHud()
+		interactionHintLabel.Visible = false
+	end
+
+	local timeRemaining = tonumber(snapshot.timeRemaining)
+	if timeRemaining and timeRemaining > 0 then
+		roundEndTime = os.clock() + timeRemaining
+		timerText.Text = formatTime(timeRemaining)
+	end
+
+	if type(snapshot.objectives) == "table" then
+		local indexByObjectiveId = {
+			FlameSeal = 1,
+			MoonLock = 2,
+			StoneSigil = 3,
+		}
+		local completed = 0
+		for objectiveId, obj in pairs(snapshot.objectives) do
+			if type(obj) == "table" and obj.completed == true then
+				completed += 1
+				local icon = sealIcons[indexByObjectiveId[objectiveId]]
+				if icon then
+					icon.frame.BackgroundColor3 = COLORS.teal
+					icon.stroke.Color = COLORS.teal
+					icon.stroke.Transparency = 0.15
+				end
+			end
+		end
+		sealsBroken = math.clamp(completed, 0, 3)
+	end
+
+	if snapshot.vaultOpen == true then
+		setVaultOpenUI()
+	else
+		setRoundPhase("Break the Seals")
+	end
+
+	if type(snapshot.idol) == "table" then
+		if snapshot.idol.carrierUserId ~= nil then
+			setIdolCarrierUI(snapshot.idol.carrierUserId, snapshot.idol.carrierName)
+			setGuardianCarrier(snapshot.idol.carrierUserId, snapshot.idol.carrierName)
+		elseif snapshot.idol.state == "Available" then
+			setIdolAvailableUI()
+		elseif snapshot.idol.state == "Dropped" then
+			setIdolDroppedUI()
+		elseif snapshot.idol.state == "Extracted" then
+			idolStatusLabel.Text = "EXTRACTED"
+			carrierLabel.Text = "Escape complete"
+		else
+			clearGuardianCarrier()
+		end
+		if snapshot.idol.isExtracting then
+			setExtractProgressUI(snapshot.idol.extractProgress or 0)
+		end
+	end
+
+	if type(snapshot.guardianAbilities) == "table" then
+		for abilityName, seconds in pairs(snapshot.guardianAbilities) do
+			guardianAbilityCooldownEnds[abilityName] = os.clock() + math.max(0, tonumber(seconds) or 0)
+		end
+		updateGuardianAbilityLine()
+	end
+
+	if playerState == "OutOfRound" then
+		objectiveDirectiveLabel.Text = "Waiting for next round"
+		interactionHintLabel.Visible = false
+	elseif role == "Thief" and isRoundActive then
+		objectiveDirectiveLabel.Text = "Break 3 seals to open the vault."
+	elseif role == "Guardian" and isRoundActive then
+		objectiveDirectiveLabel.Text = "Stop the thieves. Shift Rush | Q Reveal | R Roar | E Catch"
+	end
+end
+
 roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
 	duration = tonumber(roundDuration) or 0
 	roundEndTime = os.clock() + duration
@@ -1468,6 +1597,7 @@ roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
 	end
 	resetRoundResultsUI()
 	interactionHintLabel.Visible = false
+	requestGameSnapshot()
 end)
 
 roundEndedRemote.OnClientEvent:Connect(function(result, winner)
@@ -1535,6 +1665,10 @@ thiefCountUpdateRemote.OnClientEvent:Connect(function(count)
 	end
 end)
 
+gameSnapshotRemote.OnClientEvent:Connect(function(snapshot)
+	applyGameSnapshot(snapshot)
+end)
+
 setMovementStateRemote.OnClientEvent:Connect(function(state, active)
 	local role = localPlayer:GetAttribute("Role")
 	if role == "Thief" and state == "Crouch" then
@@ -1555,6 +1689,7 @@ localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
 	if not isRoundActive then
 		showRoleIntro(localPlayer:GetAttribute("Role"))
 	end
+	requestGameSnapshot()
 end)
 
 localPlayer:GetAttributeChangedSignal("RoundState"):Connect(function()
@@ -1563,6 +1698,11 @@ localPlayer:GetAttributeChangedSignal("RoundState"):Connect(function()
 		objectiveDirectiveLabel.Text = "Waiting for next round"
 		interactionHintLabel.Visible = false
 	end
+	requestGameSnapshot()
+end)
+
+localPlayer.CharacterAdded:Connect(function()
+	task.defer(requestGameSnapshot)
 end)
 
 RunService.Heartbeat:Connect(function()
@@ -1636,34 +1776,39 @@ RunService.Heartbeat:Connect(function()
 
 		if state == "OutOfRound" or state == "Escaped" or state == "Eliminated" then
 			interactionHintLabel.Visible = false
+			cachedInteractionHint = nil
 		else
-			local root = getRootPart(localPlayer)
-			local hint = nil
-			if role == "Thief" then
-				local hasIdol = localPlayer:GetAttribute("HasIdol") == true
-				if hasIdol and isNearExtract(root) then
-					hint = "Hold E: Extract idol"
-				elseif not hasIdol and isNearCagedTeammate(root) then
-					hint = "Hold E: Rescue teammate"
-				elseif isNearIncompleteObjective(root) then
-					hint = "Hold E: Break seal"
-				elseif not hasIdol and isIdolAvailableNear(root) then
-					hint = "Press E: Pick up idol"
+			if os.clock() - lastPromptScanAt >= 0.15 then
+				lastPromptScanAt = os.clock()
+				local root = getRootPart(localPlayer)
+				local hint = nil
+				if role == "Thief" then
+					local hasIdol = localPlayer:GetAttribute("HasIdol") == true
+					if hasIdol and isNearExtract(root) then
+						hint = "Hold E: Extract idol"
+					elseif not hasIdol and isNearCagedTeammate(root) then
+						hint = "Hold E: Rescue teammate"
+					elseif isNearIncompleteObjective(root) then
+						hint = "Hold E: Break seal"
+					elseif not hasIdol and isIdolAvailableNear(root) then
+						hint = "Press E: Pick up idol"
+					end
+				elseif role == "Guardian" then
+					local catchHint = guardianCatchPromptLabel.Text
+					if type(catchHint) == "string" and #catchHint > 0 then
+						hint = catchHint
+					elseif isNearCagedTeammate(root) then
+						hint = "Guard the cage"
+					elseif isNearIncompleteObjective(root) then
+						hint = "Pressure the seals"
+					else
+						hint = "Shift Rush | Q Reveal | R Roar"
+					end
 				end
-			elseif role == "Guardian" then
-				local catchHint = guardianCatchPromptLabel.Text
-				if type(catchHint) == "string" and #catchHint > 0 then
-					hint = catchHint
-				elseif isNearCagedTeammate(root) then
-					hint = "Guard the cage"
-				elseif isNearIncompleteObjective(root) then
-					hint = "Pressure the seals"
-				else
-					hint = "Shift Rush | Q Reveal | R Roar"
-				end
+				cachedInteractionHint = hint
 			end
-			if hint and #hint > 0 then
-				interactionHintLabel.Text = hint
+			if cachedInteractionHint and #cachedInteractionHint > 0 then
+				interactionHintLabel.Text = cachedInteractionHint
 				interactionHintLabel.Visible = true
 			else
 				interactionHintLabel.Visible = false
@@ -1798,6 +1943,19 @@ connectOptional("ObjectiveFailed", function(objectiveId, reason)
 	failObjectiveInteraction(reason)
 end)
 
+connectOptional("IdolFailed", function(reason)
+	addKillFeedEvent(readableFailure(reason))
+end)
+
+connectOptional("ExtractFailed", function(reason)
+	addKillFeedEvent(readableFailure(reason))
+	setExtractProgressUI(0)
+end)
+
+connectOptional("CageRescueFailed", function(reason)
+	addKillFeedEvent(readableFailure(reason))
+end)
+
 connectOptional("ObjectiveSkillCheckShown", function(targetStart, targetEnd, needlePosition)
 	showSkillCheck(targetStart, targetEnd, needlePosition)
 end)
@@ -1830,7 +1988,7 @@ connectOptional("GuardianRushStarted", function()
 end)
 
 connectOptional("GuardianRushFailed", function(reason)
-	setGuardianAlert("Rush failed: " .. tostring(reason), 2)
+	setGuardianAlert(readableFailure(reason), 2)
 end)
 
 connectOptional("GuardianRevealStarted", function(revealed)
@@ -1839,7 +1997,7 @@ connectOptional("GuardianRevealStarted", function(revealed)
 end)
 
 connectOptional("GuardianRevealFailed", function(reason)
-	setGuardianAlert("Reveal failed: " .. tostring(reason), 2)
+	setGuardianAlert(readableFailure(reason), 2)
 end)
 
 connectOptional("GuardianRoarActivated", function(_, _, affectedCount)
@@ -1847,7 +2005,7 @@ connectOptional("GuardianRoarActivated", function(_, _, affectedCount)
 end)
 
 connectOptional("GuardianRoarFailed", function(reason)
-	setGuardianAlert("Roar failed: " .. tostring(reason), 2)
+	setGuardianAlert(readableFailure(reason), 2)
 end)
 
 connectOptional("ObjectiveStarted", function(objectiveId, objectiveName)
@@ -1894,3 +2052,5 @@ connectOptional("CageRescueCompleted", function(userId, playerName)
 		end
 	end
 end)
+
+task.defer(requestGameSnapshot)

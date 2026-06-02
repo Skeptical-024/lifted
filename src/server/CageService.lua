@@ -11,6 +11,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
+local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
 local RESCUE_DIST = Constants.CAGE_RESCUE_DISTANCE or 12
@@ -28,6 +29,13 @@ local heartbeatConn = nil
 local roundIsActive = false
 local rescueCompletedCallback = nil
 local scoreCallbacks = nil
+local warned = {}
+
+local function warnOnce(key, ...)
+	if warned[key] then return end
+	warned[key] = true
+	warn(...)
+end
 
 local function getOrCreateRemote(name)
 	local r = ReplicatedStorage:FindFirstChild(name)
@@ -186,10 +194,16 @@ function CageService.Init()
 	local stopRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStop")
 
 	startRemote.OnServerEvent:Connect(function(player, targetUserId)
+		if not RemoteGuardService.Allow(player, "RequestCageRescueStart", 0.1) then
+			return
+		end
 		CageService.StartRescue(player, targetUserId)
 	end)
 
 	stopRemote.OnServerEvent:Connect(function(player, targetUserId)
+		if not RemoteGuardService.Allow(player, "RequestCageRescueStop", 0.1) then
+			return
+		end
 		CageService.StopRescue(player, targetUserId)
 	end)
 
@@ -216,10 +230,10 @@ function CageService.AutoRegisterParts()
 
 	if not rescuePoint and cageSpawn then
 		rescuePoint = cageSpawn
-		warn("[CageService] No CageRescuePoint found, using CageSpawn as fallback.")
+		warnOnce("missing_rescue_point", "[CageService] No CageRescuePoint found, using CageSpawn as fallback.")
 	end
 	if not cageSpawn then
-		warn("[CageService] No CageSpawn found - CagePlayer will fail.")
+		warnOnce("missing_cage_spawn", "[CageService] No CageSpawn found - CagePlayer will fail.")
 	end
 end
 
@@ -266,7 +280,7 @@ function CageService.CagePlayer(player)
 
 	local ok = PlayerStateService.MarkCaged(player)
 	if not ok then
-		warn("[CageService] CagePlayer failed for", player.Name, "- not in Caught state")
+		warnOnce("cage_invalid_state_" .. tostring(player.UserId), "[CageService] CagePlayer failed for", player.Name, "- not in Caught state")
 		return
 	end
 
@@ -292,6 +306,7 @@ function CageService.StartRescue(rescuer, targetUserId)
 	if not roundIsActive then return end
 
 	if not PlayerStateService.IsAliveThief(rescuer) then
+		warnOnce("invalid_rescuer_" .. tostring(rescuer.UserId), "[CageService] Invalid rescuer:", rescuer.Name)
 		fireOne(rescuer, "CageRescueFailed", "not_eligible")
 		return
 	end
@@ -306,6 +321,7 @@ function CageService.StartRescue(rescuer, targetUserId)
 	end
 	local targetRec = rescueRecords[targetUserId]
 	if cagedPlayers[targetUserId] == nil or targetRec == nil then
+		warnOnce("target_not_caged_" .. tostring(targetUserId), "[CageService] Rescue target missing/not caged:", tostring(targetUserId))
 		fireOne(rescuer, "CageRescueFailed", "target_not_caged")
 		return
 	end
@@ -321,6 +337,7 @@ function CageService.StartRescue(rescuer, targetUserId)
 		return
 	end
 	if (root.Position - refPart.Position).Magnitude > RESCUE_DIST then
+		warnOnce("rescuer_far_" .. tostring(rescuer.UserId), "[CageService] Rescuer too far:", rescuer.Name)
 		fireOne(rescuer, "CageRescueFailed", "too_far")
 		return
 	end
@@ -348,26 +365,39 @@ function CageService.StopRescue(rescuer, targetUserId)
 	rescuerTargets[rescuer.UserId] = nil
 	if targetUserId and rescueRecords[targetUserId] then
 		local rec = rescueRecords[targetUserId]
+		local removed = false
 		for i, r in ipairs(rec.activeRescuers) do
 			if r == rescuer then
 				table.remove(rec.activeRescuers, i)
+				removed = true
 				break
 			end
 		end
+		if removed and #rec.activeRescuers == 0 and rec.progress > 0 then
+			rec.progress = 0
+			fireAll("CageRescueCanceled", targetUserId, "rescuer_left")
+		end
 		return
 	end
-	for _, rec in pairs(rescueRecords) do
+	for uid, rec in pairs(rescueRecords) do
+		local removed = false
 		for i, r in ipairs(rec.activeRescuers) do
 			if r == rescuer then
 				table.remove(rec.activeRescuers, i)
+				removed = true
 				break
 			end
+		end
+		if removed and #rec.activeRescuers == 0 and rec.progress > 0 then
+			rec.progress = 0
+			fireAll("CageRescueCanceled", uid, "rescuer_left")
 		end
 	end
 end
 
 function CageService.StopAllForPlayer(player)
 	if player and cagedPlayers[player.UserId] then
+		fireAll("CageRescueCanceled", player.UserId, "target_left")
 		cagedPlayers[player.UserId] = nil
 		rescueRecords[player.UserId] = nil
 	end
@@ -448,6 +478,36 @@ function CageService.GetCagedPlayersSnapshot()
 		snap[uid] = { userId = uid, name = p.Name }
 	end
 	return snap
+end
+
+function CageService.CancelRescueForTarget(targetUserId, reason)
+	if not targetUserId or not rescueRecords[targetUserId] then
+		return
+	end
+	local rec = rescueRecords[targetUserId]
+	for _, rescuer in ipairs(rec.activeRescuers) do
+		if rescuer then
+			rescuerTargets[rescuer.UserId] = nil
+		end
+	end
+	rec.activeRescuers = {}
+	rec.progress = 0
+	fireAll("CageRescueCanceled", targetUserId, reason or "canceled")
+end
+
+function CageService.GetSnapshot()
+	local rescues = {}
+	for targetUserId, rec in pairs(rescueRecords) do
+		rescues[targetUserId] = {
+			targetUserId = targetUserId,
+			progress = rec.progress,
+			rescuerCount = #rec.activeRescuers,
+		}
+	end
+	return {
+		cagedPlayers = CageService.GetCagedPlayersSnapshot(),
+		rescues = rescues,
+	}
 end
 
 return CageService

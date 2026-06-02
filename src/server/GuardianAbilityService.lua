@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local ObjectiveService = require(script.Parent:WaitForChild("ObjectiveService"))
 local CageService = require(script.Parent:WaitForChild("CageService"))
+local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
 local RUSH_DURATION = Constants.GUARDIAN_RUSH_DURATION or 2
@@ -28,6 +29,13 @@ local abilityState = {}
 local roundIsActive = false
 local slowedThieves = {} -- [userId] = {player, originalWalkSpeed, token}
 local scoreCallbacks = nil
+local warned = {}
+
+local function warnOnce(key, ...)
+	if warned[key] then return end
+	warned[key] = true
+	warn(...)
+end
 
 local function getOrCreateRemote(name)
 	local r = ReplicatedStorage:FindFirstChild(name)
@@ -83,7 +91,11 @@ end
 local function restoreSpeed(player)
 	if not player or not player.Parent then return end
 	local h = getHumanoid(player)
-	if h then h.WalkSpeed = BASE_SPEED end
+	if h then
+		h.WalkSpeed = BASE_SPEED
+	else
+		warnOnce("restore_missing_humanoid_" .. tostring(player.UserId), "[GuardianAbilityService] Restore speed without humanoid:", player.Name)
+	end
 end
 
 local function restoreThiefSlow(player)
@@ -144,7 +156,7 @@ function GuardianAbilityService.RequestRush(player)
 	task.delay(RUSH_DURATION, function()
 		if not abilityState[uid] then return end
 		abilityState[uid].isRushing = false
-		if player.Parent and PlayerStateService.IsGuardian(player) then
+		if roundIsActive and player.Parent and PlayerStateService.IsGuardian(player) then
 			local h = getHumanoid(player)
 			if h then h.WalkSpeed = BASE_SPEED end
 		end
@@ -182,6 +194,9 @@ function GuardianAbilityService.RequestReveal(player)
 	end
 	fireOne(player, "GuardianRevealStarted", revealed, REVEAL_DURATION)
 	fireOne(player, "GuardianAbilityCooldown", "Reveal", REVEAL_COOLDOWN)
+	if #revealed == 0 then
+		warnOnce("reveal_zero_" .. tostring(player.UserId), "[GuardianAbilityService] Reveal returned zero valid targets for", player.Name)
+	end
 	if scoreCallbacks and scoreCallbacks.onReveal then
 		scoreCallbacks.onReveal(player, #revealed)
 	end
@@ -239,6 +254,7 @@ function GuardianAbilityService.RequestRoar(player)
 				if not entry then return end
 				if entry.token ~= token then return end
 				if not thief.Parent then return end
+				if not roundIsActive then return end
 				restoreThiefSlow(thief)
 			end)
 		end
@@ -268,12 +284,21 @@ function GuardianAbilityService.Init()
 	getOrCreateRemote("GuardianRoarFailed")
 	getOrCreateRemote("GuardianAbilityCooldown")
 	rushRemote.OnServerEvent:Connect(function(p)
+		if not RemoteGuardService.Allow(p, "RequestGuardianRush", 0.2) then
+			return
+		end
 		GuardianAbilityService.RequestRush(p)
 	end)
 	revealRemote.OnServerEvent:Connect(function(p)
+		if not RemoteGuardService.Allow(p, "RequestGuardianReveal", 0.2) then
+			return
+		end
 		GuardianAbilityService.RequestReveal(p)
 	end)
 	roarRemote.OnServerEvent:Connect(function(p)
+		if not RemoteGuardService.Allow(p, "RequestGuardianRoar", 0.2) then
+			return
+		end
 		GuardianAbilityService.RequestRoar(p)
 	end)
 end
@@ -303,6 +328,16 @@ end
 
 function GuardianAbilityService.SetScoreCallbacks(callbacks)
 	scoreCallbacks = callbacks
+end
+
+function GuardianAbilityService.GetCooldownSnapshot(player)
+	local state = player and abilityState[player.UserId]
+	local now = os.clock()
+	return {
+		Rush = math.max(0, ((state and state.rushCooldownUntil) or 0) - now),
+		Reveal = math.max(0, ((state and state.revealCooldownUntil) or 0) - now),
+		Roar = math.max(0, ((state and state.roarCooldownUntil) or 0) - now),
+	}
 end
 
 return GuardianAbilityService
