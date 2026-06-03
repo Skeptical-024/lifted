@@ -23,8 +23,13 @@ function RoleManager.AssignRoles(players, lastGuardianUserId)
 	end
 	rolesByPlayer[guardian] = Types.PlayerRole.Guardian
 
-	for i = 2, #shuffled do
-		rolesByPlayer[shuffled[i]] = Types.PlayerRole.Thief
+	-- Assign Thief to every player who is NOT the chosen guardian.
+	-- Do NOT use index-based loop: if guardian is not shuffled[1], index-based
+	-- would overwrite the guardian slot as Thief and leave shuffled[1] unassigned.
+	for _, player in ipairs(shuffled) do
+		if player ~= guardian then
+			rolesByPlayer[player] = Types.PlayerRole.Thief
+		end
 	end
 
 	return rolesByPlayer, guardian

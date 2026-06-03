@@ -300,40 +300,10 @@ function ObjectiveService.AutoRegisterObjectiveParts()
 		end
 	end
 
-	local unmapped = {}
 	for _, def in ipairs(OBJECTIVE_DEFS) do
 		if not objectives[def.id].part then
-			table.insert(unmapped, def.id)
-		end
-	end
-
-	if #unmapped == 0 then
-		return
-	end
-
-	local candidates = {}
-	for _, p in ipairs(CollectionService:GetTagged("Brazier")) do
-		if p:IsA("BasePart") and p:IsDescendantOf(workspace) then
-			table.insert(candidates, p)
-		end
-	end
-
-	if #candidates == 0 then
-		for _, obj in ipairs(workspace:GetDescendants()) do
-			if obj:IsA("BasePart") and obj.Name:lower():find("brazier") then
-				table.insert(candidates, obj)
-				if #candidates >= 3 then
-					break
-				end
-			end
-		end
-	end
-
-	for i, id in ipairs(unmapped) do
-		if candidates[i] then
-			ObjectiveService.RegisterObjectivePart(id, candidates[i])
-		else
-			warn("[ObjectiveService] No part found for", id, "objective is non-interactable")
+			warn("[ObjectiveService] No ObjectiveStation part found for objective:", def.id,
+				"- add an ObjectiveStation-tagged part with ObjectiveId =", def.id)
 		end
 	end
 end
@@ -471,6 +441,32 @@ end
 function ObjectiveService.GetObjectivePart(objectiveId)
 	local obj = objectives[objectiveId]
 	return obj and obj.part or nil
+end
+
+-- Called by SkillCheckService on a successful hit to add a small progress bump.
+function ObjectiveService.AddProgressBonus(objectiveId, amount, player)
+	local obj = objectives[objectiveId]
+	if not obj or obj.completed then return end
+	local bonus = math.max(0, tonumber(amount) or 0)
+	obj.progress = math.clamp(obj.progress + bonus, 0, 1)
+	updatePartAttribs(obj)
+	fireAll("ObjectiveProgress", objectiveId, obj.progress)
+
+	if obj.progress >= 1 then
+		obj.completed = true
+		obj.activePlayers = {}
+		updatePartAttribs(obj)
+		local completedCount = ObjectiveService.GetCompletedCount()
+		if scoreCallbacks and scoreCallbacks.onSealCompleted and player then
+			scoreCallbacks.onSealCompleted(player, objectiveId)
+		end
+		fireAll("ObjectiveCompleted", objectiveId, obj.displayName or objectiveId, completedCount)
+		if completedCount >= 3 and not vaultOpen then
+			vaultOpen = true
+			setVaultPartsOpen(true)
+			fireAll("VaultOpened")
+		end
+	end
 end
 
 function ObjectiveService.DebugCompleteAll()

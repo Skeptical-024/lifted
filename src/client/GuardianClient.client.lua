@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
@@ -124,43 +125,77 @@ local function tryCatchNearestThief()
 	end
 end
 
-UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-	if gameProcessedEvent then
-		return
-	end
-	if not isGuardian() then
-		return
-	end
+-- Guardian actions via ContextActionService for keyboard + gamepad support.
+-- All validation is server-side; client just sends request.
 
-	if input.KeyCode == Enum.KeyCode.LeftShift then
-		if isGuardian() then
+local function bindGuardianActions()
+	ContextActionService:BindAction(
+		"LIFTED_GuardianCatch",
+		function(_, inputState, _)
+			if inputState ~= Enum.UserInputState.Begin then return end
+			if not isGuardian() then return end
+			tryCatchNearestThief()
+			return Enum.ContextActionResult.Sink
+		end,
+		false,
+		Enum.KeyCode.E, Enum.KeyCode.ButtonX
+	)
+	ContextActionService:BindAction(
+		"LIFTED_GuardianRush",
+		function(_, inputState, _)
+			if inputState ~= Enum.UserInputState.Begin then return end
+			if not isGuardian() then return end
 			requestRushRemote:FireServer()
-		end
-	elseif input.KeyCode == Enum.KeyCode.E then
-		tryCatchNearestThief()
-	elseif input.KeyCode == Enum.KeyCode.Q then
-		if isGuardian() then
+			return Enum.ContextActionResult.Sink
+		end,
+		false,
+		Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL1
+	)
+	ContextActionService:BindAction(
+		"LIFTED_GuardianReveal",
+		function(_, inputState, _)
+			if inputState ~= Enum.UserInputState.Begin then return end
+			if not isGuardian() then return end
 			requestRevealRemote:FireServer()
-		end
-	elseif input.KeyCode == Enum.KeyCode.R then
-		if isGuardian() then
+			return Enum.ContextActionResult.Sink
+		end,
+		false,
+		Enum.KeyCode.Q, Enum.KeyCode.ButtonY
+	)
+	ContextActionService:BindAction(
+		"LIFTED_GuardianRoar",
+		function(_, inputState, _)
+			if inputState ~= Enum.UserInputState.Begin then return end
+			if not isGuardian() then return end
 			requestRoarRemote:FireServer()
-		end
-	end
-end)
+			return Enum.ContextActionResult.Sink
+		end,
+		false,
+		Enum.KeyCode.R, Enum.KeyCode.ButtonB
+	)
+end
 
-UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.LeftShift then
-		-- Rush is server-managed. No client-side release action needed.
-	end
-end)
+local function unbindGuardianActions()
+	ContextActionService:UnbindAction("LIFTED_GuardianCatch")
+	ContextActionService:UnbindAction("LIFTED_GuardianRush")
+	ContextActionService:UnbindAction("LIFTED_GuardianReveal")
+	ContextActionService:UnbindAction("LIFTED_GuardianRoar")
+end
 
 localPlayer:GetAttributeChangedSignal("Role"):Connect(function()
-	if not isGuardian() then
+	if isGuardian() then
+		bindGuardianActions()
+	else
+		unbindGuardianActions()
 		clearRevealMarkers()
 		clearCarrierMarker()
 	end
 end)
+
+-- Bind if already guardian on script start
+if isGuardian() then
+	bindGuardianActions()
+end
 
 guardianRevealRemote.OnClientEvent:Connect(function(revealed, duration)
 	clearRevealMarkers()

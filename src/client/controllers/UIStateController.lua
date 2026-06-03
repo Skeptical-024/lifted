@@ -139,13 +139,6 @@ connectRemote("RoleAssigned", function(role)
 	UIStateController.Set("playerRole", mapped)
 end)
 
--- Legacy brazier events removed. ObjectiveService drives seal state via ObjectiveProgress/ObjectiveCompleted.
-
-connectRemote("PlayerCaught", function(...)
-	UIStateController.Set("cageState", "caged")
-	UIStateController.Set("lastAlert", "player_caught")
-end)
-
 connectRemote("RoundStarted", function(...)
 	UIStateController.Set("roundState", "active")
 	UIStateController.Set("objectives", {})

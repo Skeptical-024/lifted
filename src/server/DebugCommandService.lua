@@ -89,18 +89,40 @@ function DebugCommandService.Init(deps)
 	end
 
 	handlers.checklist = function()
-		print("[DebugChecklist] 1 lobby countdown")
-		print("[DebugChecklist] 2 role assignment")
-		print("[DebugChecklist] 3 thief objective")
-		print("[DebugChecklist] 4 vault open")
-		print("[DebugChecklist] 5 idol pickup")
-		print("[DebugChecklist] 6 guardian reveal/rush/roar")
-		print("[DebugChecklist] 7 catch/cage")
-		print("[DebugChecklist] 8 rescue")
-		print("[DebugChecklist] 9 extract win")
-		print("[DebugChecklist] 10 guardian win")
-		print("[DebugChecklist] 11 results")
+		print("[DebugChecklist] 1  lobby countdown")
+		print("[DebugChecklist] 2  role assignment (no repeat guardian)")
+		print("[DebugChecklist] 3  thief objective / skill check")
+		print("[DebugChecklist] 4  vault open once")
+		print("[DebugChecklist] 5  idol pickup")
+		print("[DebugChecklist] 6  guardian reveal/rush/roar")
+		print("[DebugChecklist] 7  catch/cage/cage rescue")
+		print("[DebugChecklist] 8  rescue / roar cancels rescue")
+		print("[DebugChecklist] 9  extract win")
+		print("[DebugChecklist] 10 guardian win by timer")
+		print("[DebugChecklist] 11 results / hero moments")
 		print("[DebugChecklist] 12 second round cleanup")
+		print("[DebugChecklist] 13 ping system (G key)")
+		print("[DebugChecklist] 14 skill checks firing during seal work")
+		print("[DebugChecklist] 15 analytics log after round")
+	end
+
+	-- /debug roundlog  — print last round analytics summary
+	handlers.roundlog = function()
+		if deps.SessionAnalyticsService then
+			local last = deps.SessionAnalyticsService.GetLastRound()
+			if last then
+				deps.SessionAnalyticsService.PrintRoundSummary(last)
+			else
+				print("[Analytics] No rounds recorded yet.")
+			end
+		end
+	end
+
+	-- /debug analytics  — print full session summary
+	handlers.analytics = function()
+		if deps.SessionAnalyticsService then
+			deps.SessionAnalyticsService.PrintAll()
+		end
 	end
 
 	local normalized = {}

@@ -13,7 +13,6 @@ local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local roundStartedRemote = ReplicatedStorage:WaitForChild("RoundStarted")
 local roundEndedRemote = ReplicatedStorage:WaitForChild("RoundEnded")
 local thiefCountUpdateRemote = ReplicatedStorage:WaitForChild("ThiefCountUpdate")
-local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState")
 local thiefCaughtRemote = ReplicatedStorage:WaitForChild("ThiefCaught")
 local requestGameSnapshotRemote = ReplicatedStorage:WaitForChild("RequestGameSnapshot")
 local gameSnapshotRemote = ReplicatedStorage:WaitForChild("GameSnapshot")
@@ -268,7 +267,7 @@ local guardianTitleLabel = makeLabel("GUARDIAN", Enum.Font.GothamBold, COLORS.re
 guardianTitleLabel.Size = UDim2.new(1, 0, 0, 13)
 guardianTitleLabel.TextSize = 11
 
-local guardianDirectiveLabel = makeLabel("Stop the thieves before they extract the idol.", Enum.Font.GothamBold, COLORS.white, guardianStatusPanel)
+local guardianDirectiveLabel = makeLabel("Stop the thieves. Shift Rush | Q Reveal | R Roar | E Catch", Enum.Font.GothamBold, COLORS.white, guardianStatusPanel)
 guardianDirectiveLabel.Size = UDim2.new(1, 0, 0, 18)
 guardianDirectiveLabel.Position = UDim2.fromOffset(0, 14)
 guardianDirectiveLabel.TextSize = 15
@@ -433,7 +432,7 @@ if scpStroke then
 	scpStroke.Transparency = 0.3
 end
 
-local skillCheckLabel = makeLabel("TIMING CHECK", Enum.Font.GothamBold, COLORS.grey, skillCheckPanel)
+local skillCheckLabel = makeLabel("HIT SPACE!", Enum.Font.GothamBold, COLORS.teal, skillCheckPanel)
 skillCheckLabel.Size = UDim2.new(1, 0, 0, 13)
 skillCheckLabel.TextSize = 11
 
@@ -601,7 +600,7 @@ do
 		{name = "SEALS BROKEN", x = 0},
 		{name = "THIEVES CAUGHT", x = 130},
 		{name = "TIME LEFT", x = 270},
-		{name = "XP EARNED", x = 390},
+		{name = "SCORE", x = 390},
 	}
 	local vals = {}
 	for i, col in ipairs(cols) do
@@ -684,6 +683,7 @@ local currentObjectiveName = nil
 local objectiveInteractionActive = false
 local objectiveProgress = 0
 local skillCheckActive = false
+local pendingSkillCheckId = nil
 local lastObjectiveAlertTime = 0
 local guardianRushReady = true
 local guardianCanCatch = false
@@ -699,19 +699,6 @@ local guardianAbilityCooldownEnds = {
 local roundResultVisible = false
 local lastCageRescueFeedAt = 0
 local lastCageRescuePercent = -1
-
-local function onIdolTaken()
-	idolTaken = true
-	local role = localPlayer:GetAttribute("Role")
-	if objectiveDirectiveLabel then
-		if role == "Thief" then
-			objectiveDirectiveLabel.Text = "You have the idol. Get to extraction."
-		elseif role == "Guardian" then
-			objectiveDirectiveLabel.Text = "Hunt the idol carrier."
-		end
-	end
-end
--- TODO: connect onIdolTaken() to IdolPickedUp remote when it exists
 
 local feedItems = {}
 local function addKillFeedEvent(text)
@@ -964,7 +951,7 @@ local function resetGuardianHUD()
 	guardianCurrentAlert = nil
 	guardianCarrierName = nil
 	guardianCarrierUserId = nil
-	guardianDirectiveLabel.Text = "Stop the thieves before they extract the idol."
+	guardianDirectiveLabel.Text = "Stop the thieves. Shift Rush | Q Reveal | R Roar | E Catch"
 	guardianCatchPromptLabel.Text = ""
 	guardianAbilityCooldownEnds.Rush = 0
 	guardianAbilityCooldownEnds.Reveal = 0
@@ -1410,7 +1397,17 @@ local function showRoundResults(...)
 	statSealLabel.Text = tostring(math.clamp(tonumber(data.sealsBroken) or 0, 0, 3)) .. " / 3"
 	statCaughtLabel.Text = tostring(tonumber(data.thievesCaught) or 0)
 	statTimeLabel.Text = tostring(math.floor(math.max(tonumber(data.timeRemaining) or 0, 0))) .. "s"
-	statXPLabel.Text = "+" .. tostring(tonumber(data.xpEarned) or 0)
+	-- Show local player's total score from authoritative payload
+	local localScore = 0
+	if type(data.players) == "table" then
+		for _, row in ipairs(data.players) do
+			if tonumber(row.userId) == localPlayer.UserId then
+				localScore = tonumber(row.totalScore) or 0
+				break
+			end
+		end
+	end
+	statXPLabel.Text = tostring(localScore)
 
 	resultRewardLabel.Text = ""
 	if type(data.mvp) == "table" then
@@ -1436,12 +1433,25 @@ local function showRoundResults(...)
 		end
 		if personal and type(personal.stats) == "table" then
 			table.insert(lines, string.format(
-				"You: %d | Seals %d | Rescues %d | Catches %d",
+				"You: %d pts | Seals %d | Rescues %d | Catches %d",
 				tonumber(personal.totalScore) or 0,
 				tonumber(personal.stats.sealsCompleted) or 0,
 				tonumber(personal.stats.rescuesCompleted) or 0,
 				tonumber(personal.stats.catches) or 0
 			))
+		end
+		-- Hero moments
+		if type(data.heroMoments) == "table" and #data.heroMoments > 0 then
+			local momentParts = {}
+			for _, m in ipairs(data.heroMoments) do
+				if type(m.playerName) == "string" then
+					local val = m.value and (" x" .. tostring(m.value)) or ""
+					table.insert(momentParts, m.title .. ": " .. m.playerName .. val)
+				end
+			end
+			if #momentParts > 0 then
+				table.insert(lines, table.concat(momentParts, " | "))
+			end
 		end
 		resultBoardLabel.Text = table.concat(lines, "\n")
 	end
@@ -1597,6 +1607,8 @@ roundStartedRemote.OnClientEvent:Connect(function(roundDuration, totalThieves)
 	end
 	resetRoundResultsUI()
 	interactionHintLabel.Visible = false
+	pendingSkillCheckId = nil
+	hideSkillCheck()
 	requestGameSnapshot()
 end)
 
@@ -1634,6 +1646,7 @@ roundEndedRemote.OnClientEvent:Connect(function(result, winner)
 	resetIdolExtractUI()
 	resetObjectiveInteractionUI()
 	resetGuardianHUD()
+	pendingSkillCheckId = nil
 	phaseLabel.Visible = false
 	roleIntroFrame.Visible = false
 	roleIntroShadow.Visible = false
@@ -1669,18 +1682,21 @@ gameSnapshotRemote.OnClientEvent:Connect(function(snapshot)
 	applyGameSnapshot(snapshot)
 end)
 
-setMovementStateRemote.OnClientEvent:Connect(function(state, active)
+-- SetMovementState is client->server only; server never fires it back.
+-- Use IsCrouching attribute (set by server) as the authoritative crouch signal.
+localPlayer:GetAttributeChangedSignal("IsCrouching"):Connect(function()
+	local isCrouching = localPlayer:GetAttribute("IsCrouching") == true
 	local role = localPlayer:GetAttribute("Role")
-	if role == "Thief" and state == "Crouch" then
-		if active then
-			crouchPanel.Visible = true
-			crouchShadow.Visible = true
+	if role == "Thief" then
+		crouchPanel.Visible = isCrouching
+		crouchShadow.Visible = isCrouching
+		if isCrouching then
 			crouchPanel.BackgroundColor3 = Color3.fromRGB(10, 40, 50)
 			crouchPanel.BackgroundTransparency = 0.2
-		else
-			crouchPanel.Visible = false
-			crouchShadow.Visible = false
 		end
+	else
+		crouchPanel.Visible = false
+		crouchShadow.Visible = false
 	end
 end)
 
@@ -2044,13 +2060,89 @@ connectOptional("CageRescueCompleted", function(userId, playerName)
 	local name = type(playerName) == "string" and playerName or "A thief"
 	lastCageRescueFeedAt = 0
 	lastCageRescuePercent = -1
-	addKillFeedEvent(name .. " was rescued")
+	addKillFeedEvent(name .. " rescued!")
 	if localPlayer.UserId == userId then
 		local role = localPlayer:GetAttribute("Role")
 		if role == "Thief" then
-			objectiveDirectiveLabel.Text = "Rescued. Get back in the heist."
+			objectiveDirectiveLabel.Text = "You were rescued. Back in the heist."
 		end
 	end
+end)
+
+-- CageRescueCanceled: show brief status and clear rescue progress display
+connectOptional("CageRescueCanceled", function(targetUserId, reason)
+	lastCageRescueFeedAt = 0
+	lastCageRescuePercent = -1
+	local reasonText = "Rescue canceled"
+	if reason == "rescuer_left" then
+		reasonText = "Rescuer moved away"
+	elseif reason == "target_left" then
+		reasonText = "Target left"
+	elseif reason == "roar" then
+		reasonText = "Interrupted by Roar"
+	elseif reason == "canceled" then
+		reasonText = "Rescue canceled"
+	end
+	-- Show once in kill feed only (not spam)
+	addKillFeedEvent(reasonText)
+end)
+
+-- Skill check UI
+connectOptional("SkillCheckStarted", function(objectiveId, checkId, windowSeconds)
+	if not isThiefRole() then return end
+	showSkillCheck(0, 1, 0)
+	-- Animate needle from 0 to 1 over window duration to show time drain
+	local window = tonumber(windowSeconds) or 0.75
+	local capturedId = checkId
+	local startTime = os.clock()
+	local conn
+	conn = game:GetService("RunService").Heartbeat:Connect(function()
+		if pendingSkillCheckId ~= capturedId then
+			conn:Disconnect()
+			return
+		end
+		local elapsed = os.clock() - startTime
+		local t = math.clamp(elapsed / window, 0, 1)
+		updateSkillCheckNeedle(t)
+		if t >= 1 then
+			conn:Disconnect()
+		end
+	end)
+	pendingSkillCheckId = checkId
+end)
+
+connectOptional("SkillCheckResult", function(objectiveId, checkId, success, reason)
+	pendingSkillCheckId = nil
+	if success then
+		-- Success flash: briefly tint skill check green
+		if skillCheckPanel and skillCheckPanel.Parent then
+			skillCheckPanel.BackgroundColor3 = Color3.fromRGB(20, 80, 30)
+			task.delay(0.3, function()
+				if skillCheckPanel.Parent then
+					skillCheckPanel.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
+				end
+			end)
+		end
+		addKillFeedEvent("Skill check!")
+	else
+		-- Miss flash: briefly tint red
+		if skillCheckPanel and skillCheckPanel.Parent then
+			skillCheckPanel.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+			task.delay(0.3, function()
+				if skillCheckPanel.Parent then
+					skillCheckPanel.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
+				end
+			end)
+		end
+	end
+	task.delay(0.5, function()
+		hideSkillCheck()
+	end)
+end)
+
+connectOptional("SkillCheckExpired", function(objectiveId, checkId)
+	pendingSkillCheckId = nil
+	hideSkillCheck()
 end)
 
 task.defer(requestGameSnapshot)

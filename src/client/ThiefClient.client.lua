@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
+local ContextActionService = game:GetService("ContextActionService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
@@ -17,6 +18,7 @@ local requestExtractRemote = ReplicatedStorage:WaitForChild("RequestExtractWithI
 local requestExtractCancelRemote = ReplicatedStorage:WaitForChild("RequestExtractCancel")
 local requestCageRescueStartRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStart")
 local requestCageRescueStopRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStop")
+local requestSkillCheckHitRemote = ReplicatedStorage:WaitForChild("RequestSkillCheckHit")
 local RequestObjectiveStart = requestObjectiveStartRemote
 local RequestObjectiveStop = requestObjectiveStopRemote
 local RequestIdolPickup = requestIdolPickupRemote
@@ -28,6 +30,10 @@ local rescuingActive = false
 local activeRescueTargetUserId = nil
 local activeObjectiveId = nil
 local extractionHeld = false
+
+-- Skill check state
+local pendingCheckId = nil
+local pendingCheckObjectiveId = nil
 
 local footstepSounds = {}
 local originalFootstepVolume = {}
@@ -271,8 +277,64 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 				RequestIdolPickup:FireServer()
 			end
 		end
+	elseif input.KeyCode == Enum.KeyCode.Space then
+		-- Skill check hit
+		if pendingCheckId and pendingCheckObjectiveId then
+			requestSkillCheckHitRemote:FireServer(pendingCheckObjectiveId, pendingCheckId)
+			pendingCheckId = nil
+			pendingCheckObjectiveId = nil
+		end
 	end
 end)
+
+-- Gamepad interact: ButtonX mirrors E for thieves
+ContextActionService:BindAction(
+	"LIFTED_ThiefInteractGamepad",
+	function(actionName, inputState, inputObject)
+		if inputState ~= Enum.UserInputState.Begin then return end
+		if not isThief() then return end
+		-- Mirror E key logic
+		local hasIdol = localPlayer:GetAttribute("HasIdol") == true
+		if hasIdol and getNearestExtractPoint() then
+			extractionHeld = true
+			RequestExtractWithIdol:FireServer()
+		elseif not hasIdol and isNearRescuePoint() then
+			local _, targetId = getNearestCagedTeammate()
+			if targetId then
+				rescuingActive = true
+				activeRescueTargetUserId = targetId
+				RequestCageRescueStart:FireServer(targetId)
+			end
+		else
+			local _, nearObjectiveId = getNearestObjectiveStation()
+			if nearObjectiveId then
+				task.spawn(beginSealInteraction, nearObjectiveId)
+			elseif not hasIdol and getNearestIdolPart() then
+				RequestIdolPickup:FireServer()
+			end
+		end
+		return Enum.ContextActionResult.Sink
+	end,
+	false,
+	Enum.KeyCode.ButtonX
+)
+
+-- Gamepad skill check: ButtonA
+ContextActionService:BindAction(
+	"LIFTED_ThiefSkillCheckGamepad",
+	function(actionName, inputState, inputObject)
+		if inputState ~= Enum.UserInputState.Begin then return end
+		if not isThief() then return end
+		if pendingCheckId and pendingCheckObjectiveId then
+			requestSkillCheckHitRemote:FireServer(pendingCheckObjectiveId, pendingCheckId)
+			pendingCheckId = nil
+			pendingCheckObjectiveId = nil
+		end
+		return Enum.ContextActionResult.Sink
+	end,
+	false,
+	Enum.KeyCode.ButtonA
+)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.E then
@@ -290,4 +352,32 @@ end)
 if localPlayer.Character then
 	refreshFootstepSounds()
 	applyFootstepVolume()
+end
+
+-- Track pending skill checks sent from server
+local skillCheckStartedRemote = ReplicatedStorage:FindFirstChild("SkillCheckStarted")
+if skillCheckStartedRemote and skillCheckStartedRemote:IsA("RemoteEvent") then
+	skillCheckStartedRemote.OnClientEvent:Connect(function(objectiveId, checkId, windowSeconds)
+		if not isThief() then return end
+		pendingCheckObjectiveId = objectiveId
+		pendingCheckId = checkId
+		-- Auto-clear if player doesn't press Space in time
+		local capturedId = checkId
+		task.delay((tonumber(windowSeconds) or 0.75) + 0.2, function()
+			if pendingCheckId == capturedId then
+				pendingCheckId = nil
+				pendingCheckObjectiveId = nil
+			end
+		end)
+	end)
+end
+
+local skillCheckExpiredRemote = ReplicatedStorage:FindFirstChild("SkillCheckExpired")
+if skillCheckExpiredRemote and skillCheckExpiredRemote:IsA("RemoteEvent") then
+	skillCheckExpiredRemote.OnClientEvent:Connect(function(objectiveId, checkId)
+		if pendingCheckId == checkId then
+			pendingCheckId = nil
+			pendingCheckObjectiveId = nil
+		end
+	end)
 end

@@ -31,6 +31,7 @@ local WEIGHTS = {
 	roarHit = 50,
 	revealUse = 75,
 	rushUse = 25,
+	skillCheckHit = 20,
 }
 
 local function getOrCreateRemote(name)
@@ -82,6 +83,7 @@ local function ensureEntry(player, role)
 			roarHits = 0,
 			revealsUsed = 0,
 			rushesUsed = 0,
+			skillChecksHit = 0,
 		},
 	}
 	scoresByUserId[uid] = entry
@@ -217,6 +219,51 @@ function RoundScoreService.RecordGuardianRoar(player, affectedCount)
 	addScore(entry, WEIGHTS.roarHit * hits)
 end
 
+function RoundScoreService.RecordSkillCheckHit(player)
+	if not roundActive then return end
+	local entry = ensureEntry(player)
+	entry.stats.skillChecksHit = (entry.stats.skillChecksHit or 0) + 1
+	addScore(entry, WEIGHTS.skillCheckHit)
+end
+
+local function computeHeroMoments(scoreMap)
+	local moments = {}
+	local topSeal = { score = -1 }
+	local topRescue = { score = -1 }
+	local topHunter = { score = -1 }
+	local extractor = nil
+
+	for _, entry in pairs(scoreMap) do
+		local s = entry.stats
+		if (s.idolExtracted or 0) > 0 and not extractor then
+			extractor = { name = entry.name, role = entry.role }
+		end
+		if (s.sealsCompleted or 0) > topSeal.score then
+			topSeal = { name = entry.name, role = entry.role, score = s.sealsCompleted }
+		end
+		if (s.rescuesCompleted or 0) > topRescue.score then
+			topRescue = { name = entry.name, role = entry.role, score = s.rescuesCompleted }
+		end
+		if (s.catches or 0) > topHunter.score then
+			topHunter = { name = entry.name, role = entry.role, score = s.catches }
+		end
+	end
+
+	if extractor then
+		table.insert(moments, { title = "Idol Extractor", playerName = extractor.name })
+	end
+	if topSeal.score and topSeal.score > 0 then
+		table.insert(moments, { title = "Seal Breaker", playerName = topSeal.name, value = topSeal.score })
+	end
+	if topRescue.score and topRescue.score > 0 then
+		table.insert(moments, { title = "Clutch Save", playerName = topRescue.name, value = topRescue.score })
+	end
+	if topHunter.score and topHunter.score > 0 then
+		table.insert(moments, { title = "Hunter", playerName = topHunter.name, value = topHunter.score })
+	end
+	return moments
+end
+
 function RoundScoreService.BuildResultsPayload(winner, reason)
 	local players = {}
 	local thiefTotalScore = 0
@@ -265,12 +312,13 @@ function RoundScoreService.BuildResultsPayload(winner, reason)
 		reason = reason,
 		mvp = mvp,
 		players = players,
+		heroMoments = computeHeroMoments(scoresByUserId),
 		teamSummary = {
-			thiefTotalScore = thiefTotalScore,
+			thiefTotalScore    = thiefTotalScore,
 			guardianTotalScore = guardianTotalScore,
-			sealsCompleted = sealsCompleted,
-			rescuesCompleted = rescuesCompleted,
-			idolExtracted = idolExtracted,
+			sealsCompleted     = sealsCompleted,
+			rescuesCompleted   = rescuesCompleted,
+			idolExtracted      = idolExtracted,
 		},
 	}
 end

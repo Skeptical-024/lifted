@@ -45,12 +45,17 @@ function MapValidationService.ValidateCurrentMap()
 	if counts.CageRescuePoint < 1 then table.insert(errors, "Missing CageRescuePoint tag") end
 
 	local foundIds = {}
+	local duplicateIds = {}
 	for _, part in ipairs(taggedParts("ObjectiveStation")) do
 		local id = part:GetAttribute("ObjectiveId")
 		local name = part:GetAttribute("ObjectiveName")
 		if type(id) ~= "string" or id == "" then
 			table.insert(errors, "ObjectiveStation missing ObjectiveId: " .. part:GetFullName())
 		else
+			if foundIds[id] and not duplicateIds[id] then
+				duplicateIds[id] = true
+				table.insert(errors, "Duplicate ObjectiveId '" .. id .. "' on: " .. part:GetFullName())
+			end
 			foundIds[id] = true
 		end
 		if type(name) ~= "string" or name == "" then

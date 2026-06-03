@@ -22,6 +22,9 @@ local DebugCommandService = require(script.Parent:WaitForChild("DebugCommandServ
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local SnapshotService = require(script.Parent:WaitForChild("SnapshotService"))
 local RuntimeAuditService = require(script.Parent:WaitForChild("RuntimeAuditService"))
+local SkillCheckService = require(script.Parent:WaitForChild("SkillCheckService"))
+local SessionAnalyticsService = require(script.Parent:WaitForChild("SessionAnalyticsService"))
+local PingService = require(script.Parent:WaitForChild("PingService"))
 print("GameManager: all modules loaded")
 
 local function getOrCreateRemote(name)
@@ -333,7 +336,7 @@ local function fireLobbyUpdate(status, playerCount, requiredCount, countdown)
 end
 
 local function getRequiredPlayerCount()
-	return Constants.MIN_PLAYERS_TO_START or Constants.ROUND_MIN_PLAYERS or 2
+	return Constants.MIN_PLAYERS_TO_START or 2
 end
 
 local function getRemainingThiefCount()
@@ -353,6 +356,8 @@ local function clearRoundState()
 	CageService.StopRound()
 	GuardianAbilityService.StopRound()
 	RoundScoreService.StopRound()
+	SkillCheckService.StopRound()
+	PingService.StopRound()
 	RemoteGuardService.Reset()
 
 	for player in rolesByPlayer do
@@ -525,13 +530,24 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 	local success = GuardianController.TryCatch(player, targetPlayer, rolesByPlayer, roundActive)
 	if success then
 		local wasIdolCarrier = IdolService.PlayerHasIdol(targetPlayer)
+		-- Capture drop position BEFORE handleCaughtThief teleports the player to cage.
+		-- Without this, idol would drop at cage position instead of catch location.
+		local idolDropPosition = nil
+		if wasIdolCarrier then
+			local chr = targetPlayer.Character
+			local root = chr and chr:FindFirstChild("HumanoidRootPart")
+			idolDropPosition = root and root.Position
+		end
 		local caught, newState = PlayerStateService.MarkCaught(targetPlayer)
 		if caught then
 			RoundScoreService.RecordCaughtByGuardian(player, targetPlayer, wasIdolCarrier)
 			handleCaughtThief(targetPlayer, newState)
 			ObjectiveService.StopAllForPlayer(targetPlayer)
-			IdolService.DropFromPlayer(targetPlayer, "caught")
+			SkillCheckService.CancelAllForPlayer(targetPlayer)
+			IdolService.DropFromPlayer(targetPlayer, "caught", idolDropPosition)
 			CageService.CagePlayer(targetPlayer)
+			SessionAnalyticsService.RecordCatch()
+			SessionAnalyticsService.RecordCage()
 			-- Remove from activeThieves regardless of Caught vs Eliminated
 			activeThieves[targetPlayer] = nil
 			fireThiefCountToGuardian()
@@ -604,20 +620,63 @@ RuntimeAuditService.Init({
 	end,
 })
 RuntimeAuditService.Start()
+IdolService.SetRoundEndCallback(function(extractingPlayer)
+	local name = extractingPlayer and extractingPlayer.Name or "A thief"
+	SessionAnalyticsService.RecordExtractionComplete()
+	requestEndRound("Thieves", name .. " extracted the idol")
+end)
+CageService.SetRescueCompletedCallback(function(rescuedPlayer, reason)
+	local _ = rescuedPlayer
+	local _reason = reason
+	SessionAnalyticsService.RecordRescue()
+	fireThiefCountToGuardian()
+end)
+
+-- Wire SkillCheckService
+SkillCheckService.SetObjectiveService(ObjectiveService)
+SkillCheckService.SetScoreCallbacks({
+	onSkillCheckHit = function(player, objectiveId)
+		RoundScoreService.RecordSkillCheckHit(player)
+		SessionAnalyticsService.RecordSkillCheckHit()
+	end,
+})
+SkillCheckService.Init()
+
+-- Wire SessionAnalyticsService analytics via ability/idol callbacks
+GuardianAbilityService.SetScoreCallbacks({
+	onRush = function(player)
+		RoundScoreService.RecordGuardianRush(player)
+		SessionAnalyticsService.RecordRush()
+	end,
+	onReveal = function(player, revealedCount)
+		RoundScoreService.RecordGuardianReveal(player, revealedCount)
+		SessionAnalyticsService.RecordReveal()
+	end,
+	onRoar = function(player, affectedCount)
+		RoundScoreService.RecordGuardianRoar(player, affectedCount)
+		SessionAnalyticsService.RecordRoar()
+	end,
+})
+IdolService.SetScoreCallbacks({
+	onIdolPickedUp = function(player)
+		RoundScoreService.RecordIdolPickedUp(player)
+		SessionAnalyticsService.RecordIdolPickup()
+	end,
+	onIdolExtracted = function(player)
+		RoundScoreService.RecordIdolExtracted(player)
+		SessionAnalyticsService.RecordExtractionComplete()
+	end,
+})
 ObjectiveService.SetScoreCallbacks({
 	onSealProgress = function(player, objectiveId, delta)
 		RoundScoreService.RecordSealProgress(player, objectiveId, delta)
 	end,
 	onSealCompleted = function(player, objectiveId)
 		RoundScoreService.RecordSealCompleted(player, objectiveId)
-	end,
-})
-IdolService.SetScoreCallbacks({
-	onIdolPickedUp = function(player)
-		RoundScoreService.RecordIdolPickedUp(player)
-	end,
-	onIdolExtracted = function(player)
-		RoundScoreService.RecordIdolExtracted(player)
+		SessionAnalyticsService.RecordSealCompleted()
+		if ObjectiveService.GetCompletedCount() >= 3 then
+			SessionAnalyticsService.RecordVaultOpened()
+		end
 	end,
 })
 CageService.SetScoreCallbacks({
@@ -631,26 +690,13 @@ CageService.SetScoreCallbacks({
 		RoundScoreService.RecordRescueCompleted(rescuer, rescued)
 	end,
 })
-GuardianAbilityService.SetScoreCallbacks({
-	onRush = function(player)
-		RoundScoreService.RecordGuardianRush(player)
-	end,
-	onReveal = function(player, revealedCount)
-		RoundScoreService.RecordGuardianReveal(player, revealedCount)
-	end,
-	onRoar = function(player, affectedCount)
-		RoundScoreService.RecordGuardianRoar(player, affectedCount)
-	end,
-})
-IdolService.SetRoundEndCallback(function(extractingPlayer)
-	local name = extractingPlayer and extractingPlayer.Name or "A thief"
-	requestEndRound("Thieves", name .. " extracted the idol")
+
+-- Wire PingService analytics
+PingService.SetAnalyticsCallback(function()
+	SessionAnalyticsService.RecordPing()
 end)
-CageService.SetRescueCompletedCallback(function(rescuedPlayer, reason)
-	local _ = rescuedPlayer
-	local _reason = reason
-	fireThiefCountToGuardian()
-end)
+PingService.Init()
+SessionAnalyticsService.Init()
 DebugCommandService.Init({
 	Constants = Constants,
 	ObjectiveService = ObjectiveService,
@@ -660,6 +706,7 @@ DebugCommandService.Init({
 	MapValidationService = MapValidationService,
 	SnapshotService = SnapshotService,
 	RuntimeAuditService = RuntimeAuditService,
+	SessionAnalyticsService = SessionAnalyticsService,
 	GetRoundSnapshot = function()
 		return {
 			roundId = roundId,
@@ -716,12 +763,21 @@ while true do
 	setRoundState(RoundStates.Cleanup, "pre_round_cleanup")
 	clearRoundState()
 	setRoundState(RoundStates.AssigningRoles, "assign_roles")
-	rolesByPlayer, guardianPlayer = RoleManager.AssignRoles(roundPlayers, lastGuardianUserId)
+	-- Fix stale lastGuardianUserId: only use it if that player still exists
+	local validLastGuardian = lastGuardianUserId
+	if validLastGuardian then
+		local stillHere = false
+		for _, p in ipairs(roundPlayers) do
+			if p.UserId == validLastGuardian then stillHere = true; break end
+		end
+		if not stillHere then validLastGuardian = nil end
+	end
+	rolesByPlayer, guardianPlayer = RoleManager.AssignRoles(roundPlayers, validLastGuardian)
 	if guardianPlayer then
 		lastGuardianUserId = guardianPlayer.UserId
 	end
 	roundId += 1
-	print(string.format("[RoundLifecycle] Start roundId=%d", roundId))
+	print(string.format("[RoundLifecycle] Start roundId=%d guardian=%s", roundId, guardianPlayer and guardianPlayer.Name or "?"))
 	PlayerStateService.ResetForNewRound(roundId)
 	RoundScoreService.ResetForRound(roundId, rolesByPlayer)
 	for player, role in rolesByPlayer do
@@ -733,6 +789,13 @@ while true do
 	IdolService.ResetForRound(roundId)
 	CageService.ResetForRound(roundId)
 	GuardianAbilityService.ResetForRound(roundId)
+	SkillCheckService.ResetForRound()
+	PingService.ResetForRound()
+	SessionAnalyticsService.StartRound(
+		roundId,
+		#roundPlayers,
+		guardianPlayer and guardianPlayer.Name or "?"
+	)
 	roundActive = true
 	endingRound = false
 	forcedWinner = nil
@@ -838,13 +901,14 @@ while true do
 	end
 	roundActive = false
 	setRoundState(RoundStates.Results, result)
+	SessionAnalyticsService.EndRound(winner, result)
 	fireRoundEnded(result, winner)
 	RoundScoreService.FireResults(winner, result)
 	resultsFired = true
 	print(string.format("[RoundLifecycle] End roundId=%d winner=%s reason=%s", roundId, tostring(winner), tostring(result)))
-	print(string.format("[RoundResult] %s", result))
 	for _, player in ipairs(Players:GetPlayers()) do
 		ObjectiveService.StopAllForPlayer(player)
+		SkillCheckService.CancelAllForPlayer(player)
 	end
 	clearRoundState()
 	setRoundState(RoundStates.Intermission, "results_complete")

@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local ObjectiveService = require(script.Parent:WaitForChild("ObjectiveService"))
 local CageService = require(script.Parent:WaitForChild("CageService"))
+local IdolService = require(script.Parent:WaitForChild("IdolService"))
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
@@ -233,6 +234,7 @@ function GuardianAbilityService.RequestRoar(player)
 	for _, thief in ipairs(affected) do
 		ObjectiveService.StopAllForPlayer(thief)
 		CageService.StopRescue(thief)
+		IdolService.CancelExtractionForPlayer(thief, "roar")
 		local h = getHumanoid(thief)
 		if h then
 			local uid = thief.UserId
