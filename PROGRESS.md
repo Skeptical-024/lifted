@@ -1,5 +1,9 @@
 # PROGRESS
 
+## 2026-06-06 — Hardening Pass 1 (scope fix)
+
+**Task 1 scope bug fixed** (`src/client/LobbyClient.client.lua`): `local menuActive` was declared *after* `onPlayClicked`, so the `menuActive = true` assignment inside the function wrote to an implicit global instead of the local. `processLobbyPayload` reads the local, which stayed `false` after round 1, silently dropping all subsequent `LobbyUpdate` events. Fix: moved `local menuActive = true` to before `onPlayClicked` so it is captured as an upvalue. Removed the duplicate declaration that previously appeared after the function. Now exactly one `local menuActive` exists in the file.
+
 ## 2026-06-06 — Hardening Pass 1
 
 ### Changes

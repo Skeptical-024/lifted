@@ -46,6 +46,7 @@ if not playClickedBindable then
 end
 
 local playClicked = false
+local menuActive = true
 local function onPlayClicked()
 	playClicked = true
 	menuActive = true
@@ -53,7 +54,6 @@ end
 playClickedBindable.Event:Connect(onPlayClicked)
 
 local startTime = os.clock()
-local menuActive = true
 
 local function tween(element, props, duration, style, direction)
 	local t = TweenService:Create(element, TweenInfo.new(duration or 0.3, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), props)
