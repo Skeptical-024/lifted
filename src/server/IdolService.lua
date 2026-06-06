@@ -303,6 +303,7 @@ function IdolService.AutoRegisterParts()
 end
 
 function IdolService.ResetForRound(roundId)
+	warned = {}
 	currentRoundId = roundId or 0
 	roundIsActive = true
 	isExtracting = false

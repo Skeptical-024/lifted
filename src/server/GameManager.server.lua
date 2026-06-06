@@ -44,7 +44,8 @@ end
 local thiefExtractedRemote = getOrCreateRemote("ThiefExtracted")
 local catchThiefRemote = getOrCreateRemote("CatchThief")
 local setMovementStateRemote = getOrCreateRemote("SetMovementState")
-getOrCreateRemote("ThiefCaught")
+local thiefCaughtRemote = getOrCreateRemote("ThiefCaught")
+local playerEliminatedRemote = getOrCreateRemote("PlayerEliminated")
 local roleAssignedRemote = getOrCreateRemote("RoleAssigned")
 local roundStartedRemote = getOrCreateRemote("RoundStarted")
 local roundEndedRemote = getOrCreateRemote("RoundEnded")
@@ -74,6 +75,8 @@ local resultsFired = false
 local lastGuardianUserId = nil
 local roundEndsAt = 0
 local totalThiefCount = 0
+local forceStartRequested = false
+local skipCountdownRequested = false
 
 local RoundStates = {
 	Lobby = "Lobby",
@@ -142,30 +145,6 @@ local function getTaggedParts(tag)
 	return parts
 end
 
-local function ensureBasicMap()
-	-- Disabled: TestMapService handles all tagged gameplay parts.
-end
-
-local function createSpawnPart(name, position, color, tag)
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = Vector3.new(4, 1, 4)
-	part.Color = color
-	part.Anchored = true
-	part.CanCollide = false
-	part.Position = position
-	part.Parent = workspace
-	CollectionService:AddTag(part, tag)
-	return part
-end
-
-local function ensureSpawnPoints()
-	-- Disabled: TestMapService handles all tagged gameplay parts.
-end
-
-local function ensureVaultPart()
-	-- Disabled: TestMapService handles all tagged gameplay parts.
-end
 
 local function resetPlayerMovement(player)
 	if player.Character then
@@ -241,6 +220,18 @@ local function freezeThiefCharacter(player)
 	end
 	humanoid.PlatformStand = false
 	player:SetAttribute("IsCaught", true)
+end
+
+local function applyEliminatedTreatment(player)
+	local character = player.Character
+	if character then
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end
+	playerEliminatedRemote:FireAllClients(player.UserId, player.Name)
 end
 
 local function handleCaughtThief(targetPlayer, newState)
@@ -397,6 +388,29 @@ local function setForcedRoundResult(winner, reason)
 	requestEndRound(winner, reason)
 end
 
+local function requestForceStart()
+	if #Players:GetPlayers() < getRequiredPlayerCount() then
+		print("[DebugCommand] forcestart denied: not enough players")
+		return
+	end
+	if roundState ~= RoundStates.Lobby and roundState ~= RoundStates.Countdown then
+		print("[DebugCommand] forcestart denied: not in lobby/countdown (state=" .. tostring(roundState) .. ")")
+		return
+	end
+	forceStartRequested = true
+	skipCountdownRequested = true
+	print("[DebugCommand] Force start requested")
+end
+
+local function requestSkipCountdown()
+	if roundState ~= RoundStates.Countdown then
+		print("[DebugCommand] skiplobby denied: not in countdown (state=" .. tostring(roundState) .. ")")
+		return
+	end
+	skipCountdownRequested = true
+	print("[DebugCommand] Skip countdown requested")
+end
+
 Players.PlayerRemoving:Connect(function(player)
 	local role = rolesByPlayer[player]
 	local state = PlayerStateService.GetState(player)
@@ -459,11 +473,17 @@ Players.PlayerAdded:Connect(function(player)
 
 		local state = PlayerStateService.GetState(player)
 		if state == PlayerStateService.State.Caught
-			or state == PlayerStateService.State.Caged
-			or state == PlayerStateService.State.Eliminated then
+			or state == PlayerStateService.State.Caged then
 			task.defer(function()
 				if player.Parent then
 					handleCaughtThief(player, state)
+				end
+			end)
+		elseif state == PlayerStateService.State.Eliminated then
+			task.defer(function()
+				if player.Parent then
+					handleCaughtThief(player, state)
+					applyEliminatedTreatment(player)
 				end
 			end)
 		else
@@ -540,15 +560,20 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 		end
 		local caught, newState = PlayerStateService.MarkCaught(targetPlayer)
 		if caught then
+			-- Fire ThiefCaught after MarkCaught so newState is included
+			thiefCaughtRemote:FireAllClients(player, targetPlayer, newState)
 			RoundScoreService.RecordCaughtByGuardian(player, targetPlayer, wasIdolCarrier)
 			handleCaughtThief(targetPlayer, newState)
 			ObjectiveService.StopAllForPlayer(targetPlayer)
 			SkillCheckService.CancelAllForPlayer(targetPlayer)
 			IdolService.DropFromPlayer(targetPlayer, "caught", idolDropPosition)
-			CageService.CagePlayer(targetPlayer)
 			SessionAnalyticsService.RecordCatch()
-			SessionAnalyticsService.RecordCage()
-			-- Remove from activeThieves regardless of Caught vs Eliminated
+			if newState == PlayerStateService.State.Caught then
+				CageService.CagePlayer(targetPlayer)
+				SessionAnalyticsService.RecordCage()
+			elseif newState == PlayerStateService.State.Eliminated then
+				applyEliminatedTreatment(targetPlayer)
+			end
 			activeThieves[targetPlayer] = nil
 			fireThiefCountToGuardian()
 		end
@@ -722,10 +747,9 @@ DebugCommandService.Init({
 		}
 	end,
 	SetForcedRoundResult = setForcedRoundResult,
+	RequestForceStart = requestForceStart,
+	SkipCountdown = requestSkipCountdown,
 })
--- ensureBasicMap, ensureVaultPart, ensureSpawnPoints disabled:
--- TestMapService provides all tagged gameplay parts.
-print("GameManager: vault ensured")
 task.wait(5)
 
 while true do
@@ -733,15 +757,24 @@ while true do
 	setRoundState(RoundStates.Lobby, "waiting_for_players")
 
 	while #Players:GetPlayers() < getRequiredPlayerCount() do
+		if forceStartRequested and #Players:GetPlayers() >= getRequiredPlayerCount() then
+			break
+		end
+		forceStartRequested = false
 		fireLobbyUpdate("waiting", #Players:GetPlayers(), getRequiredPlayerCount(), nil)
 		print("GameManager: player count = " .. #Players:GetPlayers())
 		task.wait(1)
 	end
+	forceStartRequested = false
 
 	setRoundState(RoundStates.Countdown, "min_players_ready")
 	local countdown = Constants.LOBBY_COUNTDOWN_SECONDS
 	local countdownFinished = true
 	while countdown > 0 do
+		if skipCountdownRequested then
+			countdown = math.min(countdown, 2)
+			skipCountdownRequested = false
+		end
 		if #Players:GetPlayers() < getRequiredPlayerCount() then
 			countdownFinished = false
 			break
@@ -750,6 +783,7 @@ while true do
 		task.wait(1)
 		countdown -= 1
 	end
+	skipCountdownRequested = false
 	if not countdownFinished then
 		setRoundState(RoundStates.Lobby, "countdown_canceled")
 		continue

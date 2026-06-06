@@ -48,6 +48,7 @@ end
 local playClicked = false
 local function onPlayClicked()
 	playClicked = true
+	menuActive = true
 end
 playClickedBindable.Event:Connect(onPlayClicked)
 

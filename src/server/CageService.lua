@@ -238,6 +238,7 @@ function CageService.AutoRegisterParts()
 end
 
 function CageService.ResetForRound(roundId)
+	warned = {}
 	roundIsActive = true
 	cagedPlayers = {}
 	rescueRecords = {}

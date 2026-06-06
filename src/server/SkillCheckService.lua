@@ -212,6 +212,7 @@ function SkillCheckService.Init()
 end
 
 function SkillCheckService.ResetForRound()
+	warned = {}
 	roundIsActive = true
 	activeChecks = {}
 	nextCheckAt = {}

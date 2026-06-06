@@ -742,32 +742,8 @@ local function addKillFeedEvent(text)
 	end)
 end
 
-local function showRoleIntro(role)
-	roleIntroFrame.Visible = true
-	roleIntroShadow.Visible = true
-	if role == "Thief" then
-		roleIntroTitle.Text = "THIEF"
-		roleIntroTitle.TextColor3 = COLORS.teal
-		roleIntroSubtitle.Text = "Break seals. Steal the idol. Extract."
-		roleIntroControls.Text = "E: Interact   Shift: Crouch\nRescue teammates and stay alive."
-	elseif role == "Guardian" then
-		roleIntroTitle.Text = "GUARDIAN"
-		roleIntroTitle.TextColor3 = COLORS.red
-		roleIntroSubtitle.Text = "Catch thieves. Guard cages. Stop extraction."
-		roleIntroControls.Text = "E: Catch   Shift: Rush   Q: Reveal   R: Roar"
-	else
-		roleIntroTitle.Text = "WAITING"
-		roleIntroTitle.TextColor3 = COLORS.grey
-		roleIntroSubtitle.Text = "Waiting for next round."
-		roleIntroControls.Text = ""
-	end
-	task.delay(4, function()
-		if roleIntroFrame.Parent then
-			roleIntroFrame.Visible = false
-			roleIntroShadow.Visible = false
-		end
-	end)
-end
+-- Role intro is handled exclusively by RoleAnnouncementClient.
+local function showRoleIntro(_role) end
 
 local function getRootPart(player)
 	local c = player and player.Character
@@ -1479,6 +1455,11 @@ local function showRoundResults(...)
 			tweenIn(accentLine, "Size", UDim2.fromOffset(400, 2), 0.5)
 		end
 	end)
+	task.delay(Constants.RESULTS_DISPLAY_SECONDS or 8, function()
+		if roundResultVisible then
+			hideRoundResults()
+		end
+	end)
 end
 
 local function requestGameSnapshot()
@@ -1562,6 +1543,21 @@ local function applyGameSnapshot(snapshot)
 			guardianAbilityCooldownEnds[abilityName] = os.clock() + math.max(0, tonumber(seconds) or 0)
 		end
 		updateGuardianAbilityLine()
+	end
+
+	if type(snapshot.cage) == "table" then
+		local cagedPlayers = snapshot.cage.cagedPlayers or {}
+		local rescues = snapshot.cage.rescues or {}
+		if cagedPlayers[localPlayer.UserId] then
+			objectiveDirectiveLabel.Text = "You are caged. Wait for rescue."
+			objectiveDirectiveLabel.Visible = true
+			interactionHintLabel.Visible = false
+			-- Reflect any in-progress rescue
+			local rescueRec = rescues[localPlayer.UserId]
+			if rescueRec and (tonumber(rescueRec.progress) or 0) > 0 then
+				objectiveDirectiveLabel.Text = "Rescue in progress..."
+			end
+		end
 	end
 
 	if playerState == "OutOfRound" then
@@ -1648,8 +1644,6 @@ roundEndedRemote.OnClientEvent:Connect(function(result, winner)
 	resetGuardianHUD()
 	pendingSkillCheckId = nil
 	phaseLabel.Visible = false
-	roleIntroFrame.Visible = false
-	roleIntroShadow.Visible = false
 	interactionHintLabel.Visible = false
 end)
 
@@ -1710,7 +1704,11 @@ end)
 
 localPlayer:GetAttributeChangedSignal("RoundState"):Connect(function()
 	local state = localPlayer:GetAttribute("RoundState")
-	if state == "OutOfRound" and isRoundActive then
+	if state == "Eliminated" then
+		objectiveDirectiveLabel.Text = "ELIMINATED — Waiting for next round"
+		objectiveDirectiveLabel.Visible = true
+		interactionHintLabel.Visible = false
+	elseif state == "OutOfRound" and isRoundActive then
 		objectiveDirectiveLabel.Text = "Waiting for next round"
 		interactionHintLabel.Visible = false
 	end

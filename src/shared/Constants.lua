@@ -3,7 +3,7 @@ local Constants = {
 	TEST_MAP_ENABLED           = true,
 	STRICT_MAP_VALIDATION      = false,
 	DEBUG_COMMANDS_ENABLED     = false,
-	RUNTIME_AUDIT_ENABLED      = true,
+	RUNTIME_AUDIT_ENABLED      = false,
 	RUNTIME_AUDIT_INTERVAL     = 5,
 
 	-- Safety

@@ -256,6 +256,7 @@ function ObjectiveService.Init()
 end
 
 function ObjectiveService.ResetForRound(roundId)
+	warned = {}
 	currentRoundId = roundId or currentRoundId or 0
 	vaultOpen = false
 	objectives = {}

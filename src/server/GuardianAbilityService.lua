@@ -306,6 +306,7 @@ function GuardianAbilityService.Init()
 end
 
 function GuardianAbilityService.ResetForRound(roundId)
+	warned = {}
 	abilityState = {}
 	roundIsActive = true
 end

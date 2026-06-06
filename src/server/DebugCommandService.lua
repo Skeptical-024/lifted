@@ -5,13 +5,20 @@ local DebugCommandService = {}
 
 local enabled = false
 local handlers = {}
+local function isPrivateServer()
+	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
+end
 
-local function canUse()
-	return enabled
+local function canUse(player)
+	if RunService:IsStudio() then return true end
+	if enabled then return true end
+	if isPrivateServer() and player and player.UserId == game.PrivateServerOwnerId then return true end
+	return false
 end
 
 function DebugCommandService.Init(deps)
-	enabled = (RunService:IsStudio() or deps.Constants.DEBUG_COMMANDS_ENABLED == true)
+	local studioOrFlag = RunService:IsStudio() or deps.Constants.DEBUG_COMMANDS_ENABLED == true
+	enabled = studioOrFlag or isPrivateServer()
 	if not enabled then
 		return
 	end
@@ -125,15 +132,29 @@ function DebugCommandService.Init(deps)
 		end
 	end
 
+	-- /debug forcestart — skip waiting + countdown (private server owner / Studio / flag)
+	handlers.forcestart = function()
+		if deps.RequestForceStart then
+			deps.RequestForceStart()
+		end
+	end
+
+	-- /debug skiplobby — shorten active countdown to 2 s
+	handlers.skiplobby = function()
+		if deps.SkipCountdown then
+			deps.SkipCountdown()
+		end
+	end
+
 	local normalized = {}
 	for name, fn in pairs(handlers) do
 		normalized[string.lower(name)] = fn
 	end
 	handlers = normalized
 
-	Players.PlayerAdded:Connect(function(player)
+	local function wirePlayer(player)
 		player.Chatted:Connect(function(message)
-			if not canUse() then return end
+			if not canUse(player) then return end
 			local cmd = string.match(string.lower(message), "^/debug%s+(%S+)")
 			if not cmd then return end
 			local fn = handlers[cmd]
@@ -141,17 +162,10 @@ function DebugCommandService.Init(deps)
 				fn(player)
 			end
 		end)
-	end)
+	end
+	Players.PlayerAdded:Connect(wirePlayer)
 	for _, player in ipairs(Players:GetPlayers()) do
-		player.Chatted:Connect(function(message)
-			if not canUse() then return end
-			local cmd = string.match(string.lower(message), "^/debug%s+(%S+)")
-			if not cmd then return end
-			local fn = handlers[cmd]
-			if fn then
-				fn(player)
-			end
-		end)
+		wirePlayer(player)
 	end
 end
 

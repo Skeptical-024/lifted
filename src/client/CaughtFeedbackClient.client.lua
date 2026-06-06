@@ -55,7 +55,7 @@ local function showMessage(text, color, duration)
 	tween:Play()
 end
 
-thiefCaughtRemote.OnClientEvent:Connect(function(guardianPlayer, caughtPlayer)
+thiefCaughtRemote.OnClientEvent:Connect(function(guardianPlayer, caughtPlayer, caughtState)
 	if typeof(guardianPlayer) ~= "Instance" or typeof(caughtPlayer) ~= "Instance" then
 		return
 	end
@@ -64,7 +64,11 @@ thiefCaughtRemote.OnClientEvent:Connect(function(guardianPlayer, caughtPlayer)
 	end
 
 	if localPlayer == caughtPlayer then
-		showMessage("YOU WERE CAUGHT", Color3.fromRGB(220, 40, 40), 2)
+		if caughtState == "Eliminated" then
+			showMessage("ELIMINATED — OUT FOR THIS ROUND", Color3.fromRGB(180, 40, 40), 3)
+		else
+			showMessage("YOU WERE CAUGHT", Color3.fromRGB(220, 40, 40), 2)
+		end
 		playCaughtBuzzer()
 	elseif localPlayer == guardianPlayer then
 		showMessage("THIEF CAUGHT!", Color3.fromRGB(70, 220, 90), 1.5)

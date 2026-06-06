@@ -46,6 +46,9 @@ end
 function SessionAnalyticsService.StartRound(roundId, playerCount, guardianName)
 	currentRound = newRecord(roundId, playerCount, guardianName)
 	table.insert(rounds, currentRound)
+	if #rounds > 50 then
+		table.remove(rounds, 1)
+	end
 end
 
 function SessionAnalyticsService.RecordSealCompleted()

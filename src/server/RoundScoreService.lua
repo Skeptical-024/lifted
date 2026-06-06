@@ -101,6 +101,7 @@ function RoundScoreService.Init()
 end
 
 function RoundScoreService.ResetForRound(newRoundId, rolesByPlayer)
+	warned = {}
 	roundId = newRoundId or 0
 	roundActive = false
 	scoresByUserId = {}

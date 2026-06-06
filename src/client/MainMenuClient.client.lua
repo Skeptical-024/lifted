@@ -7,6 +7,8 @@ local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
+local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+
 local function setMenuCoreGuiEnabled(enabled)
 	pcall(function() StarterGui:SetCore("TopbarEnabled", enabled) end)
 	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, enabled) end)
@@ -1687,8 +1689,7 @@ end)
 local roundEndedRemote = ReplicatedStorage:FindFirstChild("RoundEnded")
 if roundEndedRemote and roundEndedRemote:IsA("RemoteEvent") then
 	roundEndedRemote.OnClientEvent:Connect(function()
-		-- Wait for the results screen in RoundUIClient to finish (approx 4s)
-		task.delay(4.5, function()
+		task.delay(Constants.RESULTS_DISPLAY_SECONDS or 8, function()
 			if gui and gui.Parent then
 				showMainMenu()
 			end
