@@ -1,5 +1,131 @@
 # PROGRESS
 
+## 2026-06-06 — RoundUIClient Split (11 Controllers)
+
+Pure structural extraction. Behavior, visuals, and timing are identical to the monolith.
+No gameplay, balance, remote-name, or payload changes.
+
+### What changed
+
+`src/client/RoundUIClient.client.lua` (2178 lines) split into 11 ModuleScripts under
+`src/client/controllers/` plus a thin 170-line bootstrap.
+
+| Controller | Owns |
+|---|---|
+| `SharedHud` | ScreenGui, helpers (makePanel/makeShadow/makeLabel/tweenIn), COLORS, shared state (getters/setters), proximity utils, readableFailure/showFailure |
+| `KillFeedController` | Kill-feed Frame, item pool, Add/Clear/Reset |
+| `ResultsController` | Round-results overlay, all result labels, Show/Hide/Reset, RoundResults remote |
+| `GuardianHudController` | guardianStatusPanel, rushPanel, guardian state vars, all guardian ability remotes |
+| `ThiefHudController` | thiefPanel (guardian sees it), crouchPanel, ThiefCountUpdate remote, IsCrouching attribute |
+| `SkillCheckController` | skillCheckPanel, needle, SkillCheckStarted/Result/Expired remotes |
+| `ObjectiveHudController` | sealPanel, objectiveInteractionPanel, all objective remotes |
+| `IdolExtractController` | idolStatusPanel, extract progress bar, all idol/extract/vault remotes |
+| `CageController` | PlayerCaged/Rescue/Cancel remotes → kill feed + directive updates |
+| `CoreHudController` | timerPanel, roleBadge, phaseLabel, objectiveDirectiveLabel, interactionHintLabel, proximity dot, THE single persistent RunService.Heartbeat |
+| `SnapshotController` | requestGameSnapshot, applyGameSnapshot, Role/RoundState attribute watchers, CharacterAdded, initial snapshot |
+
+### Design notes
+
+- ONE ScreenGui (`SharedHud.gui`); every controller parents frames into it.
+- ONE persistent Heartbeat (in `CoreHudController`).
+- Controllers communicate via plain function calls; no pub/sub.
+- `connectOptional` lives in `SharedHud` and is shared by all controllers.
+- Three dead remotes (`GuardianCatchPrompt`, `GuardianAlert`, `ObjectiveStarted`) moved as-is; `connectOptional` returns nil silently since they are not in ReplicatedStorage.
+- `IdolExtractController` and `CageController` receive their `CoreHudController` reference via `SetCoreHud()` after CoreHud is initialized (bootstrap wires this explicitly).
+- `ThiefHudController.thiefPanel` is shown for Guardian role (guardian sees thief-count icons). This matches the original `setRoleUI` logic exactly.
+- `rushPanel` is guardian-owned (GuardianHudController). Original code: shown for Guardian, hidden for Thief.
+- `SharedHud.injectKillFeed(fn)` called immediately after `KillFeedController.Init` so `showFailure` is live for all subsequent controllers.
+
+### Build gate
+
+All 12 files: `rojo build default.project.json --output /tmp/lifted_build.rbxl` exits 0.
+
+### How to smoke-test
+
+1. Studio 2-player local server.
+2. Round starts — confirm timer, role badge, phase label, kill feed all appear identically to before.
+3. Guardian role — confirm guardianStatusPanel + rushPanel visible, thief-icon panel visible.
+4. Thief role — confirm sealPanel visible, crouch indicator appears on crouch.
+5. Break seals → vault opens → idol spawns → pick up → extract → Thieves win → results overlay shows → auto-hides after ~8 s.
+6. Guardian catches thief → cage UI directive ("You are caged") → rescue → "rescued!" feed event → directive updates.
+7. Skill check shows on seal interaction and hides on result/expire.
+8. Guardian Rush/Reveal/Roar cooldown line updates in real-time.
+9. Proximity arrow appears when guardian is within 40 studs of a thief.
+10. Snapshot recovery: join mid-round → GameSnapshot fires → role, vault, and idol state correctly reflected.
+11. No red errors in output. `[RuntimeAudit] PASS` fires every 5 s.
+
+## 2026-06-06 — Infrastructure & Cleanup Pass (Tasks 1–6)
+
+Pure restructure. No gameplay, balance, visual, or remote-payload changes.
+
+### Task 1 — Central RemoteEvent registry (`src/shared/Remotes.lua`)
+Created `src/shared/Remotes.lua` under ReplicatedStorage (flat, no Remotes subfolder).
+67 remote names as constants grouped by system. Three accessors:
+- `Remotes.Server(name)` — idempotent create-or-get; replaces every per-file `getOrCreateRemote`.
+- `Remotes.Client(name)` — `WaitForChild` up to 30 s; replaces all client `WaitForChild("X")` calls.
+- `Remotes.Find(name)` — non-blocking `FindFirstChild`; replaces all client guard-checked `FindFirstChild("X")` calls.
+
+Migrated all server services: `GameManager`, `ObjectiveService`, `IdolService`, `CageService`,
+`GuardianAbilityService`, `SkillCheckService`, `PingService`, `RoundScoreService`,
+`SnapshotService`, `ActivityService`. Removed all per-file `local function getOrCreateRemote`.
+
+Migrated all client scripts: `RoundUIClient`, `ThiefClient`, `SoundClient`, `GuardianClient`,
+`LobbyClient`, `PingClient`, `ActivityClient`, `CaughtFeedbackClient`, `RoleAnnouncementClient`,
+`MainMenuClient`, `MinimapClient`. Also updated `connectOptional` in `RoundUIClient` to use
+`Remotes.Find` internally.
+
+Note: `PlayClicked` is a `BindableEvent`, not a RemoteEvent — intentionally excluded.
+
+### Task 2 — Single `getRoundSnapshot()` in GameManager
+Defined one `local function getRoundSnapshot()` before the service-init block.
+Replaced three identical inline closures in `SnapshotService.Configure`, `RuntimeAuditService.Init`,
+and `DebugCommandService.Init` with `GetRoundSnapshot = getRoundSnapshot`.
+Returned table shape is unchanged.
+
+### Task 3 — Delete dead Brazier code
+Both `src/server/BrazierManager.lua` and `src/client/BrazierClient.client.lua` were already
+deleted in a prior hardening pass. `TestMapService.lua` had no Brazier tags. No action needed.
+
+### Task 4 — Remove dead roleIntro UI from RoundUIClient
+Deleted:
+- Lines 140–158: `roleIntroFrame` / `roleIntroShadow` / `roleIntroTitle` / `roleIntroSubtitle`
+  / `roleIntroControls` panel creation.
+- `local function showRoleIntro(_role) end` no-op stub.
+- Two call sites (`showRoleIntro(role)` in `RoleAssigned` handler, and the
+  `if not isRoundActive then showRoleIntro(...) end` block in attribute-changed handler).
+`RoleAnnouncementClient` remains the sole role-reveal.
+
+### Task 5 — Centralize client magic numbers
+Added to `src/shared/Constants.lua`:
+```
+THIEF_GUARDIAN_PROXIMITY_RADIUS = 40
+HUD_PROMPT_SCAN_INTERVAL        = 0.15
+```
+Updated `src/client/RoundUIClient.client.lua` to read these constants at the two call sites.
+Values are identical to prior inline literals.
+
+### Task 6 — Light typing pass and state-machine doc
+- `src/shared/Types.lua`: Added `--!strict`, expanded with `PlayerState` value table,
+  and three exported types: `RoundSnapshotPayload`, `PlayerScoreRow`, `ResultsPayload`.
+- `src/shared/Remotes.lua`: Already had `--!strict`.
+- `PlayerStateService`: Skipped `--!strict` — dynamic `records` table and untyped callbacks
+  would produce new warnings with no behavioral benefit.
+- Created `docs/RoundStates.md`: accurate state flow diagram, win conditions, and
+  service ownership table.
+
+### Build gate
+All six tasks: `rojo build default.project.json --output /tmp/lifted_build.rbxl` exits 0.
+
+### How to smoke-test
+1. Start a 2-player Studio local server.
+2. Confirm lobby countdown shows, roles assign, round goes active.
+3. Break all 3 seals → vault opens → idol appears → thief picks up → extracts → Thieves win.
+4. Guardian catches a thief → cage UI shows → thief rescued → round continues.
+5. Let timer expire → Guardian/Time win → results screen shows → new lobby starts.
+6. No red errors in output. `[RuntimeAudit] PASS` appears every 5 s in Studio.
+7. Snapshot recovery: join mid-round (second client connects after round starts) → confirm
+   `GameSnapshot` fires and client UI reflects correct role, vault, and idol state.
+
 ## 2026-06-06 — Hardening Pass 1 (scope fix)
 
 **Task 1 scope bug fixed** (`src/client/LobbyClient.client.lua`): `local menuActive` was declared *after* `onPlayClicked`, so the `menuActive = true` assignment inside the function wrote to an implicit global instead of the local. `processLobbyPayload` reads the local, which stayed `false` after round 1, silently dropping all subsequent `LobbyUpdate` events. Fix: moved `local menuActive = true` to before `onPlayClicked` so it is captured as an upvalue. Removed the duplicate declaration that previously appeared after the function. Now exactly one `local menuActive` exists in the file.

@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local RESCUE_DIST = Constants.CAGE_RESCUE_DISTANCE or 12
 local RESCUE_TIME = Constants.CAGE_RESCUE_SECONDS or 8
@@ -35,16 +36,6 @@ local function warnOnce(key, ...)
 	if warned[key] then return end
 	warned[key] = true
 	warn(...)
-end
-
-local function getOrCreateRemote(name)
-	local r = ReplicatedStorage:FindFirstChild(name)
-	if r and r:IsA("RemoteEvent") then return r end
-	if r then r:Destroy() end
-	local e = Instance.new("RemoteEvent")
-	e.Name = name
-	e.Parent = ReplicatedStorage
-	return e
 end
 
 local function fireAll(name, ...)
@@ -180,18 +171,15 @@ local function startHeartbeat()
 end
 
 function CageService.Init()
-	getOrCreateRemote("RequestCageRescueStart")
-	getOrCreateRemote("RequestCageRescueStop")
-	getOrCreateRemote("PlayerCaged")
-	getOrCreateRemote("CageStateChanged")
-	getOrCreateRemote("CageRescueStarted")
-	getOrCreateRemote("CageRescueProgress")
-	getOrCreateRemote("CageRescueCompleted")
-	getOrCreateRemote("CageRescueCanceled")
-	getOrCreateRemote("CageRescueFailed")
-
-	local startRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStart")
-	local stopRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStop")
+	local startRemote = Remotes.Server(Remotes.Names.RequestCageRescueStart)
+	local stopRemote = Remotes.Server(Remotes.Names.RequestCageRescueStop)
+	Remotes.Server(Remotes.Names.PlayerCaged)
+	Remotes.Server(Remotes.Names.CageStateChanged)
+	Remotes.Server(Remotes.Names.CageRescueStarted)
+	Remotes.Server(Remotes.Names.CageRescueProgress)
+	Remotes.Server(Remotes.Names.CageRescueCompleted)
+	Remotes.Server(Remotes.Names.CageRescueCanceled)
+	Remotes.Server(Remotes.Names.CageRescueFailed)
 
 	startRemote.OnServerEvent:Connect(function(player, targetUserId)
 		if not RemoteGuardService.Allow(player, "RequestCageRescueStart", 0.1) then

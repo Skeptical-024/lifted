@@ -12,6 +12,7 @@ local ObjectiveService = require(script.Parent:WaitForChild("ObjectiveService"))
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local IDOL_DIST = Constants.IDOL_INTERACT_DISTANCE or 10
 local EXTRACT_DIST = Constants.EXTRACT_INTERACT_DISTANCE or 14
@@ -49,16 +50,6 @@ local function warnOnce(key, ...)
 	if warned[key] then return end
 	warned[key] = true
 	warn(...)
-end
-
-local function getOrCreateRemote(name)
-	local r = ReplicatedStorage:FindFirstChild(name)
-	if r and r:IsA("RemoteEvent") then return r end
-	if r then r:Destroy() end
-	local e = Instance.new("RemoteEvent")
-	e.Name = name
-	e.Parent = ReplicatedStorage
-	return e
 end
 
 local function fireAll(name, ...)
@@ -238,22 +229,22 @@ function IdolService.SetRoundEndCallback(callback)
 end
 
 function IdolService.Init()
-	local requestPickupRemote = getOrCreateRemote("RequestIdolPickup")
-	local requestDropRemote = getOrCreateRemote("RequestIdolDrop")
-	local requestExtractRemote = getOrCreateRemote("RequestExtractWithIdol")
-	local requestCancelRemote = getOrCreateRemote("RequestExtractCancel")
-	getOrCreateRemote("IdolAvailable")
-	getOrCreateRemote("IdolPickedUp")
-	getOrCreateRemote("IdolDropped")
-	getOrCreateRemote("IdolCarrierChanged")
-	getOrCreateRemote("IdolExtracted")
-	getOrCreateRemote("IdolFailed")
-	getOrCreateRemote("ExtractStarted")
-	getOrCreateRemote("ExtractProgress")
-	getOrCreateRemote("ExtractCanceled")
-	getOrCreateRemote("ExtractCompleted")
-	getOrCreateRemote("ExtractFailed")
-	getOrCreateRemote("GuardianCarrierPing")
+	local requestPickupRemote = Remotes.Server(Remotes.Names.RequestIdolPickup)
+	local requestDropRemote = Remotes.Server(Remotes.Names.RequestIdolDrop)
+	local requestExtractRemote = Remotes.Server(Remotes.Names.RequestExtractWithIdol)
+	local requestCancelRemote = Remotes.Server(Remotes.Names.RequestExtractCancel)
+	Remotes.Server(Remotes.Names.IdolAvailable)
+	Remotes.Server(Remotes.Names.IdolPickedUp)
+	Remotes.Server(Remotes.Names.IdolDropped)
+	Remotes.Server(Remotes.Names.IdolCarrierChanged)
+	Remotes.Server(Remotes.Names.IdolExtracted)
+	Remotes.Server(Remotes.Names.IdolFailed)
+	Remotes.Server(Remotes.Names.ExtractStarted)
+	Remotes.Server(Remotes.Names.ExtractProgress)
+	Remotes.Server(Remotes.Names.ExtractCanceled)
+	Remotes.Server(Remotes.Names.ExtractCompleted)
+	Remotes.Server(Remotes.Names.ExtractFailed)
+	Remotes.Server(Remotes.Names.GuardianCarrierPing)
 
 	requestPickupRemote.OnServerEvent:Connect(function(player)
 		if not RemoteGuardService.Allow(player, "RequestIdolPickup", 0.25) then

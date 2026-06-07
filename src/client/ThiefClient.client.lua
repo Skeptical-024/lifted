@@ -6,19 +6,20 @@ local ContextActionService = game:GetService("ContextActionService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local localPlayer = Players.LocalPlayer
-local setMovementStateRemote = ReplicatedStorage:WaitForChild("SetMovementState")
-local roundStartedRemote = ReplicatedStorage:WaitForChild("RoundStarted")
-local roundEndedRemote = ReplicatedStorage:WaitForChild("RoundEnded")
-local requestObjectiveStartRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStart")
-local requestObjectiveStopRemote = ReplicatedStorage:WaitForChild("RequestObjectiveStop")
-local requestIdolPickupRemote = ReplicatedStorage:WaitForChild("RequestIdolPickup")
-local requestExtractRemote = ReplicatedStorage:WaitForChild("RequestExtractWithIdol")
-local requestExtractCancelRemote = ReplicatedStorage:WaitForChild("RequestExtractCancel")
-local requestCageRescueStartRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStart")
-local requestCageRescueStopRemote = ReplicatedStorage:WaitForChild("RequestCageRescueStop")
-local requestSkillCheckHitRemote = ReplicatedStorage:WaitForChild("RequestSkillCheckHit")
+local setMovementStateRemote = Remotes.Client(Remotes.Names.SetMovementState)
+local roundStartedRemote = Remotes.Client(Remotes.Names.RoundStarted)
+local roundEndedRemote = Remotes.Client(Remotes.Names.RoundEnded)
+local requestObjectiveStartRemote = Remotes.Client(Remotes.Names.RequestObjectiveStart)
+local requestObjectiveStopRemote = Remotes.Client(Remotes.Names.RequestObjectiveStop)
+local requestIdolPickupRemote = Remotes.Client(Remotes.Names.RequestIdolPickup)
+local requestExtractRemote = Remotes.Client(Remotes.Names.RequestExtractWithIdol)
+local requestExtractCancelRemote = Remotes.Client(Remotes.Names.RequestExtractCancel)
+local requestCageRescueStartRemote = Remotes.Client(Remotes.Names.RequestCageRescueStart)
+local requestCageRescueStopRemote = Remotes.Client(Remotes.Names.RequestCageRescueStop)
+local requestSkillCheckHitRemote = Remotes.Client(Remotes.Names.RequestSkillCheckHit)
 local RequestObjectiveStart = requestObjectiveStartRemote
 local RequestObjectiveStop = requestObjectiveStopRemote
 local RequestIdolPickup = requestIdolPickupRemote
@@ -34,6 +35,7 @@ local extractionHeld = false
 -- Skill check state
 local pendingCheckId = nil
 local pendingCheckObjectiveId = nil
+local updateTouchButtons = function() end
 
 local footstepSounds = {}
 local originalFootstepVolume = {}
@@ -283,6 +285,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 			requestSkillCheckHitRemote:FireServer(pendingCheckObjectiveId, pendingCheckId)
 			pendingCheckId = nil
 			pendingCheckObjectiveId = nil
+			task.defer(updateTouchButtons)
 		end
 	end
 end)
@@ -291,6 +294,10 @@ end)
 ContextActionService:BindAction(
 	"LIFTED_ThiefInteractGamepad",
 	function(actionName, inputState, inputObject)
+		if inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+			clearInteractionState(true)
+			return Enum.ContextActionResult.Sink
+		end
 		if inputState ~= Enum.UserInputState.Begin then return end
 		if not isThief() then return end
 		-- Mirror E key logic
@@ -315,9 +322,11 @@ ContextActionService:BindAction(
 		end
 		return Enum.ContextActionResult.Sink
 	end,
-	false,
+	true,
 	Enum.KeyCode.ButtonX
 )
+ContextActionService:SetTitle("LIFTED_ThiefInteractGamepad", "Interact")
+ContextActionService:SetPosition("LIFTED_ThiefInteractGamepad", UDim2.new(1, -150, 1, -190))
 
 -- Gamepad skill check: ButtonA
 ContextActionService:BindAction(
@@ -329,12 +338,61 @@ ContextActionService:BindAction(
 			requestSkillCheckHitRemote:FireServer(pendingCheckObjectiveId, pendingCheckId)
 			pendingCheckId = nil
 			pendingCheckObjectiveId = nil
+			task.defer(updateTouchButtons)
 		end
 		return Enum.ContextActionResult.Sink
 	end,
-	false,
+	true,
 	Enum.KeyCode.ButtonA
 )
+ContextActionService:SetTitle("LIFTED_ThiefSkillCheckGamepad", "Hit")
+ContextActionService:SetPosition("LIFTED_ThiefSkillCheckGamepad", UDim2.new(1, -260, 1, -190))
+
+ContextActionService:BindAction(
+	"LIFTED_ThiefCrouch",
+	function(_, inputState, _)
+		if not isThief() then return end
+		if inputState == Enum.UserInputState.Begin then
+			crouching = true
+			setMovementStateRemote:FireServer("Crouch", true)
+			applyFootstepVolume()
+		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+			crouching = false
+			setMovementStateRemote:FireServer("Crouch", false)
+			applyFootstepVolume()
+		end
+		return Enum.ContextActionResult.Sink
+	end,
+	true,
+	Enum.KeyCode.ButtonL1
+)
+ContextActionService:SetTitle("LIFTED_ThiefCrouch", "Crouch")
+ContextActionService:SetPosition("LIFTED_ThiefCrouch", UDim2.new(1, -370, 1, -290))
+
+updateTouchButtons = function()
+	local active = isThief() and localPlayer:GetAttribute("RoundState") == "Alive"
+	local interactButton = ContextActionService:GetButton("LIFTED_ThiefInteractGamepad")
+	local hitButton = ContextActionService:GetButton("LIFTED_ThiefSkillCheckGamepad")
+	local crouchButton = ContextActionService:GetButton("LIFTED_ThiefCrouch")
+	if interactButton then interactButton.Visible = active end
+	if hitButton then hitButton.Visible = active and pendingCheckId ~= nil end
+	if crouchButton then crouchButton.Visible = active end
+end
+
+localPlayer:GetAttributeChangedSignal("Role"):Connect(updateTouchButtons)
+localPlayer:GetAttributeChangedSignal("RoundState"):Connect(updateTouchButtons)
+task.defer(updateTouchButtons)
+
+local skillCheckResultRemote = Remotes.Find(Remotes.Names.SkillCheckResult)
+if skillCheckResultRemote then
+	skillCheckResultRemote.OnClientEvent:Connect(function(_, checkId)
+		if pendingCheckId == checkId then
+			pendingCheckId = nil
+			pendingCheckObjectiveId = nil
+			updateTouchButtons()
+		end
+	end)
+end
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.E then
@@ -355,18 +413,20 @@ if localPlayer.Character then
 end
 
 -- Track pending skill checks sent from server
-local skillCheckStartedRemote = ReplicatedStorage:FindFirstChild("SkillCheckStarted")
-if skillCheckStartedRemote and skillCheckStartedRemote:IsA("RemoteEvent") then
+local skillCheckStartedRemote = Remotes.Find(Remotes.Names.SkillCheckStarted)
+if skillCheckStartedRemote then
 	skillCheckStartedRemote.OnClientEvent:Connect(function(objectiveId, checkId, windowSeconds)
 		if not isThief() then return end
 		pendingCheckObjectiveId = objectiveId
 		pendingCheckId = checkId
+		updateTouchButtons()
 		-- Auto-clear if player doesn't press Space in time
 		local capturedId = checkId
 		task.delay((tonumber(windowSeconds) or 0.75) + 0.2, function()
 			if pendingCheckId == capturedId then
 				pendingCheckId = nil
 				pendingCheckObjectiveId = nil
+				updateTouchButtons()
 			end
 		end)
 	end)
@@ -378,6 +438,7 @@ if skillCheckExpiredRemote and skillCheckExpiredRemote:IsA("RemoteEvent") then
 		if pendingCheckId == checkId then
 			pendingCheckId = nil
 			pendingCheckObjectiveId = nil
+			updateTouchButtons()
 		end
 	end)
 end

@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local INTERACT_DISTANCE = Constants.OBJECTIVE_INTERACT_DISTANCE or 12
 local SOLO_COMPLETION_TIME = Constants.OBJECTIVE_SOLO_SECONDS or 18
@@ -42,20 +43,6 @@ local function warnOnce(key, ...)
 	if warned[key] then return end
 	warned[key] = true
 	warn(...)
-end
-
-local function getOrCreateRemote(name)
-	local remote = ReplicatedStorage:FindFirstChild(name)
-	if remote and remote:IsA("RemoteEvent") then
-		return remote
-	end
-	if remote then
-		remote:Destroy()
-	end
-	local created = Instance.new("RemoteEvent")
-	created.Name = name
-	created.Parent = ReplicatedStorage
-	return created
 end
 
 local function fireAll(remoteName, ...)
@@ -223,13 +210,13 @@ function ObjectiveService.Init()
 	end
 	initialized = true
 
-	remotes.RequestObjectiveStart = getOrCreateRemote("RequestObjectiveStart")
-	remotes.RequestObjectiveStop = getOrCreateRemote("RequestObjectiveStop")
-	remotes.ObjectiveInteractionStarted = getOrCreateRemote("ObjectiveInteractionStarted")
-	remotes.ObjectiveProgress = getOrCreateRemote("ObjectiveProgress")
-	remotes.ObjectiveCompleted = getOrCreateRemote("ObjectiveCompleted")
-	remotes.ObjectiveFailed = getOrCreateRemote("ObjectiveFailed")
-	remotes.VaultOpened = getOrCreateRemote("VaultOpened")
+	remotes.RequestObjectiveStart = Remotes.Server(Remotes.Names.RequestObjectiveStart)
+	remotes.RequestObjectiveStop = Remotes.Server(Remotes.Names.RequestObjectiveStop)
+	remotes.ObjectiveInteractionStarted = Remotes.Server(Remotes.Names.ObjectiveInteractionStarted)
+	remotes.ObjectiveProgress = Remotes.Server(Remotes.Names.ObjectiveProgress)
+	remotes.ObjectiveCompleted = Remotes.Server(Remotes.Names.ObjectiveCompleted)
+	remotes.ObjectiveFailed = Remotes.Server(Remotes.Names.ObjectiveFailed)
+	remotes.VaultOpened = Remotes.Server(Remotes.Names.VaultOpened)
 
 	ObjectiveService.ResetForRound(0)
 	ObjectiveService.AutoRegisterObjectiveParts()

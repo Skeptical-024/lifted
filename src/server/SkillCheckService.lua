@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local ENABLED = Constants.SKILL_CHECK_ENABLED ~= false
 local MIN_INTERVAL = Constants.SKILL_CHECK_MIN_INTERVAL or 4
@@ -41,16 +42,6 @@ local function warnOnce(key, ...)
 	warn(...)
 end
 
-local function getOrCreateRemote(name)
-	local r = ReplicatedStorage:FindFirstChild(name)
-	if r and r:IsA("RemoteEvent") then return r end
-	if r then r:Destroy() end
-	local e = Instance.new("RemoteEvent")
-	e.Name = name
-	e.Parent = ReplicatedStorage
-	return e
-end
-
 local function fireOne(player, name, ...)
 	local r = ReplicatedStorage:FindFirstChild(name)
 	if r and r:IsA("RemoteEvent") then r:FireClient(player, ...) end
@@ -64,6 +55,19 @@ end
 local function playerHasActiveCheck(player)
 	for _, check in pairs(activeChecks) do
 		if check.player == player and not check.used then
+			return true
+		end
+	end
+	return false
+end
+
+local function isPlayerWorkingObjective(player, objectiveId, activePlayers)
+	local players = activePlayers and activePlayers[objectiveId]
+	if type(players) ~= "table" then
+		return false
+	end
+	for _, activePlayer in ipairs(players) do
+		if activePlayer == player then
 			return true
 		end
 	end
@@ -117,6 +121,17 @@ local function startHeartbeat()
 		end)
 		if not ok or type(activePlayers) ~= "table" then return end
 
+		for checkId, check in pairs(activeChecks) do
+			if not PlayerStateService.IsAliveThief(check.player)
+				or not isPlayerWorkingObjective(check.player, check.objectiveId, activePlayers) then
+				check.used = true
+				activeChecks[checkId] = nil
+				if check.player and check.player.Parent then
+					fireOne(check.player, "SkillCheckExpired", check.objectiveId, checkId)
+				end
+			end
+		end
+
 		for objectiveId, players in pairs(activePlayers) do
 			for _, player in ipairs(players) do
 				if player and player.Parent and PlayerStateService.IsAliveThief(player) then
@@ -153,6 +168,13 @@ function SkillCheckService.HandleHit(player, objectiveId, checkId)
 	end
 	if check.player ~= player or check.objectiveId ~= objectiveId then return end
 	if check.used then return end
+	local activePlayers = objectiveServiceRef and objectiveServiceRef.GetActivePlayersSnapshot()
+	if not isPlayerWorkingObjective(player, objectiveId, activePlayers) then
+		check.used = true
+		activeChecks[checkId] = nil
+		fireOne(player, "SkillCheckResult", objectiveId, checkId, false, "interrupted")
+		return
+	end
 
 	local now = os.clock()
 	if now > check.expiresAt then
@@ -198,10 +220,10 @@ function SkillCheckService.SetScoreCallbacks(callbacks)
 end
 
 function SkillCheckService.Init()
-	local hitRemote = getOrCreateRemote("RequestSkillCheckHit")
-	getOrCreateRemote("SkillCheckStarted")
-	getOrCreateRemote("SkillCheckResult")
-	getOrCreateRemote("SkillCheckExpired")
+	local hitRemote = Remotes.Server(Remotes.Names.RequestSkillCheckHit)
+	Remotes.Server(Remotes.Names.SkillCheckStarted)
+	Remotes.Server(Remotes.Names.SkillCheckResult)
+	Remotes.Server(Remotes.Names.SkillCheckExpired)
 
 	hitRemote.OnServerEvent:Connect(function(player, objectiveId, checkId)
 		if type(objectiveId) ~= "string" or type(checkId) ~= "number" then return end

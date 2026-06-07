@@ -34,9 +34,11 @@ local WAITING_ACCENT_DEEP = Color3.fromRGB(40, 150, 220)
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 
-local lobbyUpdateRemote = ReplicatedStorage:WaitForChild("LobbyUpdate")
-local roundStartedRemote = ReplicatedStorage:WaitForChild("RoundStarted")
-local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+
+local lobbyUpdateRemote = Remotes.Client(Remotes.Names.LobbyUpdate)
+local roundStartedRemote = Remotes.Client(Remotes.Names.RoundStarted)
+local roleAssignedRemote = Remotes.Client(Remotes.Names.RoleAssigned)
 
 local playClickedBindable = ReplicatedStorage:FindFirstChild("PlayClicked")
 if not playClickedBindable then
@@ -45,13 +47,17 @@ if not playClickedBindable then
 	playClickedBindable.Parent = ReplicatedStorage
 end
 
-local playClicked = false
-local menuActive = true
+local joinedQueue = false
+local lastLobbyPayload = nil
+local processLobbyPayload
 local function onPlayClicked()
-	playClicked = true
-	menuActive = true
+	joinedQueue = true
+	if lastLobbyPayload then
+		task.defer(function()
+			processLobbyPayload(lastLobbyPayload)
+		end)
+	end
 end
-playClickedBindable.Event:Connect(onPlayClicked)
 
 local startTime = os.clock()
 
@@ -287,9 +293,10 @@ local function setIntermission(seconds, playerCount, required)
 	showPanel()
 end
 
-local function processLobbyPayload(payload)
-	if not menuActive or not playClicked then return end
+processLobbyPayload = function(payload)
 	if type(payload) ~= "table" then return end
+	lastLobbyPayload = payload
+	if not joinedQueue then return end
 	if payload.status == "waiting" then
 		setWaiting(tonumber(payload.playerCount) or 0, tonumber(payload.required) or 0)
 	elseif payload.status == "countdown" then
@@ -303,6 +310,8 @@ local function processLobbyPayload(payload)
 	end
 end
 
+playClickedBindable.Event:Connect(onPlayClicked)
+
 lobbyUpdateRemote.OnClientEvent:Connect(function(payload)
 	local elapsed = os.clock() - startTime
 	if elapsed < 2 then
@@ -315,13 +324,11 @@ lobbyUpdateRemote.OnClientEvent:Connect(function(payload)
 end)
 
 roundStartedRemote.OnClientEvent:Connect(function()
-	menuActive = false
 	stopCriticalPulse()
 	hidePanel()
 end)
 
 roleAssignedRemote.OnClientEvent:Connect(function()
-	menuActive = false
 	stopCriticalPulse()
 	hidePanel()
 end)

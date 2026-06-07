@@ -4,9 +4,10 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
-local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
+local roleAssignedRemote = Remotes.Client(Remotes.Names.RoleAssigned)
 
 local COLORS = {
 	panel = Color3.fromRGB(10, 10, 14),
@@ -92,7 +93,7 @@ overlay.BackgroundTransparency = 1
 overlay.Visible = false
 overlay.Parent = gui
 
-local panel = makePanel(UDim2.fromOffset(600, 200), UDim2.new(0.5, -300, 0.5, -70), overlay, 1)
+local panel = makePanel(UDim2.fromOffset(600, 300), UDim2.new(0.5, -300, 0.5, -130), overlay, 1)
 panel.Visible = false
 local shadow = makeShadow(panel)
 shadow.Visible = false
@@ -124,13 +125,26 @@ flavor.Position = UDim2.fromOffset(20, 150)
 flavor.TextSize = 20
 flavor.TextXAlignment = Enum.TextXAlignment.Center
 
+local controls = makeLabel("", Enum.Font.Gotham, COLORS.grey, panel)
+controls.Size = UDim2.fromOffset(540, 92)
+controls.Position = UDim2.fromOffset(30, 190)
+controls.TextSize = 16
+controls.TextWrapped = true
+controls.TextXAlignment = Enum.TextXAlignment.Left
+controls.TextYAlignment = Enum.TextYAlignment.Top
+
 local function show(role)
 	local isGuardian = role == "Guardian"
 	overlay.BackgroundColor3 = isGuardian and COLORS.guardianTint or COLORS.thiefTint
 	icon.BackgroundColor3 = isGuardian and COLORS.guardian or COLORS.thief
 	main.TextColor3 = isGuardian and COLORS.guardian or COLORS.thief
 	main.Text = isGuardian and "GUARDIAN" or "THIEF"
-	flavor.Text = isGuardian and "Stop the thieves before they extract the idol." or "Break 3 seals to open the vault."
+	flavor.Text = isGuardian
+		and "Catch thieves before they extract the idol."
+		or "Break seals. Steal the idol. Extract."
+	controls.Text = isGuardian
+		and "E / X  Catch\nShift / L1  Rush    Q / Y  Reveal    R / B  Roar\nG / R1  Ping"
+		or "E / X  Interact: seals, rescue, idol, extract\nSpace / A  Hit skill check    G / R1  Ping\nShift  Crouch and move quietly"
 
 	overlay.Visible = true
 	panel.Visible = true
@@ -139,18 +153,18 @@ local function show(role)
 	overlay.BackgroundTransparency = 1
 	panel.BackgroundTransparency = 1
 	shadow.BackgroundTransparency = 1
-	panel.Position = UDim2.new(0.5, -300, 0.5, -40)
+	panel.Position = UDim2.new(0.5, -300, 0.5, -100)
 
 	tweenIn(overlay, "BackgroundTransparency", 0.5, 0.3)
 	tweenIn(panel, "BackgroundTransparency", 0.2, 0.3)
 	tweenIn(shadow, "BackgroundTransparency", 0.6, 0.3)
-	tweenIn(panel, "Position", UDim2.new(0.5, -300, 0.5, -70), 0.3)
+	tweenIn(panel, "Position", UDim2.new(0.5, -300, 0.5, -130), 0.3)
 
-	task.delay(3, function()
+	task.delay(5, function()
 		tweenIn(overlay, "BackgroundTransparency", 1, 0.6)
 		tweenIn(panel, "BackgroundTransparency", 1, 0.6)
 		tweenIn(shadow, "BackgroundTransparency", 1, 0.6)
-		tweenIn(panel, "Position", UDim2.new(0.5, -300, 0.5, -90), 0.6)
+		tweenIn(panel, "Position", UDim2.new(0.5, -300, 0.5, -150), 0.6)
 		task.delay(0.62, function()
 			overlay.Visible = false
 			panel.Visible = false

@@ -8,6 +8,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local RoleManager = require(script.Parent:WaitForChild("RoleManager"))
 local GuardianController = require(script.Parent:WaitForChild("GuardianController"))
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
@@ -25,41 +26,29 @@ local RuntimeAuditService = require(script.Parent:WaitForChild("RuntimeAuditServ
 local SkillCheckService = require(script.Parent:WaitForChild("SkillCheckService"))
 local SessionAnalyticsService = require(script.Parent:WaitForChild("SessionAnalyticsService"))
 local PingService = require(script.Parent:WaitForChild("PingService"))
+local ActivityService = require(script.Parent:WaitForChild("ActivityService"))
 print("GameManager: all modules loaded")
 
-local function getOrCreateRemote(name)
-	local remote = ReplicatedStorage:FindFirstChild(name)
-	if remote and remote:IsA("RemoteEvent") then
-		return remote
-	end
-	if remote then
-		remote:Destroy()
-	end
-	local created = Instance.new("RemoteEvent")
-	created.Name = name
-	created.Parent = ReplicatedStorage
-	return created
-end
-
-local thiefExtractedRemote = getOrCreateRemote("ThiefExtracted")
-local catchThiefRemote = getOrCreateRemote("CatchThief")
-local setMovementStateRemote = getOrCreateRemote("SetMovementState")
-local thiefCaughtRemote = getOrCreateRemote("ThiefCaught")
-local playerEliminatedRemote = getOrCreateRemote("PlayerEliminated")
-local roleAssignedRemote = getOrCreateRemote("RoleAssigned")
-local roundStartedRemote = getOrCreateRemote("RoundStarted")
-local roundEndedRemote = getOrCreateRemote("RoundEnded")
-local thiefCountUpdateRemote = getOrCreateRemote("ThiefCountUpdate")
-local lobbyUpdateRemote = getOrCreateRemote("LobbyUpdate")
-local requestObjectiveStartRemote = getOrCreateRemote("RequestObjectiveStart")
-local requestObjectiveStopRemote = getOrCreateRemote("RequestObjectiveStop")
-getOrCreateRemote("ObjectivePromptShown")
-getOrCreateRemote("ObjectivePromptHidden")
-getOrCreateRemote("ObjectiveInteractionStarted")
-getOrCreateRemote("ObjectiveProgress")
-getOrCreateRemote("ObjectiveCompleted")
-getOrCreateRemote("ObjectiveFailed")
-getOrCreateRemote("VaultOpened")
+local thiefExtractedRemote = Remotes.Server(Remotes.Names.ThiefExtracted)
+local catchThiefRemote = Remotes.Server(Remotes.Names.CatchThief)
+local guardianCatchFailedRemote = Remotes.Server(Remotes.Names.GuardianCatchFailed)
+local setMovementStateRemote = Remotes.Server(Remotes.Names.SetMovementState)
+local thiefCaughtRemote = Remotes.Server(Remotes.Names.ThiefCaught)
+local playerEliminatedRemote = Remotes.Server(Remotes.Names.PlayerEliminated)
+local roleAssignedRemote = Remotes.Server(Remotes.Names.RoleAssigned)
+local roundStartedRemote = Remotes.Server(Remotes.Names.RoundStarted)
+local roundEndedRemote = Remotes.Server(Remotes.Names.RoundEnded)
+local thiefCountUpdateRemote = Remotes.Server(Remotes.Names.ThiefCountUpdate)
+local lobbyUpdateRemote = Remotes.Server(Remotes.Names.LobbyUpdate)
+local requestObjectiveStartRemote = Remotes.Server(Remotes.Names.RequestObjectiveStart)
+local requestObjectiveStopRemote = Remotes.Server(Remotes.Names.RequestObjectiveStop)
+Remotes.Server(Remotes.Names.ObjectivePromptShown)
+Remotes.Server(Remotes.Names.ObjectivePromptHidden)
+Remotes.Server(Remotes.Names.ObjectiveInteractionStarted)
+Remotes.Server(Remotes.Names.ObjectiveProgress)
+Remotes.Server(Remotes.Names.ObjectiveCompleted)
+Remotes.Server(Remotes.Names.ObjectiveFailed)
+Remotes.Server(Remotes.Names.VaultOpened)
 
 local roundActive = false
 local roundId = 0
@@ -222,16 +211,50 @@ local function freezeThiefCharacter(player)
 	player:SetAttribute("IsCaught", true)
 end
 
-local function applyEliminatedTreatment(player)
+local function getOrCreateSpectatorSpawn()
+	local tagged = getTaggedParts("SpectatorSpawn")
+	if tagged[1] then
+		return tagged[1]
+	end
+	local existing = workspace:FindFirstChild("TemporarySpectatorSpawn")
+	if existing and existing:IsA("BasePart") then
+		return existing
+	end
+	local part = Instance.new("Part")
+	part.Name = "TemporarySpectatorSpawn"
+	part.Size = Vector3.new(24, 1, 24)
+	part.Anchored = true
+	part.CanCollide = true
+	part.Position = Vector3.new(0, 8, 155)
+	part.Color = Color3.fromRGB(30, 35, 45)
+	part.Transparency = 0.25
+	part.Parent = workspace
+	return part
+end
+
+local function applyEliminatedTreatment(player, announce)
 	local character = player.Character
 	if character then
-		for _, part in ipairs(character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = false
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local root = character:FindFirstChild("HumanoidRootPart")
+		local spectatorSpawn = getOrCreateSpectatorSpawn()
+		if humanoid then
+			humanoid.WalkSpeed = Constants.DEFAULT_WALK_SPEED or 16
+			if humanoid.UseJumpPower then
+				humanoid.JumpPower = 50
+			else
+				humanoid.JumpHeight = 7.2
 			end
 		end
+		if root and spectatorSpawn then
+			root.CFrame = CFrame.new(spectatorSpawn.Position + Vector3.new(0, 4, 0))
+		end
 	end
-	playerEliminatedRemote:FireAllClients(player.UserId, player.Name)
+	player:SetAttribute("IsCaught", false)
+	player:SetAttribute("IsCaged", false)
+	if announce ~= false then
+		playerEliminatedRemote:FireAllClients(player.UserId, player.Name)
+	end
 end
 
 local function handleCaughtThief(targetPlayer, newState)
@@ -240,7 +263,7 @@ local function handleCaughtThief(targetPlayer, newState)
 	elseif newState == PlayerStateService.State.Caged then
 		freezeThiefCharacter(targetPlayer)
 	elseif newState == PlayerStateService.State.Eliminated then
-		freezeThiefCharacter(targetPlayer)
+		applyEliminatedTreatment(targetPlayer)
 	end
 end
 
@@ -291,6 +314,9 @@ local function teleportPlayerForSafety(player)
 			rootPart.CFrame = CFrame.new(cage.Position + Vector3.new(0, 5, 0))
 		end
 		return
+	elseif state == PlayerStateService.State.Eliminated then
+		applyEliminatedTreatment(player)
+		return
 	end
 
 	local role = rolesByPlayer[player]
@@ -328,6 +354,10 @@ end
 
 local function getRequiredPlayerCount()
 	return Constants.MIN_PLAYERS_TO_START or 2
+end
+
+local function getEligibleLobbyPlayers()
+	return ActivityService.GetEligiblePlayers()
 end
 
 local function getRemainingThiefCount()
@@ -452,7 +482,7 @@ Players.PlayerAdded:Connect(function(player)
 		player:SetAttribute("RoundState", PlayerStateService.State.OutOfRound)
 		lobbyUpdateRemote:FireClient(player, {
 			status = "in_progress",
-			playerCount = #Players:GetPlayers(),
+			playerCount = #getEligibleLobbyPlayers(),
 			required = getRequiredPlayerCount(),
 			countdown = nil,
 		})
@@ -479,11 +509,10 @@ Players.PlayerAdded:Connect(function(player)
 					handleCaughtThief(player, state)
 				end
 			end)
-		elseif state == PlayerStateService.State.Eliminated then
-			task.defer(function()
-				if player.Parent then
-					handleCaughtThief(player, state)
-					applyEliminatedTreatment(player)
+			elseif state == PlayerStateService.State.Eliminated then
+				task.defer(function()
+					if player.Parent then
+						applyEliminatedTreatment(player, false)
 				end
 			end)
 		else
@@ -504,6 +533,7 @@ setMovementStateRemote.OnServerEvent:Connect(function(player, requestedState, is
 	if not RemoteGuardService.Allow(player, "SetMovementState", 0.05) then
 		return
 	end
+	ActivityService.MarkActive(player, "movement")
 	if type(requestedState) ~= "string" or type(isActive) ~= "boolean" then
 		return
 	end
@@ -532,19 +562,24 @@ end)
 
 catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 	if not canAcceptGameplayRequest() then
+		guardianCatchFailedRemote:FireClient(player, "round_inactive")
 		return
 	end
 	if not RemoteGuardService.Allow(player, "CatchThief", 0.2) then
 		return
 	end
+	ActivityService.MarkActive(player, "catch")
 	if typeof(targetPlayer) ~= "Instance" or not targetPlayer:IsA("Player") then
+		guardianCatchFailedRemote:FireClient(player, "no_target")
 		return
 	end
 	-- State gate: only alive thieves can be caught
 	if not PlayerStateService.CanBeCaught(targetPlayer) then
+		guardianCatchFailedRemote:FireClient(player, "not_eligible")
 		return
 	end
 	if not PlayerStateService.IsGuardian(player) then
+		guardianCatchFailedRemote:FireClient(player, "not_guardian")
 		return
 	end
 	local success = GuardianController.TryCatch(player, targetPlayer, rolesByPlayer, roundActive)
@@ -571,21 +606,32 @@ catchThiefRemote.OnServerEvent:Connect(function(player, targetPlayer)
 			if newState == PlayerStateService.State.Caught then
 				CageService.CagePlayer(targetPlayer)
 				SessionAnalyticsService.RecordCage()
-			elseif newState == PlayerStateService.State.Eliminated then
-				applyEliminatedTreatment(targetPlayer)
 			end
 			activeThieves[targetPlayer] = nil
 			fireThiefCountToGuardian()
 		end
+	else
+		guardianCatchFailedRemote:FireClient(player, "too_far")
 	end
 end)
 
 local function getRoundPlayers()
-	local players = {}
-	for _, player in Players:GetPlayers() do
-		table.insert(players, player)
-	end
-	return players
+	return getEligibleLobbyPlayers()
+end
+
+local function getRoundSnapshot()
+	return {
+		roundId = roundId,
+		roundState = getRoundState(),
+		roundActive = roundActive,
+		timeRemaining = math.max(0, roundEndsAt - os.clock()),
+		totalThiefCount = totalThiefCount,
+		activePlayersCount = #Players:GetPlayers(),
+		guardianName = guardianPlayer and guardianPlayer.Name or nil,
+		winner = forcedWinner,
+		reason = forcedReason,
+		resultsFired = resultsFired,
+	}
 end
 
 TestMapService.Init()
@@ -606,20 +652,8 @@ SnapshotService.Configure({
 	CageService = CageService,
 	GuardianAbilityService = GuardianAbilityService,
 	RoundScoreService = RoundScoreService,
-	GetRoundSnapshot = function()
-		return {
-			roundId = roundId,
-			roundState = getRoundState(),
-			roundActive = roundActive,
-			timeRemaining = math.max(0, roundEndsAt - os.clock()),
-			totalThiefCount = totalThiefCount,
-			activePlayersCount = #Players:GetPlayers(),
-			guardianName = guardianPlayer and guardianPlayer.Name or nil,
-			winner = forcedWinner,
-			reason = forcedReason,
-			resultsFired = resultsFired,
-		}
-	end,
+	ActivityService = ActivityService,
+	GetRoundSnapshot = getRoundSnapshot,
 })
 SnapshotService.Init()
 RuntimeAuditService.Init({
@@ -629,20 +663,7 @@ RuntimeAuditService.Init({
 	IdolService = IdolService,
 	CageService = CageService,
 	RoundScoreService = RoundScoreService,
-	GetRoundSnapshot = function()
-		return {
-			roundId = roundId,
-			roundState = getRoundState(),
-			roundActive = roundActive,
-			timeRemaining = math.max(0, roundEndsAt - os.clock()),
-			totalThiefCount = totalThiefCount,
-			activePlayersCount = #Players:GetPlayers(),
-			guardianName = guardianPlayer and guardianPlayer.Name or nil,
-			winner = forcedWinner,
-			reason = forcedReason,
-			resultsFired = resultsFired,
-		}
-	end,
+	GetRoundSnapshot = getRoundSnapshot,
 })
 RuntimeAuditService.Start()
 IdolService.SetRoundEndCallback(function(extractingPlayer)
@@ -721,6 +742,16 @@ PingService.SetAnalyticsCallback(function()
 	SessionAnalyticsService.RecordPing()
 end)
 PingService.Init()
+ActivityService.Init()
+for _, remoteName in ipairs({
+	"RequestObjectiveStart", "RequestObjectiveStop",
+	"RequestIdolPickup", "RequestIdolDrop", "RequestExtractWithIdol", "RequestExtractCancel",
+	"RequestCageRescueStart", "RequestCageRescueStop",
+	"RequestGuardianRush", "RequestGuardianReveal", "RequestGuardianRoar",
+	"RequestSkillCheckHit", "RequestPing",
+}) do
+	ActivityService.TrackRemote(remoteName)
+end
 SessionAnalyticsService.Init()
 DebugCommandService.Init({
 	Constants = Constants,
@@ -731,21 +762,9 @@ DebugCommandService.Init({
 	MapValidationService = MapValidationService,
 	SnapshotService = SnapshotService,
 	RuntimeAuditService = RuntimeAuditService,
+	ActivityService = ActivityService,
 	SessionAnalyticsService = SessionAnalyticsService,
-	GetRoundSnapshot = function()
-		return {
-			roundId = roundId,
-			roundState = getRoundState(),
-			roundActive = roundActive,
-			timeRemaining = math.max(0, roundEndsAt - os.clock()),
-			totalThiefCount = totalThiefCount,
-			activePlayersCount = #Players:GetPlayers(),
-			guardianName = guardianPlayer and guardianPlayer.Name or nil,
-			winner = forcedWinner,
-			reason = forcedReason,
-			resultsFired = resultsFired,
-		}
-	end,
+	GetRoundSnapshot = getRoundSnapshot,
 	SetForcedRoundResult = setForcedRoundResult,
 	RequestForceStart = requestForceStart,
 	SkipCountdown = requestSkipCountdown,
@@ -756,13 +775,13 @@ while true do
 	print("GameManager: waiting for players")
 	setRoundState(RoundStates.Lobby, "waiting_for_players")
 
-	while #Players:GetPlayers() < getRequiredPlayerCount() do
+	while #getEligibleLobbyPlayers() < getRequiredPlayerCount() do
+		local eligibleCount = #getEligibleLobbyPlayers()
 		if forceStartRequested and #Players:GetPlayers() >= getRequiredPlayerCount() then
 			break
 		end
 		forceStartRequested = false
-		fireLobbyUpdate("waiting", #Players:GetPlayers(), getRequiredPlayerCount(), nil)
-		print("GameManager: player count = " .. #Players:GetPlayers())
+		fireLobbyUpdate("waiting", eligibleCount, getRequiredPlayerCount(), nil)
 		task.wait(1)
 	end
 	forceStartRequested = false
@@ -775,11 +794,12 @@ while true do
 			countdown = math.min(countdown, 2)
 			skipCountdownRequested = false
 		end
-		if #Players:GetPlayers() < getRequiredPlayerCount() then
+		local eligibleCount = #getEligibleLobbyPlayers()
+		if eligibleCount < getRequiredPlayerCount() then
 			countdownFinished = false
 			break
 		end
-		fireLobbyUpdate("countdown", #Players:GetPlayers(), getRequiredPlayerCount(), countdown)
+		fireLobbyUpdate("countdown", eligibleCount, getRequiredPlayerCount(), countdown)
 		task.wait(1)
 		countdown -= 1
 	end
@@ -818,6 +838,12 @@ while true do
 		PlayerStateService.RegisterPlayer(player, role, roundId)
 		RoundScoreService.RegisterPlayer(player, role)
 	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		if not rolesByPlayer[player] then
+			player:SetAttribute("Role", nil)
+			player:SetAttribute("RoundState", PlayerStateService.State.OutOfRound)
+		end
+	end
 	ObjectiveService.ResetForRound(roundId)
 	ObjectiveService.AutoRegisterObjectiveParts()
 	IdolService.ResetForRound(roundId)
@@ -825,6 +851,7 @@ while true do
 	GuardianAbilityService.ResetForRound(roundId)
 	SkillCheckService.ResetForRound()
 	PingService.ResetForRound()
+	ActivityService.ResetForRound(roundPlayers)
 	SessionAnalyticsService.StartRound(
 		roundId,
 		#roundPlayers,
@@ -879,6 +906,7 @@ while true do
 	local result = "Time expired"
 	local winner = "Time"
 	local lastFallSafetyAt = 0
+	local lastAfkCheckAt = 0
 	setRoundState(RoundStates.Active, "round_started")
 
 	while roundActive do
@@ -915,6 +943,33 @@ while true do
 		end
 
 		local now = os.clock()
+		if now - lastAfkCheckAt >= 1 then
+			lastAfkCheckAt = now
+			for player, role in pairs(rolesByPlayer) do
+				local state = PlayerStateService.GetState(player)
+				if state == PlayerStateService.State.Alive then
+					if ActivityService.ShouldWarn(player) then
+						ActivityService.MarkWarned(player)
+					end
+					if ActivityService.ShouldAction(player) then
+						ActivityService.MarkActioned(player)
+						if role == Types.PlayerRole.Guardian then
+							requestEndRound("Thieves", "Guardian AFK")
+							break
+						elseif role == Types.PlayerRole.Thief then
+							ObjectiveService.StopAllForPlayer(player)
+							SkillCheckService.CancelAllForPlayer(player)
+							CageService.StopAllForPlayer(player)
+							IdolService.DropFromPlayer(player, "afk")
+							PlayerStateService.MarkEliminated(player)
+							applyEliminatedTreatment(player)
+							activeThieves[player] = nil
+							fireThiefCountToGuardian()
+						end
+					end
+				end
+			end
+		end
 		if now - lastFallSafetyAt >= 0.5 then
 			lastFallSafetyAt = now
 			for player in pairs(rolesByPlayer) do

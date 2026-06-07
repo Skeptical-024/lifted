@@ -8,12 +8,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContextActionService = game:GetService("ContextActionService")
 
 local localPlayer = Players.LocalPlayer
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
-local pingCreatedRemote = ReplicatedStorage:WaitForChild("PingCreated")
-local pingFailedRemote  = ReplicatedStorage:WaitForChild("PingFailed")
-local requestPingRemote = ReplicatedStorage:WaitForChild("RequestPing")
-local roundStartedRemote = ReplicatedStorage:WaitForChild("RoundStarted")
-local roundEndedRemote   = ReplicatedStorage:WaitForChild("RoundEnded")
+local pingCreatedRemote = Remotes.Client(Remotes.Names.PingCreated)
+local requestPingRemote = Remotes.Client(Remotes.Names.RequestPing)
+local roundStartedRemote = Remotes.Client(Remotes.Names.RoundStarted)
+local roundEndedRemote   = Remotes.Client(Remotes.Names.RoundEnded)
 
 local TYPE_COLOR = {
 	Objective = Color3.fromRGB(40, 220, 200),
@@ -133,10 +133,23 @@ ContextActionService:BindAction(
 		sendPing()
 		return Enum.ContextActionResult.Sink
 	end,
-	false,
+	true,
 	Enum.KeyCode.G,
 	Enum.KeyCode.ButtonR1
 )
+ContextActionService:SetTitle("LIFTED_Ping", "Ping")
+ContextActionService:SetPosition("LIFTED_Ping", UDim2.new(1, -370, 1, -190))
+
+local function updatePingButton()
+	local button = ContextActionService:GetButton("LIFTED_Ping")
+	if button then
+		button.Visible = localPlayer:GetAttribute("Role") ~= nil
+			and localPlayer:GetAttribute("RoundState") == "Alive"
+	end
+end
+localPlayer:GetAttributeChangedSignal("Role"):Connect(updatePingButton)
+localPlayer:GetAttributeChangedSignal("RoundState"):Connect(updatePingButton)
+task.defer(updatePingButton)
 
 pingCreatedRemote.OnClientEvent:Connect(function(pingData, lifetime)
 	if type(pingData) ~= "table" then return end

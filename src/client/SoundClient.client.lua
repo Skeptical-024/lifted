@@ -1,23 +1,22 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
-local RunService = game:GetService("RunService")
 
-local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local localPlayer = Players.LocalPlayer
 
-local roleAssignedRemote = ReplicatedStorage:WaitForChild("RoleAssigned")
-local thiefCaughtRemote = ReplicatedStorage:WaitForChild("ThiefCaught")
-local roundEndedRemote = ReplicatedStorage:WaitForChild("RoundEnded")
-local lobbyUpdateRemote = ReplicatedStorage:WaitForChild("LobbyUpdate")
-local objectiveCompletedRemote = ReplicatedStorage:WaitForChild("ObjectiveCompleted")
-local vaultOpenedRemote = ReplicatedStorage:WaitForChild("VaultOpened")
-local idolPickedUpRemote = ReplicatedStorage:WaitForChild("IdolPickedUp")
-local idolDroppedRemote = ReplicatedStorage:WaitForChild("IdolDropped")
-local extractCompletedRemote = ReplicatedStorage:WaitForChild("ExtractCompleted")
-local guardianRoarActivatedRemote = ReplicatedStorage:WaitForChild("GuardianRoarActivated")
+local roleAssignedRemote = Remotes.Client(Remotes.Names.RoleAssigned)
+local thiefCaughtRemote = Remotes.Client(Remotes.Names.ThiefCaught)
+local roundEndedRemote = Remotes.Client(Remotes.Names.RoundEnded)
+local lobbyUpdateRemote = Remotes.Client(Remotes.Names.LobbyUpdate)
+local objectiveCompletedRemote = Remotes.Client(Remotes.Names.ObjectiveCompleted)
+local vaultOpenedRemote = Remotes.Client(Remotes.Names.VaultOpened)
+local idolPickedUpRemote = Remotes.Client(Remotes.Names.IdolPickedUp)
+local idolDroppedRemote = Remotes.Client(Remotes.Names.IdolDropped)
+local extractCompletedRemote = Remotes.Client(Remotes.Names.ExtractCompleted)
+local guardianRoarActivatedRemote = Remotes.Client(Remotes.Names.GuardianRoarActivated)
 
 local soundGroup = SoundService:FindFirstChild("GameSounds")
 if not soundGroup then

@@ -14,6 +14,7 @@ local CageService = require(script.Parent:WaitForChild("CageService"))
 local IdolService = require(script.Parent:WaitForChild("IdolService"))
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local RUSH_DURATION = Constants.GUARDIAN_RUSH_DURATION or 2
 local RUSH_COOLDOWN = Constants.GUARDIAN_RUSH_COOLDOWN or 10
@@ -36,16 +37,6 @@ local function warnOnce(key, ...)
 	if warned[key] then return end
 	warned[key] = true
 	warn(...)
-end
-
-local function getOrCreateRemote(name)
-	local r = ReplicatedStorage:FindFirstChild(name)
-	if r and r:IsA("RemoteEvent") then return r end
-	if r then r:Destroy() end
-	local e = Instance.new("RemoteEvent")
-	e.Name = name
-	e.Parent = ReplicatedStorage
-	return e
 end
 
 local function fireOne(player, name, ...)
@@ -275,16 +266,16 @@ function GuardianAbilityService.StopAllForPlayer(player)
 end
 
 function GuardianAbilityService.Init()
-	local rushRemote = getOrCreateRemote("RequestGuardianRush")
-	local revealRemote = getOrCreateRemote("RequestGuardianReveal")
-	local roarRemote = getOrCreateRemote("RequestGuardianRoar")
-	getOrCreateRemote("GuardianRushStarted")
-	getOrCreateRemote("GuardianRushFailed")
-	getOrCreateRemote("GuardianRevealStarted")
-	getOrCreateRemote("GuardianRevealFailed")
-	getOrCreateRemote("GuardianRoarActivated")
-	getOrCreateRemote("GuardianRoarFailed")
-	getOrCreateRemote("GuardianAbilityCooldown")
+	local rushRemote = Remotes.Server(Remotes.Names.RequestGuardianRush)
+	local revealRemote = Remotes.Server(Remotes.Names.RequestGuardianReveal)
+	local roarRemote = Remotes.Server(Remotes.Names.RequestGuardianRoar)
+	Remotes.Server(Remotes.Names.GuardianRushStarted)
+	Remotes.Server(Remotes.Names.GuardianRushFailed)
+	Remotes.Server(Remotes.Names.GuardianRevealStarted)
+	Remotes.Server(Remotes.Names.GuardianRevealFailed)
+	Remotes.Server(Remotes.Names.GuardianRoarActivated)
+	Remotes.Server(Remotes.Names.GuardianRoarFailed)
+	Remotes.Server(Remotes.Names.GuardianAbilityCooldown)
 	rushRemote.OnServerEvent:Connect(function(p)
 		if not RemoteGuardService.Allow(p, "RequestGuardianRush", 0.2) then
 			return

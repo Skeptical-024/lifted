@@ -66,9 +66,15 @@ local Constants = {
 	AFK_ENABLED                = true,
 	AFK_LOBBY_SECONDS          = 60,
 	AFK_ACTIVE_WARNING_SECONDS = 90,
+	AFK_ACTIVE_ACTION_SECONDS  = 120,
+	AFK_ACTIVITY_PULSE_SECONDS = 5,
 
 	-- Sound / feedback
 	THIEF_FOOTSTEP_VOLUME_SCALE_CROUCH = 0.25,
+
+	-- Client HUD
+	THIEF_GUARDIAN_PROXIMITY_RADIUS = 40,
+	HUD_PROMPT_SCAN_INTERVAL        = 0.15,
 
 	-- Spawn positions (test map / fallback)
 	GUARDIAN_SPAWN_POSITION = Vector3.new(0, 1, 0),

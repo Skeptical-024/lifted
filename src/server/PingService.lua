@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PlayerStateService = require(script.Parent:WaitForChild("PlayerStateService"))
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local COOLDOWN = Constants.PING_COOLDOWN_SECONDS or 3
 local LIFETIME = Constants.PING_LIFETIME_SECONDS or 5
@@ -24,16 +25,6 @@ local VALID_TYPES = {
 local roundIsActive = false
 local nextPingId = 0
 local analyticsCallback = nil
-
-local function getOrCreateRemote(name)
-	local r = ReplicatedStorage:FindFirstChild(name)
-	if r and r:IsA("RemoteEvent") then return r end
-	if r then r:Destroy() end
-	local e = Instance.new("RemoteEvent")
-	e.Name = name
-	e.Parent = ReplicatedStorage
-	return e
-end
 
 local function fireOne(player, name, ...)
 	local r = ReplicatedStorage:FindFirstChild(name)
@@ -112,9 +103,9 @@ function PingService.SetAnalyticsCallback(cb)
 end
 
 function PingService.Init()
-	local requestRemote = getOrCreateRemote("RequestPing")
-	getOrCreateRemote("PingCreated")
-	getOrCreateRemote("PingFailed")
+	local requestRemote = Remotes.Server(Remotes.Names.RequestPing)
+	Remotes.Server(Remotes.Names.PingCreated)
+	Remotes.Server(Remotes.Names.PingFailed)
 
 	requestRemote.OnServerEvent:Connect(function(player, pingType, position)
 		PingService.RequestPing(player, pingType, position)

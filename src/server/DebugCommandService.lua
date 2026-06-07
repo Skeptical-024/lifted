@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local DebugCommandService = {}
 
 local enabled = false
+local flagEnabled = false
 local handlers = {}
 local function isPrivateServer()
 	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
@@ -11,13 +12,14 @@ end
 
 local function canUse(player)
 	if RunService:IsStudio() then return true end
-	if enabled then return true end
+	if flagEnabled then return true end
 	if isPrivateServer() and player and player.UserId == game.PrivateServerOwnerId then return true end
 	return false
 end
 
 function DebugCommandService.Init(deps)
-	local studioOrFlag = RunService:IsStudio() or deps.Constants.DEBUG_COMMANDS_ENABLED == true
+	flagEnabled = deps.Constants.DEBUG_COMMANDS_ENABLED == true
+	local studioOrFlag = RunService:IsStudio() or flagEnabled
 	enabled = studioOrFlag or isPrivateServer()
 	if not enabled then
 		return
@@ -78,6 +80,25 @@ function DebugCommandService.Init(deps)
 			tostring(round.timeRemaining),
 			tostring(deps.PlayerStateService.CountAliveThieves())
 		))
+	end
+
+	handlers.afk = function(player)
+		if not deps.ActivityService then
+			print("[DebugAFK] ActivityService unavailable")
+			return
+		end
+		for _, target in ipairs(Players:GetPlayers()) do
+			local status = deps.ActivityService.GetSnapshot(target)
+			print(string.format(
+				"[DebugAFK] %s idle=%.1fs afk=%s warned=%s actioned=%s source=%s",
+				target.Name,
+				tonumber(status.idleSeconds) or 0,
+				tostring(status.isAFK),
+				tostring(status.warned),
+				tostring(status.actioned),
+				tostring(status.lastSource)
+			))
+		end
 	end
 
 	-- /debug snapshot
@@ -145,6 +166,8 @@ function DebugCommandService.Init(deps)
 			deps.SkipCountdown()
 		end
 	end
+
+	handlers.skipcountdown = handlers.skiplobby
 
 	local normalized = {}
 	for name, fn in pairs(handlers) do

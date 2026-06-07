@@ -4,24 +4,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local RemoteGuardService = require(script.Parent:WaitForChild("RemoteGuardService"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local SnapshotService = {}
 
 local deps = {}
-
-local function getOrCreateRemote(name)
-	local remote = ReplicatedStorage:FindFirstChild(name)
-	if remote and remote:IsA("RemoteEvent") then
-		return remote
-	end
-	if remote then
-		remote:Destroy()
-	end
-	local created = Instance.new("RemoteEvent")
-	created.Name = name
-	created.Parent = ReplicatedStorage
-	return created
-end
 
 local function buildSnapshot(player)
 	local round = deps.GetRoundSnapshot and deps.GetRoundSnapshot() or {}
@@ -32,15 +19,24 @@ local function buildSnapshot(player)
 	local guardianAbilityService = deps.GuardianAbilityService
 	local roundScoreService = deps.RoundScoreService
 
-	local playerRole = playerStateService and playerStateService.GetRole(player) or player:GetAttribute("Role")
-	local playerState = playerStateService and playerStateService.GetState(player) or player:GetAttribute("RoundState")
+	local playerRecord = playerStateService and playerStateService.GetRecord
+		and playerStateService.GetRecord(player)
+		or nil
+	local playerRole = playerRecord and playerRecord.role or player:GetAttribute("Role")
+	local playerState = playerRecord and playerRecord.state or player:GetAttribute("RoundState")
 
 	return {
 		roundState = round.roundState or "Lobby",
 		timeRemaining = round.timeRemaining or 0,
 		playerRole = playerRole,
 		playerState = playerState,
+		isLocalPlayerCaged = playerState == "Caged",
+		isLocalPlayerEliminated = playerState == "Eliminated",
+		isLocalPlayerOutOfRound = playerState == "OutOfRound",
 		aliveThiefCount = playerStateService and playerStateService.CountAliveThieves() or 0,
+		eliminatedPlayers = playerStateService and playerStateService.GetEliminatedPlayersSnapshot
+			and playerStateService.GetEliminatedPlayersSnapshot()
+			or {},
 		totalThiefCount = round.totalThiefCount or 0,
 		objectives = objectiveService and objectiveService.GetSnapshot and objectiveService.GetSnapshot()
 			or objectiveService and objectiveService.GetObjectivesSnapshot and objectiveService.GetObjectivesSnapshot()
@@ -52,6 +48,9 @@ local function buildSnapshot(player)
 			and guardianAbilityService.GetCooldownSnapshot(player)
 			or {},
 		scoreSummary = roundScoreService and roundScoreService.GetSnapshot and roundScoreService.GetSnapshot() or nil,
+		afk = deps.ActivityService and deps.ActivityService.GetSnapshot
+			and deps.ActivityService.GetSnapshot(player)
+			or {},
 	}
 end
 
@@ -60,8 +59,8 @@ function SnapshotService.Configure(newDeps)
 end
 
 function SnapshotService.Init()
-	local requestRemote = getOrCreateRemote("RequestGameSnapshot")
-	getOrCreateRemote("GameSnapshot")
+	local requestRemote = Remotes.Server(Remotes.Names.RequestGameSnapshot)
+	Remotes.Server(Remotes.Names.GameSnapshot)
 
 	requestRemote.OnServerEvent:Connect(function(player)
 		if not RemoteGuardService.Allow(player, "RequestGameSnapshot", 0.5) then
@@ -75,8 +74,8 @@ function SnapshotService.SendSnapshot(player)
 	if not player or not player.Parent then
 		return
 	end
-	local remote = ReplicatedStorage:FindFirstChild("GameSnapshot")
-	if remote and remote:IsA("RemoteEvent") then
+	local remote = Remotes.Find(Remotes.Names.GameSnapshot)
+	if remote then
 		remote:FireClient(player, buildSnapshot(player))
 	end
 end

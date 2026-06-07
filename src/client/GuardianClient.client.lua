@@ -5,14 +5,15 @@ local ContextActionService = game:GetService("ContextActionService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 local Types = require(ReplicatedStorage:WaitForChild("Types"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local localPlayer = Players.LocalPlayer
-local catchThiefRemote = ReplicatedStorage:WaitForChild("CatchThief")
-local requestRushRemote = ReplicatedStorage:WaitForChild("RequestGuardianRush")
-local requestRevealRemote = ReplicatedStorage:WaitForChild("RequestGuardianReveal")
-local requestRoarRemote = ReplicatedStorage:WaitForChild("RequestGuardianRoar")
-local guardianRevealRemote = ReplicatedStorage:WaitForChild("GuardianRevealStarted")
-local guardianCarrierPingRemote = ReplicatedStorage:WaitForChild("GuardianCarrierPing")
+local catchThiefRemote = Remotes.Client(Remotes.Names.CatchThief)
+local requestRushRemote = Remotes.Client(Remotes.Names.RequestGuardianRush)
+local requestRevealRemote = Remotes.Client(Remotes.Names.RequestGuardianReveal)
+local requestRoarRemote = Remotes.Client(Remotes.Names.RequestGuardianRoar)
+local guardianRevealRemote = Remotes.Client(Remotes.Names.GuardianRevealStarted)
+local guardianCarrierPingRemote = Remotes.Client(Remotes.Names.GuardianCarrierPing)
 
 local function isGuardian()
 	return localPlayer:GetAttribute("Role") == Types.PlayerRole.Guardian
@@ -120,9 +121,7 @@ local function tryCatchNearestThief()
 		end
 	end
 
-	if closestTarget then
-		catchThiefRemote:FireServer(closestTarget)
-	end
+	catchThiefRemote:FireServer(closestTarget)
 end
 
 -- Guardian actions via ContextActionService for keyboard + gamepad support.
@@ -137,9 +136,11 @@ local function bindGuardianActions()
 			tryCatchNearestThief()
 			return Enum.ContextActionResult.Sink
 		end,
-		false,
+		true,
 		Enum.KeyCode.E, Enum.KeyCode.ButtonX
 	)
+	ContextActionService:SetTitle("LIFTED_GuardianCatch", "Catch")
+	ContextActionService:SetPosition("LIFTED_GuardianCatch", UDim2.new(1, -150, 1, -190))
 	ContextActionService:BindAction(
 		"LIFTED_GuardianRush",
 		function(_, inputState, _)
@@ -148,9 +149,11 @@ local function bindGuardianActions()
 			requestRushRemote:FireServer()
 			return Enum.ContextActionResult.Sink
 		end,
-		false,
+		true,
 		Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL1
 	)
+	ContextActionService:SetTitle("LIFTED_GuardianRush", "Rush")
+	ContextActionService:SetPosition("LIFTED_GuardianRush", UDim2.new(1, -260, 1, -190))
 	ContextActionService:BindAction(
 		"LIFTED_GuardianReveal",
 		function(_, inputState, _)
@@ -159,9 +162,11 @@ local function bindGuardianActions()
 			requestRevealRemote:FireServer()
 			return Enum.ContextActionResult.Sink
 		end,
-		false,
+		true,
 		Enum.KeyCode.Q, Enum.KeyCode.ButtonY
 	)
+	ContextActionService:SetTitle("LIFTED_GuardianReveal", "Reveal")
+	ContextActionService:SetPosition("LIFTED_GuardianReveal", UDim2.new(1, -150, 1, -290))
 	ContextActionService:BindAction(
 		"LIFTED_GuardianRoar",
 		function(_, inputState, _)
@@ -170,9 +175,11 @@ local function bindGuardianActions()
 			requestRoarRemote:FireServer()
 			return Enum.ContextActionResult.Sink
 		end,
-		false,
+		true,
 		Enum.KeyCode.R, Enum.KeyCode.ButtonB
 	)
+	ContextActionService:SetTitle("LIFTED_GuardianRoar", "Roar")
+	ContextActionService:SetPosition("LIFTED_GuardianRoar", UDim2.new(1, -260, 1, -290))
 end
 
 local function unbindGuardianActions()

@@ -4,6 +4,8 @@
 local RoundScoreService = {}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local scoresByUserId = {}
 local rolesByUserId = {}
@@ -33,20 +35,6 @@ local WEIGHTS = {
 	rushUse = 25,
 	skillCheckHit = 20,
 }
-
-local function getOrCreateRemote(name)
-	local remote = ReplicatedStorage:FindFirstChild(name)
-	if remote and remote:IsA("RemoteEvent") then
-		return remote
-	end
-	if remote then
-		remote:Destroy()
-	end
-	local created = Instance.new("RemoteEvent")
-	created.Name = name
-	created.Parent = ReplicatedStorage
-	return created
-end
 
 local function ensureEntry(player, role)
 	if not player then
@@ -97,7 +85,7 @@ local function addScore(entry, amount)
 end
 
 function RoundScoreService.Init()
-	getOrCreateRemote("RoundResults")
+	Remotes.Server(Remotes.Names.RoundResults)
 end
 
 function RoundScoreService.ResetForRound(newRoundId, rolesByPlayer)
@@ -321,13 +309,14 @@ function RoundScoreService.BuildResultsPayload(winner, reason)
 			rescuesCompleted   = rescuesCompleted,
 			idolExtracted      = idolExtracted,
 		},
+		nextRoundSeconds = Constants.RESULTS_DISPLAY_SECONDS or 8,
 	}
 end
 
 function RoundScoreService.FireResults(winner, reason)
 	local payload = RoundScoreService.BuildResultsPayload(winner, reason)
-	local remote = ReplicatedStorage:FindFirstChild("RoundResults")
-	if remote and remote:IsA("RemoteEvent") then
+	local remote = Remotes.Find(Remotes.Names.RoundResults)
+	if remote then
 		remote:FireAllClients(payload)
 	end
 end

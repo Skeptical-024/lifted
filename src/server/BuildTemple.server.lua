@@ -321,17 +321,17 @@ createPart("VaultCornerSymbol2", Vector3.new(3, 3, 2), Vector3.new(16, 20, -149)
 createPart("VaultCornerSymbol3", Vector3.new(3, 3, 2), Vector3.new(-16, 7, -149), COLORS.GoldAccent, Enum.Material.Metal)
 createPart("VaultCornerSymbol4", Vector3.new(3, 3, 2), Vector3.new(16, 7, -149), COLORS.GoldAccent, Enum.Material.Metal)
 
-local brazierPositions = {
+local fireBowlPositions = {
 	Vector3.new(-15, 2.5, -80), Vector3.new(15, 2.5, -80),
 	Vector3.new(0, 2.5, -65), Vector3.new(0, 2.5, -95),
 	Vector3.new(-11, 2.5, -69), Vector3.new(11, 2.5, -69),
 	Vector3.new(-11, 2.5, -91), Vector3.new(11, 2.5, -91),
 }
 
-for i, pos in ipairs(brazierPositions) do
-	createPart("Brazier" .. i, Vector3.new(4, 5, 4), pos, COLORS.DarkStone, Enum.Material.Cobblestone)
-	createPart("BrazierBowl" .. i, Vector3.new(5, 2, 5), pos + Vector3.new(0, 3.5, 0), COLORS.DarkMetal, Enum.Material.Metal)
-	createPart("BrazierFill" .. i, Vector3.new(4, 1, 4), pos + Vector3.new(0, 3.5, 0), Color3.fromRGB(40, 35, 30), Enum.Material.Cobblestone)
+for i, pos in ipairs(fireBowlPositions) do
+	createPart("TempleFireBase" .. i, Vector3.new(4, 5, 4), pos, COLORS.DarkStone, Enum.Material.Cobblestone)
+	createPart("TempleFireBowl" .. i, Vector3.new(5, 2, 5), pos + Vector3.new(0, 3.5, 0), COLORS.DarkMetal, Enum.Material.Metal)
+	createPart("TempleFireFill" .. i, Vector3.new(4, 1, 4), pos + Vector3.new(0, 3.5, 0), Color3.fromRGB(40, 35, 30), Enum.Material.Cobblestone)
 end
 
 -- === 9. GOLDEN IDOL (vault object) ===

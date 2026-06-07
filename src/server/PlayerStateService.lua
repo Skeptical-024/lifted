@@ -100,8 +100,7 @@ function PlayerStateService.ApplyStateToCharacter(player)
 
 	local state = PlayerStateService.GetState(player)
 	if state == PlayerStateService.State.Caught
-		or state == PlayerStateService.State.Caged
-		or state == PlayerStateService.State.Eliminated then
+		or state == PlayerStateService.State.Caged then
 		humanoid.WalkSpeed = 0
 		if humanoid.UseJumpPower then
 			humanoid.JumpPower = 0
@@ -319,6 +318,20 @@ function PlayerStateService.GetSnapshot()
 		end
 	end
 	return snap
+end
+
+function PlayerStateService.GetEliminatedPlayersSnapshot()
+	local result = {}
+	for userId, rec in pairs(records) do
+		if rec.state == PlayerStateService.State.Eliminated
+			and rec.player and rec.player.Parent then
+			result[userId] = {
+				userId = userId,
+				name = rec.player.Name,
+			}
+		end
+	end
+	return result
 end
 
 return PlayerStateService

@@ -122,27 +122,24 @@ local function buildMap(folder)
 	tag(idol, "Idol")
 	setAttribs(idol, { IdolId = "MainIdol", IdolState = "Locked" })
 
-	-- Objective stations
-	-- Named Brazier1/2/3 for BrazierManager visual compat.
-	-- ObjectiveStation tag + ObjectiveId attribute is authoritative for ObjectiveService.
-	-- BrazierName is temporary visual compat only.
-	local objDefs = {
-		{
-			name = "Brazier1",
+		-- Objective stations. ObjectiveStation tag + ObjectiveId are authoritative.
+		local objDefs = {
+			{
+				name = "FlameSealStation",
 			displayName = "FLAME SEAL",
 			id = "FlameSeal",
 			pos = Vector3.new(0, 2.5, -55),
 			color = Color3.fromRGB(210, 100, 40),
 		},
 		{
-			name = "Brazier2",
+				name = "MoonLockStation",
 			displayName = "MOON LOCK",
 			id = "MoonLock",
 			pos = Vector3.new(55, 2.5, 0),
 			color = CYAN,
 		},
 		{
-			name = "Brazier3",
+				name = "StoneSigilStation",
 			displayName = "STONE SIGIL",
 			id = "StoneSigil",
 			pos = Vector3.new(-55, 2.5, 0),
@@ -156,9 +153,7 @@ local function buildMap(folder)
 		local station = makePart(def.name, Vector3.new(4, 5, 4), def.pos, def.color, Enum.Material.Neon, folder)
 		station.Transparency = 0.2
 
-		tag(station, "ObjectiveStation")
-		-- Also tag as Brazier so BrazierManager can find it for visuals
-		tag(station, "Brazier")
+			tag(station, "ObjectiveStation")
 		setAttribs(station, {
 			ObjectiveId = def.id,
 			ObjectiveName = def.displayName,

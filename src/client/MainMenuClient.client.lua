@@ -8,6 +8,7 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 
 local function setMenuCoreGuiEnabled(enabled)
 	pcall(function() StarterGui:SetCore("TopbarEnabled", enabled) end)
@@ -1497,9 +1498,6 @@ local function setPlayButtonState(state)
 			ref.stroke.Color = WAITING_ACCENT
 		end
 		forceWaitingScreenCyanTheme()
-		task.defer(forceWaitingScreenCyanTheme)
-		task.delay(0.2, forceWaitingScreenCyanTheme)
-		task.delay(0.6, forceWaitingScreenCyanTheme)
 	elseif state == "disabled" then
 		ref.title.Text = "WAITING FOR ROUND"
 		ref.subtitle.Text = ""
@@ -1510,9 +1508,6 @@ local function setPlayButtonState(state)
 			ref.stroke.Color = WAITING_ACCENT
 		end
 		forceWaitingScreenCyanTheme()
-		task.defer(forceWaitingScreenCyanTheme)
-		task.delay(0.2, forceWaitingScreenCyanTheme)
-		task.delay(0.6, forceWaitingScreenCyanTheme)
 	else
 		-- "default"
 		ref.title.Text = "PLAY"
@@ -1525,9 +1520,6 @@ local function setPlayButtonState(state)
 			ref.stroke.Color = WAITING_ACCENT
 		end
 		forceWaitingScreenCyanTheme()
-		task.defer(forceWaitingScreenCyanTheme)
-		task.delay(0.2, forceWaitingScreenCyanTheme)
-		task.delay(0.6, forceWaitingScreenCyanTheme)
 		playClicked = false
 	end
 end
@@ -1555,9 +1547,6 @@ findMatchBtn.Activated:Connect(function()
 	playClicked = true
 	setPlayButtonState("waiting")
 	forceWaitingScreenCyanTheme()
-	task.defer(forceWaitingScreenCyanTheme)
-	task.delay(0.2, forceWaitingScreenCyanTheme)
-	task.delay(0.6, forceWaitingScreenCyanTheme)
 	playClickedBindable:Fire()
 	playTween("menu_hide", menuScreen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
 	playTween("bg_hide", bg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
@@ -1686,20 +1675,12 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 
-local roundEndedRemote = ReplicatedStorage:FindFirstChild("RoundEnded")
-if roundEndedRemote and roundEndedRemote:IsA("RemoteEvent") then
-	roundEndedRemote.OnClientEvent:Connect(function()
-		task.delay(Constants.RESULTS_DISPLAY_SECONDS or 8, function()
-			if gui and gui.Parent then
-				showMainMenu()
-			end
-		end)
-	end)
-end
+-- MainMenu owns initial entry only. LobbyClient owns all later waiting,
+-- intermission, and countdown states so the two screens never overlap.
 
 -- Also handle RoundStarted to ensure menu is hidden if somehow still visible
-local roundStartedRemote = ReplicatedStorage:FindFirstChild("RoundStarted")
-if roundStartedRemote and roundStartedRemote:IsA("RemoteEvent") then
+local roundStartedRemote = Remotes.Find(Remotes.Names.RoundStarted)
+if roundStartedRemote then
 	roundStartedRemote.OnClientEvent:Connect(function()
 		if gui and gui.Parent then
 			hideMainMenu()

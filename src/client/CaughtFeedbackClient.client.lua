@@ -1,10 +1,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local SoundService = game:GetService("SoundService")
 
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local localPlayer = Players.LocalPlayer
-local thiefCaughtRemote = ReplicatedStorage:WaitForChild("ThiefCaught")
+local thiefCaughtRemote = Remotes.Client(Remotes.Names.ThiefCaught)
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CaughtFeedbackGui"
@@ -25,22 +25,6 @@ label.TextTransparency = 1
 label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 label.TextStrokeTransparency = 0.4
 label.Parent = screenGui
-
-local function playCaughtBuzzer()
-	local sound = Instance.new("Sound")
-	sound.SoundId = "rbxassetid://4612263052"
-	sound.Volume = 1
-	sound.Parent = SoundService
-	sound:Play()
-	sound.Ended:Connect(function()
-		sound:Destroy()
-	end)
-	task.delay(5, function()
-		if sound and sound.Parent then
-			sound:Destroy()
-		end
-	end)
-end
 
 local function showMessage(text, color, duration)
 	label.Text = text
@@ -69,7 +53,6 @@ thiefCaughtRemote.OnClientEvent:Connect(function(guardianPlayer, caughtPlayer, c
 		else
 			showMessage("YOU WERE CAUGHT", Color3.fromRGB(220, 40, 40), 2)
 		end
-		playCaughtBuzzer()
 	elseif localPlayer == guardianPlayer then
 		showMessage("THIEF CAUGHT!", Color3.fromRGB(70, 220, 90), 1.5)
 	end

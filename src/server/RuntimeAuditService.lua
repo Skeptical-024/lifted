@@ -24,7 +24,7 @@ local REQUIRED_REMOTES = {
 	"CageRescueProgress", "CageRescueCompleted", "CageRescueFailed", "CageRescueCanceled",
 	"RequestGuardianRush", "RequestGuardianReveal", "RequestGuardianRoar", "GuardianRushStarted",
 	"GuardianRushFailed", "GuardianRevealStarted", "GuardianRevealFailed", "GuardianRoarActivated",
-	"GuardianRoarFailed", "GuardianAbilityCooldown",
+	"GuardianRoarFailed", "GuardianAbilityCooldown", "GuardianCatchFailed",
 }
 
 local REQUIRED_TAGS = {
